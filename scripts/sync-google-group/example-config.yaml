@@ -1,0 +1,22 @@
+common:
+  dry_run: true
+
+parishsoft:
+  api_key_file: /opt/parishkit/credentials/parishsoft-api-key.txt
+  cache_dir: /opt/parishkit/cache/parishsoft
+  cache_limit: 14m
+  expected_organization: Example Parish
+
+google:
+  service_account_file: /opt/parishkit/credentials/google-service-account.json
+  delegated_subject: admin@example.org
+
+email:
+  provider: google_workspace
+  service_account_file: /opt/parishkit/credentials/google-service-account.json
+  delegated_user: no-reply@example.org
+
+sync_google_group:
+  groups: []
+  notifications:
+    to: []

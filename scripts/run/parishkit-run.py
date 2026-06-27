@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Thin wrapper for the parishkit scheduled job runner."""
 
-from parishkit.runner import main
+from parishkit.cli import run_main
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(run_main())
