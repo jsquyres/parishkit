@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "parishkit"
+version = "0.1.0"
+description = "Parish-neutral operations automation tools."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "PyYAML>=6.0.2",
+  "requests>=2.32.0",
+]
+
+[project.optional-dependencies]
+google = [
+  "google-api-python-client>=2.139.0",
+  "google-auth>=2.33.0",
+  "google-auth-httplib2>=0.2.0",
+  "google-auth-oauthlib>=1.2.1",
+]
+slack = [
+  "slack_sdk>=3.31.0",
+]
+dev = [
+  "pytest>=8.3.0",
+  "ruff>=0.6.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/parishkit"]

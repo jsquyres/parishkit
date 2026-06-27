@@ -1,0 +1,66 @@
+# Python build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Tool caches
+.coverage
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+
+# Local editor and OS files
+.DS_Store
+.idea/
+.vscode/
+.claude/
+
+# Logs, caches, generated reports, and runtime state
+*.log
+logs/
+cache/
+reports/
+run/
+*.pid
+*.lock
+*.lock.json
+cache-v1-*.json
+cache-v2-*.json
+
+# Local configuration and credentials
+.env
+.env.*
+config/**/*.yaml
+config/**/*.yml
+!config/**/
+!config/**/*.example.yaml
+!config/**/*.example.yml
+!config/**/example-*.yaml
+!config/**/example-*.yml
+scripts/**/config*.yaml
+scripts/**/config*.yml
+!scripts/**/example-config.yaml
+!scripts/**/example-config.yml
+credentials/
+client_id.json
+client_secret.json
+service-account*.json
+google-service-account*.json
+user-credentials.json
+token.json
+slack_token.txt
+parishsoft-api-key.txt
+constant-contact-token*.json
+
+# Runtime trees copied into a checkout during local operations
+opt/parishkit/
+var/parishkit/

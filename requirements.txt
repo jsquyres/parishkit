@@ -1,0 +1,4 @@
+# Convenience install for local development and CI.
+#
+# pyproject.toml is the source of truth for dependency versions and groups.
+-e .[dev,google,slack]

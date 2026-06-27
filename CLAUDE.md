@@ -1,0 +1,29 @@
+# Agent and Developer Instructions
+
+`parishkit` contains reusable Python automation for Catholic parishes.
+
+- Keep package code parish-neutral.
+- Target Python 3.12 or newer.
+- Store shared code under `src/parishkit`.
+- Store executable wrappers under `scripts/<tool-name>/`.
+- Do not commit credentials, secrets, local logs, caches, generated reports, or
+  local runtime configuration.
+- Put parish-specific mappings and operational settings in YAML configuration.
+- Use shared CLI, logging, configuration, retry, and authentication helpers.
+- New wrapper scripts must start with `#!/usr/bin/env python3` and have their
+  executable bit set.
+- Do not add ad hoc `sys.path` changes to import package code.
+- Use `ruff` and `pytest` for local validation.
+- Preserve existing tool behavior unless an intentional behavior change is
+  requested or documented.
+- Commits require a Developer Certificate of Origin `Signed-off-by:` trailer.
+- There is no requirement for LLM attribution in commits.
+- Use the Common Convention commit style.
+- Prefer self-contained commits that keep the repository bisectable.
+- Put drive-by fixes in their own commits.
+- Squash fixup commits before pull requests are merged into target branches.
+- Write commit messages that explain why the change exists, not only what
+  changed.
+- Wrap commit message body lines at approximately 75 characters.
+- GitHub issue and pull request descriptions should use one line per paragraph
+  and let GitHub render wrapping.
