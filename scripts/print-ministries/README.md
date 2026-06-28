@@ -3,12 +3,12 @@
 Print ParishSoft ministry names in sorted order.
 
 This wrapper delegates to the installed `parishkit-print-ministries` command.
-The implementation is added in the print-ministries migration phase.
+It reads ParishSoft ministry types through shared cache and logging options,
+then prints unique ministry names in sorted order. By default it prints all
+ministry names. Set `print_ministries.include_patterns`, `include_names`, or
+`exclude_patterns` in YAML to narrow output for local operational conventions.
 
-Current skeleton status: only `--version` is expected to succeed until this
-command is implemented.
-
-## Planned Usage
+## Usage
 
 ```sh
 parishkit-print-ministries --config example-config.yaml

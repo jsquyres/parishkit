@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import argparse
 import re
-from collections.abc import Sequence
+import sys
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from importlib.metadata import version
 from pathlib import Path
 
 from parishkit.config import ConfigData, ConfigError, load_yaml_config
 from parishkit.logging import parse_log_level
+from parishkit.parishsoft import ParishSoftAPIError
+from parishkit.retry import RetryError
 
 OPT_ROOT = Path("/opt/parishkit")
 DEFAULT_CONFIG_DIR = OPT_ROOT / "config"
@@ -275,6 +278,16 @@ def _placeholder_main(tool_name: str, argv: Sequence[str] | None = None) -> int:
     return 2
 
 
+def run_user_facing(action: Callable[[], int]) -> int:
+    """Run a command body and print expected operational errors concisely."""
+
+    try:
+        return action()
+    except (ConfigError, OSError, ParishSoftAPIError, RetryError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+
+
 def run_main(argv: Sequence[str] | None = None) -> int:
     from parishkit.runner import main
 
@@ -282,11 +295,15 @@ def run_main(argv: Sequence[str] | None = None) -> int:
 
 
 def print_member_main(argv: Sequence[str] | None = None) -> int:
-    return _placeholder_main("parishkit-print-member", argv)
+    from parishkit.print_member import main
+
+    return main(list(argv) if argv is not None else None)
 
 
 def print_ministries_main(argv: Sequence[str] | None = None) -> int:
-    return _placeholder_main("parishkit-print-ministries", argv)
+    from parishkit.print_ministries import main
+
+    return main(list(argv) if argv is not None else None)
 
 
 def calendar_reservations_main(argv: Sequence[str] | None = None) -> int:
