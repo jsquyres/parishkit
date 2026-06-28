@@ -13,4 +13,20 @@ google:
 
 create_ministry_rosters:
   spreadsheet_id: example-spreadsheet-id
-  ministries: []
+  range: Roster!A1
+  clear_range: Roster!A:Z
+  workgroup_leader_suffix: " Ldr"
+  ministries:
+    - ministry: Example Ministry
+      spreadsheet_id: example-ministry-spreadsheet-id
+      include_birthday: false
+      role_sheets:
+        - name: Example Ministry Leaders
+          roles:
+            - Chairperson
+            - Leader
+          spreadsheet_id: example-role-spreadsheet-id
+  workgroups:
+    - workgroup: Example Workgroup
+      spreadsheet_id: example-workgroup-spreadsheet-id
+      include_birthday: false

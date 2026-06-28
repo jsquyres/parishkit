@@ -14,6 +14,7 @@ from parishkit.google.auth import (
 from parishkit.google.calendar import list_events, patch_attendee_response
 from parishkit.google.drive import get_file_metadata
 from parishkit.google.groups import list_group_members
+from parishkit.google.sheets import clear_values, update_values
 from parishkit.retry import RetryPolicy, TransientRetryError
 
 
@@ -268,8 +269,6 @@ def test_run_user_oauth_flow_saves_token(tmp_path):
     assert isinstance(credentials, Credentials)
     assert token_file.read_text(encoding="utf-8") == '{"token": "value"}'
     assert stat.S_IMODE(token_file.stat().st_mode) == 0o600
-
-
 def test_drive_metadata_helper_supports_shared_drives():
     class Request:
         def execute(self):
@@ -299,4 +298,61 @@ def test_drive_metadata_helper_supports_shared_drives():
             "fields": "id,name,mimeType,modifiedTime",
             "supportsAllDrives": True,
         }
+    ]
+
+
+def test_sheet_write_helpers_clear_and_update_values():
+    class Request:
+        def execute(self):
+            return {}
+
+    class Values:
+        def __init__(self):
+            self.calls = []
+
+        def clear(self, **kwargs):
+            self.calls.append(("clear", kwargs))
+            return Request()
+
+        def update(self, **kwargs):
+            self.calls.append(("update", kwargs))
+            return Request()
+
+    class Spreadsheets:
+        def __init__(self):
+            self._values = Values()
+
+        def values(self):
+            return self._values
+
+    class Service:
+        def __init__(self):
+            self._spreadsheets = Spreadsheets()
+
+        def spreadsheets(self):
+            return self._spreadsheets
+
+    service = Service()
+
+    clear_values(service, "sheet-id", "Roster!A:Z")
+    update_values(service, "sheet-id", "Roster!A1", [["Name"]])
+
+    assert service._spreadsheets._values.calls == [
+        (
+            "clear",
+            {
+                "spreadsheetId": "sheet-id",
+                "range": "Roster!A:Z",
+                "body": {},
+            },
+        ),
+        (
+            "update",
+            {
+                "spreadsheetId": "sheet-id",
+                "range": "Roster!A1",
+                "valueInputOption": "RAW",
+                "body": {"values": [["Name"]]},
+            },
+        ),
     ]

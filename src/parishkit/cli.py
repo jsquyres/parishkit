@@ -313,7 +313,9 @@ def calendar_reservations_main(argv: Sequence[str] | None = None) -> int:
 
 
 def create_ministry_rosters_main(argv: Sequence[str] | None = None) -> int:
-    return _placeholder_main("parishkit-create-ministry-rosters", argv)
+    from parishkit.create_ministry_rosters import main
+
+    return main(list(argv) if argv is not None else None)
 
 
 def sync_google_group_main(argv: Sequence[str] | None = None) -> int:
