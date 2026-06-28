@@ -12,11 +12,27 @@ google:
   delegated_subject: admin@example.org
 
 email:
-  provider: google_workspace
+  provider: google-workspace
   service_account_file: /opt/parishkit/credentials/google-service-account.json
   delegated_user: no-reply@example.org
 
 sync_google_group:
-  groups: []
+  google_mail_domains:
+    - gmail.com
+    - example.org
   notifications:
-    to: []
+    sender: no-reply@example.org
+  groups:
+    - group: group@example.org
+      notify:
+        - admin@example.org
+      ministries:
+        - Example Ministry
+      workgroups:
+        - Example Workgroup
+      static_members:
+        - email: staff@example.org
+          leader: true
+      selectors:
+        - type: ministry_chair
+          ministry_prefix: Example

@@ -65,7 +65,7 @@ def build_message(message: Email) -> EmailMessage:
 
 def provider_from_config(config: Mapping[str, Any]) -> EmailProvider:
     provider = config.get("provider")
-    if provider == "google-workspace":
+    if provider in {"google-workspace", "google_workspace"}:
         from parishkit.email.google_workspace import GoogleWorkspaceSMTPProvider
 
         return GoogleWorkspaceSMTPProvider.from_config(config)

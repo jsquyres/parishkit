@@ -319,7 +319,9 @@ def create_ministry_rosters_main(argv: Sequence[str] | None = None) -> int:
 
 
 def sync_google_group_main(argv: Sequence[str] | None = None) -> int:
-    return _placeholder_main("parishkit-sync-google-group", argv)
+    from parishkit.sync_google_group import main
+
+    return main(list(argv) if argv is not None else None)
 
 
 def sync_ps_to_cc_main(argv: Sequence[str] | None = None) -> int:

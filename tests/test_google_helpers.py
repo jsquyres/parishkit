@@ -13,7 +13,13 @@ from parishkit.google.auth import (
 )
 from parishkit.google.calendar import list_events, patch_attendee_response
 from parishkit.google.drive import get_file_metadata
-from parishkit.google.groups import list_group_members
+from parishkit.google.groups import (
+    delete_group_member,
+    get_group_posting_permissions,
+    insert_group_member,
+    list_group_members,
+    update_group_member_role,
+)
 from parishkit.google.sheets import clear_values, update_values
 from parishkit.retry import RetryPolicy, TransientRetryError
 
@@ -160,6 +166,86 @@ def test_list_group_members_pages():
     ]
 
 
+def test_group_write_helpers_use_directory_api():
+    class Request:
+        def __init__(self, response=None):
+            self.response = response or {}
+
+        def execute(self):
+            return self.response
+
+    class Members:
+        def __init__(self):
+            self.calls = []
+
+        def insert(self, **kwargs):
+            self.calls.append(("insert", kwargs))
+            return Request()
+
+        def update(self, **kwargs):
+            self.calls.append(("update", kwargs))
+            return Request()
+
+        def delete(self, **kwargs):
+            self.calls.append(("delete", kwargs))
+            return Request()
+
+    class Groups:
+        def __init__(self):
+            self.calls = []
+
+        def get(self, **kwargs):
+            self.calls.append(("get", kwargs))
+            return Request({"whoCanPostMessage": "ALL_MEMBERS_CAN_POST"})
+
+    class Service:
+        def __init__(self):
+            self._members = Members()
+            self._groups = Groups()
+
+        def members(self):
+            return self._members
+
+        def groups(self):
+            return self._groups
+
+    service = Service()
+
+    insert_group_member(service, "group@example.org", "a@example.org", "MEMBER")
+    update_group_member_role(service, "group@example.org", "a@example.org", "OWNER")
+    delete_group_member(service, "group@example.org", "member-id")
+    permission = get_group_posting_permissions(service, "group@example.org")
+
+    assert service._members.calls == [
+        (
+            "insert",
+            {
+                "groupKey": "group@example.org",
+                "body": {"email": "a@example.org", "role": "MEMBER"},
+            },
+        ),
+        (
+            "update",
+            {
+                "groupKey": "group@example.org",
+                "memberKey": "a@example.org",
+                "body": {"email": "a@example.org", "role": "OWNER"},
+            },
+        ),
+        ("delete", {"groupKey": "group@example.org", "memberKey": "member-id"}),
+    ]
+    assert service._groups.calls == [
+        (
+            "get",
+            {
+                "groupUniqueId": "group@example.org",
+                "fields": "whoCanPostMessage",
+            },
+        )
+    ]
+    assert permission == "ALL_MEMBERS_CAN_POST"
+
+
 def test_list_calendar_events_pages():
     class Request:
         def __init__(self, response):
@@ -269,6 +355,8 @@ def test_run_user_oauth_flow_saves_token(tmp_path):
     assert isinstance(credentials, Credentials)
     assert token_file.read_text(encoding="utf-8") == '{"token": "value"}'
     assert stat.S_IMODE(token_file.stat().st_mode) == 0o600
+
+
 def test_drive_metadata_helper_supports_shared_drives():
     class Request:
         def execute(self):

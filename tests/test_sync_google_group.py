@@ -1,0 +1,339 @@
+from __future__ import annotations
+
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+from parishkit.config import ConfigError
+from parishkit.parishsoft import ParishSoftData
+from parishkit.sync_google_group import (
+    DesiredMember,
+    compute_actions,
+    desired_members,
+    normalize_email,
+    sync_config_from_yaml,
+)
+from parishkit.sync_google_group import (
+    main as sync_google_group_main,
+)
+
+
+class Request:
+    def __init__(self, response=None):
+        self.response = response or {}
+
+    def execute(self):
+        return self.response
+
+
+class Members:
+    def __init__(self):
+        self.calls = []
+
+    def list(self, **kwargs):
+        self.calls.append(("list", kwargs))
+        return Request(
+            {
+                "members": [
+                    {"email": "old@example.org", "role": "MEMBER", "id": "old-id"},
+                    {"email": "leader@example.org", "role": "MEMBER", "id": "lead-id"},
+                ]
+            }
+        )
+
+    def insert(self, **kwargs):
+        self.calls.append(("insert", kwargs))
+        return Request()
+
+    def update(self, **kwargs):
+        self.calls.append(("update", kwargs))
+        return Request()
+
+    def delete(self, **kwargs):
+        self.calls.append(("delete", kwargs))
+        return Request()
+
+
+class Groups:
+    def __init__(self):
+        self.calls = []
+
+    def get(self, **kwargs):
+        self.calls.append(("get", kwargs))
+        return Request({"whoCanPostMessage": "ALL_MEMBERS_CAN_POST"})
+
+
+class AdminService:
+    def __init__(self):
+        self._members = Members()
+
+    def members(self):
+        return self._members
+
+
+class SettingsService:
+    def __init__(self):
+        self._groups = Groups()
+
+    def groups(self):
+        return self._groups
+
+
+class EmailProvider:
+    def __init__(self):
+        self.sent = []
+
+    def send(self, message, *, dry_run=False):
+        self.sent.append((message, dry_run))
+        return message
+
+
+def write_config(tmp_path: Path, *, dry_run: bool = False) -> Path:
+    api_key = tmp_path / "parishsoft-api-key.txt"
+    api_key.write_text("key", encoding="utf-8")
+    config = tmp_path / "config.yaml"
+    config.write_text(
+        f"""
+common:
+  dry_run: {str(dry_run).lower()}
+parishsoft:
+  api_key_file: {api_key}
+  cache_dir: {tmp_path / "cache"}
+  cache_limit: 1d
+google:
+  user_token_file: {tmp_path / "google-user-token.json"}
+email:
+  provider: google_workspace
+  service_account_file: {tmp_path / "google-service-account.json"}
+  delegated_user: no-reply@example.org
+sync_google_group:
+  google_mail_domains:
+    - gmail.com
+    - example.org
+  notifications:
+    sender: no-reply@example.org
+  groups:
+    - group: group@example.org
+      notify:
+        - admin@example.org
+      ministries:
+        - Readers
+      workgroups:
+        - Movers
+      static_members:
+        - email: static@example.org
+          leader: false
+""",
+        encoding="utf-8",
+    )
+    return config
+
+
+def parishsoft_data() -> ParishSoftData:
+    members = {
+        1: {
+            "memberDUID": 1,
+            "firstName": "Ann",
+            "lastName": "Leader",
+            "py friendly name FL": "Ann Leader",
+            "emailAddress": "leader@example.org",
+            "py emailAddresses": ["leader@example.org"],
+            "py ministries": {"Readers": {"name": "Readers", "role": "Chairperson"}},
+            "py workgroups": {},
+        },
+        2: {
+            "memberDUID": 2,
+            "firstName": "Bob",
+            "lastName": "Mover",
+            "py friendly name FL": "Bob Mover",
+            "emailAddress": "bob.mover+tag@gmail.com",
+            "py emailAddresses": ["bob.mover+tag@gmail.com"],
+            "py ministries": {},
+            "py workgroups": {"Movers": {"name": "Movers"}},
+        },
+    }
+    return ParishSoftData(
+        organization_id=7,
+        families={},
+        members=members,
+        family_groups={},
+        family_workgroups={},
+        family_workgroup_memberships={},
+        member_contactinfos={},
+        member_workgroups={},
+        member_workgroup_memberships={},
+        ministry_types={},
+        ministry_type_memberships={},
+        funds={},
+        pledges={},
+        contributions={},
+    )
+
+
+def test_sync_config_validation():
+    config = sync_config_from_yaml(
+        {
+            "sync_google_group": {
+                "google_mail_domains": ["example.org"],
+                "notifications": {"sender": "no-reply@example.org"},
+                "groups": [
+                    {
+                        "group": "group@example.org",
+                        "notify": ["admin@example.org"],
+                        "selectors": [
+                            {
+                                "type": "ministry_role",
+                                "ministry_prefix": "500",
+                                "member_roles": ["Team Member"],
+                                "leader_roles": ["Leader"],
+                            }
+                        ],
+                    }
+                ],
+            }
+        }
+    )
+
+    assert config.groups[0].selectors[0].type == "ministry_role"
+    assert config.sender == "no-reply@example.org"
+
+
+def test_sync_config_rejects_group_without_source():
+    with pytest.raises(ConfigError, match="source"):
+        sync_config_from_yaml(
+            {"sync_google_group": {"groups": [{"group": "group@example.org"}]}}
+        )
+
+
+def test_desired_members_from_ministries_workgroups_and_static():
+    config = sync_config_from_yaml(
+        {
+            "sync_google_group": {
+                "groups": [
+                    {
+                        "group": "group@example.org",
+                        "ministries": ["Readers"],
+                        "workgroups": ["Movers"],
+                        "static_members": [
+                            {"email": "static@example.org", "leader": True}
+                        ],
+                    }
+                ]
+            }
+        }
+    )
+
+    desired = desired_members(parishsoft_data(), config.groups[0])
+
+    assert [(item.email, item.leader) for item in desired] == [
+        ("leader@example.org", True),
+        ("bob.mover+tag@gmail.com", False),
+        ("static@example.org", True),
+    ]
+
+
+def test_compute_actions_add_delete_and_change_role():
+    actions = compute_actions(
+        [
+            DesiredMember("leader@example.org", True, ["Ann Leader"]),
+            DesiredMember("bob.mover+tag@gmail.com", False, ["Bob Mover"]),
+        ],
+        [
+            {"email": "leader@example.org", "role": "MEMBER", "id": "lead-id"},
+            {"email": "bobmover@gmail.com", "role": "MEMBER", "id": "bob-id"},
+            {"email": "old@example.org", "role": "MEMBER", "id": "old-id"},
+        ],
+        frozenset({"gmail.com", "example.org"}),
+    )
+
+    assert [
+        (item.action, item.email, item.role, item.group_member_id) for item in actions
+    ] == [
+        ("change_role", "leader@example.org", "OWNER", None),
+        ("delete", "old@example.org", None, "old-id"),
+    ]
+    assert (
+        normalize_email("bob.mover+tag@gmail.com", frozenset({"gmail.com"}))
+        == "bobmover@gmail.com"
+    )
+
+
+def test_sync_google_group_main_writes_group_changes_and_notifications(
+    tmp_path, monkeypatch
+):
+    admin = AdminService()
+    settings = SettingsService()
+    email = EmailProvider()
+    loader_calls = []
+    monkeypatch.setattr(
+        "parishkit.sync_google_group.parishsoft_client_from_config",
+        lambda _common, _config: SimpleNamespace(),
+    )
+
+    def loader(_client, **kwargs):
+        loader_calls.append(kwargs)
+        return parishsoft_data()
+
+    assert (
+        sync_google_group_main(
+            ["--config", str(write_config(tmp_path))],
+            loader=loader,
+            service_factory=lambda _config: (admin, settings),
+            email_provider=email,
+        )
+        == 0
+    )
+
+    assert loader_calls == [{"active_only": True, "parishioners_only": False}]
+    assert (
+        "insert",
+        {
+            "groupKey": "group@example.org",
+            "body": {"email": "bob.mover+tag@gmail.com", "role": "MEMBER"},
+        },
+    ) in admin._members.calls
+    assert (
+        "insert",
+        {
+            "groupKey": "group@example.org",
+            "body": {"email": "static@example.org", "role": "MEMBER"},
+        },
+    ) in admin._members.calls
+    assert (
+        "update",
+        {
+            "groupKey": "group@example.org",
+            "memberKey": "leader@example.org",
+            "body": {"email": "leader@example.org", "role": "OWNER"},
+        },
+    ) in admin._members.calls
+    assert (
+        "delete",
+        {"groupKey": "group@example.org", "memberKey": "old-id"},
+    ) in admin._members.calls
+    assert email.sent
+    assert email.sent[0][0].to == ("admin@example.org",)
+
+
+def test_sync_google_group_dry_run_skips_writes_and_email(tmp_path, monkeypatch):
+    admin = AdminService()
+    settings = SettingsService()
+    config = write_config(tmp_path, dry_run=True)
+    text = config.read_text(encoding="utf-8")
+    config.write_text(text.replace("email:\n", "unused_email:\n"), encoding="utf-8")
+    monkeypatch.setattr(
+        "parishkit.sync_google_group.parishsoft_client_from_config",
+        lambda _common, _config: SimpleNamespace(),
+    )
+
+    assert (
+        sync_google_group_main(
+            ["--config", str(config)],
+            loader=lambda _client, **_kwargs: parishsoft_data(),
+            service_factory=lambda _config: (admin, settings),
+        )
+        == 0
+    )
+
+    assert [call[0] for call in admin._members.calls] == ["list"]
