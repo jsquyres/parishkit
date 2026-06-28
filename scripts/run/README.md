@@ -10,6 +10,10 @@ Run a configured job list:
 parishkit-run --config /opt/parishkit/config/runner.yaml
 ```
 
+If `PARISHKIT_ROOT` is set, the default runner config and lock paths move from
+`/opt/parishkit` to that directory. Explicit `--config`, `--lock-file`, and YAML
+paths are used as provided.
+
 Run selected configured jobs:
 
 ```sh

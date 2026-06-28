@@ -1,6 +1,6 @@
 # Agent and Developer Instructions
 
-`parishkit` contains reusable Python automation for Catholic parishes.
+ParishKit contains reusable Python automation for Catholic parishes.
 
 - Keep package code parish-neutral.
 - Target Python 3.12 or newer.
@@ -11,9 +11,10 @@
 - Do not commit credentials, secrets, local logs, caches, generated reports, or
   local runtime configuration.
 - Put parish-specific mappings and operational settings in YAML configuration.
-- Use `/opt/parishkit/{config,credentials,cache,logs,reports,run}` as deployment
-  defaults only; every runtime path must be overridable by CLI option or YAML
-  config.
+- Use `/opt/parishkit/{config,credentials,cache,logs,reports,run}` as the
+  fallback deployment root. If `PARISHKIT_ROOT` is set, all ParishKit default
+  paths must be rooted under that directory instead. Every runtime path must
+  still be overridable by CLI option or YAML config.
 - Use shared CLI, logging, configuration, retry, and authentication helpers.
 - Shared `parishkit.cli`, `parishkit.config`, `parishkit.logging`, and
   `parishkit.retry` helpers are the default place for common option parsing,

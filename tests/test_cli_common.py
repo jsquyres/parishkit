@@ -1,4 +1,7 @@
 import argparse
+import os
+import subprocess
+import sys
 
 import pytest
 
@@ -21,6 +24,33 @@ def test_common_options_defaults():
     assert options.ps_api_key_file == cli.DEFAULT_PS_API_KEY_FILE
     assert options.ps_cache_dir == cli.DEFAULT_PS_CACHE_DIR
     assert options.ps_cache_limit == "14m"
+
+
+def test_parishkit_root_changes_default_runtime_root(tmp_path):
+    code = """
+import argparse
+import os
+from pathlib import Path
+
+from parishkit import cli
+import parishkit.runner as runner
+
+root = Path(os.environ["PARISHKIT_ROOT"])
+parser = argparse.ArgumentParser()
+cli.add_common_arguments(parser)
+args = parser.parse_args([])
+options = cli.resolve_common_options(args)
+
+assert root == cli.OPT_ROOT
+assert root / "credentials/parishsoft-api-key.txt" == options.ps_api_key_file
+assert root / "cache/parishsoft" == options.ps_cache_dir
+assert root / "config/runner.yaml" == runner.DEFAULT_RUNNER_CONFIG
+assert root / "run/runner.lock" == runner.DEFAULT_LOCK_FILE
+"""
+
+    env = os.environ.copy()
+    env["PARISHKIT_ROOT"] = str(tmp_path)
+    subprocess.run([sys.executable, "-c", code], check=True, env=env)
 
 
 def test_common_options_debug_implies_verbose():

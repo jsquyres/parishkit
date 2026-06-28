@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from collections.abc import Callable, Sequence
@@ -15,7 +16,12 @@ from parishkit.logging import parse_log_level
 from parishkit.parishsoft import ParishSoftAPIError
 from parishkit.retry import RetryError
 
-OPT_ROOT = Path("/opt/parishkit")
+
+def _default_root() -> Path:
+    return Path(os.environ.get("PARISHKIT_ROOT", "/opt/parishkit")).expanduser()
+
+
+OPT_ROOT = _default_root()
 DEFAULT_CONFIG_DIR = OPT_ROOT / "config"
 DEFAULT_CREDENTIALS_DIR = OPT_ROOT / "credentials"
 DEFAULT_CACHE_DIR = OPT_ROOT / "cache"
