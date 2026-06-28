@@ -12,11 +12,17 @@ constant_contact:
   access_token_file: /opt/parishkit/credentials/constant-contact-token.json
 
 email:
-  provider: google_workspace
+  provider: google-workspace
   service_account_file: /opt/parishkit/credentials/google-service-account.json
   delegated_user: no-reply@example.org
 
 sync_ps_to_cc:
-  lists: []
-  no_sync: []
+  notifications:
+    sender: no-reply@example.org
+  lists:
+    - source_workgroup: Example Newsletter Workgroup
+      target_list: Example Newsletter
+      notifications:
+        - admin@example.org
+  no_sync: false
   update_names: false

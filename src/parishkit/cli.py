@@ -325,4 +325,6 @@ def sync_google_group_main(argv: Sequence[str] | None = None) -> int:
 
 
 def sync_ps_to_cc_main(argv: Sequence[str] | None = None) -> int:
-    return _placeholder_main("parishkit-sync-ps-to-cc", argv)
+    from parishkit.sync_ps_to_cc import main
+
+    return main(list(argv) if argv is not None else None)
