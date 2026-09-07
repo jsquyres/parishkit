@@ -43,8 +43,7 @@ Scope and dependencies: [ARC-02 work package](../../plans/stewardship/architectu
 - [ ] ARC-02.07 — Test YAML recovery, precedence, startup, and redaction.
 
 Evidence: Shared-helper commit `fe0c94a` and deployment/authority-contract commit
-`b554e17`, followed by the commit titled
-`feat: establish redacted stewardship logging and progress evidence`, all on
+`b554e17`, followed by logging/evidence commit `2ececb2`, all on
 `pr/stewardship-spec`. See [deployment metadata](../../development/stewardship-deployment.md),
 [authority contracts and remaining integration](../../development/stewardship-authority.md),
 and the deployment/authority/observability tests under
@@ -63,11 +62,13 @@ production settings deliberately reject all startup. ARC-02.07 covers pure
 precedence, invalid input, strict parsing, redaction, and fake-backed activation
 failure/recovery, not actual PostgreSQL durability or runtime prerequisite checks.
 
-Sequencing clarification pending: Phase 0 orders ARC-02 before DAT-01, but the
-production digest/mode/migration checks require the configuration records created
-in DAT-01 (Phase 1). No durable integration, Compose milestone, or review gate is
-claimed complete. Clarify the phase split before advancing beyond these independent
-contracts; do not introduce shadow database tables to bypass that dependency.
+Phase split approved by the human on September 7, 2026 and recorded in the
+controlling plan: Phase 0 supplies configuration contracts and safe scaffold
+rejection. Concrete database materialization/digest/mode checks follow DAT-01 in
+Phase 1; credential/mount/service checks and PostgreSQL-backed recovery complete
+with ARC-06 and OPS-02/OPS-04 before Gate 1. No durable integration, Compose
+milestone, or review gate is claimed complete. Tasks with remaining scope stay
+unchecked; do not introduce shadow tables to bypass the dependency.
 
 ## ARC-03: Django web foundation and security middleware
 
