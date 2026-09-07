@@ -35,14 +35,39 @@ ingress isolation and container verification belong to ARC-03/OPS-01 and M0.
 Scope and dependencies: [ARC-02 work package](../../plans/stewardship/architecture.md#arc-02-shared-cli-configuration-paths-and-app-startup).
 
 - [ ] ARC-02.01 — Integrate shared ParishKit helpers.
-- [ ] ARC-02.02 — Define deployment configuration and precedence.
+- [x] ARC-02.02 — Define deployment configuration and precedence.
 - [ ] ARC-02.03 — Define versioned YAML authority and materialization interfaces.
-- [ ] ARC-02.04 — Apply common runtime roots and path overrides.
+- [x] ARC-02.04 — Apply common runtime roots and path overrides.
 - [ ] ARC-02.05 — Validate production configuration and service prerequisites.
-- [ ] ARC-02.06 — Configure redacted correlated logging.
+- [x] ARC-02.06 — Configure redacted correlated logging.
 - [ ] ARC-02.07 — Test YAML recovery, precedence, startup, and redaction.
 
-Evidence: Not started.
+Evidence: Shared-helper commit `fe0c94a` and deployment/authority-contract commit
+`b554e17`, followed by the commit titled
+`feat: establish redacted stewardship logging and progress evidence`, all on
+`pr/stewardship-spec`. See [deployment metadata](../../development/stewardship-deployment.md),
+[authority contracts and remaining integration](../../development/stewardship-authority.md),
+and the deployment/authority/observability tests under
+[`tests/stewardship`](../../../tests/stewardship/).
+Host validation on September 7, 2026: `python -m pytest` passed 515 tests;
+`python -m pytest tests/stewardship --cov=parishkit.stewardship --cov-fail-under=80`
+passed 187 tests with 98.66% scoped statement coverage. Ruff check/format and
+Markdown checks passed.
+
+ARC-02.01 is partial: shared CLI, configuration, runtime roots, strict YAML, and
+logging are integrated; provider/retry integration belongs with the actual
+provider-using services. ARC-02.03 has canonical envelopes, stable IDs, immutable
+files, atomic manifests, and a tested materializer protocol, but only synthetic
+product validation/materialization in tests. ARC-02.05 remains unimplemented;
+production settings deliberately reject all startup. ARC-02.07 covers pure
+precedence, invalid input, strict parsing, redaction, and fake-backed activation
+failure/recovery, not actual PostgreSQL durability or runtime prerequisite checks.
+
+Sequencing clarification pending: Phase 0 orders ARC-02 before DAT-01, but the
+production digest/mode/migration checks require the configuration records created
+in DAT-01 (Phase 1). No durable integration, Compose milestone, or review gate is
+claimed complete. Clarify the phase split before advancing beyond these independent
+contracts; do not introduce shadow database tables to bypass that dependency.
 
 ## ARC-03: Django web foundation and security middleware
 
