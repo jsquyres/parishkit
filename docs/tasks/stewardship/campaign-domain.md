@@ -11,12 +11,20 @@ Follow the [execution and completion rules](README.md#execution-and-completion).
 
 Scope and dependencies: [DOM-01 work package](../../plans/stewardship/campaign-domain.md#dom-01-domain-vocabulary-and-decision-records).
 
-- [ ] DOM-01.01 — Record the foundational architecture decisions.
-- [ ] DOM-01.02 — Define canonical domain enums and value objects.
-- [ ] DOM-01.03 — Test stable serialization and invalid states.
-- [ ] DOM-01.04 — Document persisted contracts and migration boundaries.
+- [x] DOM-01.01 — Record the foundational architecture decisions.
+- [x] DOM-01.02 — Define canonical domain enums and value objects.
+- [x] DOM-01.03 — Test stable serialization and invalid states.
+- [x] DOM-01.04 — Document persisted contracts and migration boundaries.
 
-Evidence: Not started.
+Evidence: Implementation on `pr/stewardship-spec` in the commit titled
+`feat: define stewardship domain vocabulary`, following ARC-01 commit `5ef5d5c`.
+See the [decision index](../../../src/parishkit/stewardship/DECISIONS.md) and
+[`test_domain.py`](../../../tests/stewardship/test_domain.py).
+Host validation on September 7, 2026: `python -m pytest` passed 407 tests;
+`python -m pytest tests/stewardship --cov=parishkit.stewardship --cov-fail-under=80`
+passed 81 tests with 96.17% scoped coverage and 100% for `campaigns.domain`.
+Ruff check/format and Markdown checks passed. DST resolution and lifecycle
+authorization remain DOM-02 work; these are pure values, not admission policy.
 
 ## DOM-02: Campaign interval and lifecycle policy
 
