@@ -55,6 +55,9 @@ services:
       - ../../tools/prepare-release.py:/app/tools/prepare-release.py:ro
       - ../../install.py:/app/install.py:ro
       - ../../coverage-stewardship.toml:/app/coverage-stewardship.toml:ro
+      - ../../docs/specs/stewardship:/app/docs/specs/stewardship:ro
+      - ../../docs/plans/stewardship:/app/docs/plans/stewardship:ro
+      - ../../docs/development/stewardship-acceptance.yaml:/app/docs/development/stewardship-acceptance.yaml:ro
       - ../../deploy/stewardship:/app/deploy/stewardship:ro
     environment:
       DJANGO_SETTINGS_MODULE: parishkit.stewardship.settings.test

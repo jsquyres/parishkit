@@ -22,8 +22,11 @@ Evidence: September 7, 2026, macOS/arm64 host and Linux/arm64 image. The
 [OPS-01 evidence](operations.md#ops-01-development-and-production-compose-topology)
 records 570 passing baseline tests on both environments and 5 passing opt-in
 Compose checks. Production rejects startup rather than using development keys.
-OPS-09 coverage/CI and DOM-05 clock/traceability are still pending Phase 0 work.
-M0.04 has not run; no foundation work or formal gate is released.
+OPS-09 coverage/CI and DOM-05 clock/traceability now implement their Phase 0
+scope. Final pre-review validation passed 614 tests on both host and rebuilt
+image (3 opt-in checks skipped), and all 5 separately enabled Compose tests.
+Host scoped coverage is 96.99% lines and 95.29% branches. M0.04 has not run;
+no foundation work or formal gate is released.
 
 ## Phase 1: Secure foundation
 
