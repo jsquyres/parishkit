@@ -15,11 +15,41 @@ class ConfigError(ValueError):
     """Raised when runtime configuration is missing or invalid."""
 
 
-def load_yaml_config(path: str | Path | None, *, required: bool = False) -> ConfigData:
+class _UniqueKeySafeLoader(yaml.SafeLoader):
+    """Opt-in strict mappings for versioned/security-sensitive configuration."""
+
+    def construct_mapping(self, node, deep=False):
+        """Reject duplicate keys, including ambiguous overrides through YAML merges."""
+        self.flatten_mapping(node)
+        seen = set()
+        for key_node, _ in node.value:
+            key = self.construct_object(key_node, deep=deep)
+            try:
+                duplicate = key in seen
+                seen.add(key)
+            except TypeError:
+                raise yaml.constructor.ConstructorError(
+                    None, None, "unhashable mapping key", key_node.start_mark
+                ) from None
+            if duplicate:
+                raise yaml.constructor.ConstructorError(
+                    None, None, "duplicate mapping key", key_node.start_mark
+                )
+        return super().construct_mapping(node, deep=deep)
+
+
+def load_yaml_config(
+    path: str | Path | None,
+    *,
+    required: bool = False,
+    reject_duplicate_keys: bool = False,
+) -> ConfigData:
     """Load a YAML config file as a dictionary.
 
     Empty files are treated as empty dictionaries. Invalid YAML and non-
     mapping top-level values fail fast with a user-facing ``ConfigError``.
+    ``reject_duplicate_keys`` opts into strict nested mappings; the default
+    preserves existing tools' YAML merge/last-value behavior.
     """
 
     if path is None:
@@ -34,7 +64,12 @@ def load_yaml_config(path: str | Path | None, *, required: bool = False) -> Conf
         return {}
 
     try:
-        raw_data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        text = config_path.read_text(encoding="utf-8")
+        raw_data = (
+            yaml.load(text, Loader=_UniqueKeySafeLoader)
+            if reject_duplicate_keys
+            else yaml.safe_load(text)
+        )
     except yaml.YAMLError as exc:
         location = _yaml_error_location(exc)
         raise ConfigError(
