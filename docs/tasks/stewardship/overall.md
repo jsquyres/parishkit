@@ -33,11 +33,13 @@ Source scope: [Phase 0: Skeleton](../../plans/stewardship/overall.md#phase-0-rep
 Execution checkpoint (September 7, 2026): the human approved the ARC-02 phase
 split now recorded in the controlling plan. See its
 [partial completion evidence](architecture.md#arc-02-shared-cli-configuration-paths-and-app-startup).
-ARC-01 and DOM-01 evidence is recorded in their owning checklists. Docker is
-reachable, but Compose demonstrations and M0 review have not been run. No later
-phase or review gate is released.
-Continue the remaining Phase 0 scope, then OPS-01; do not wait for Phase 1's
-database-backed ARC-02 integration or mark that work complete prematurely.
+ARC-01 and DOM-01 evidence is recorded in their owning checklists. The
+[OPS-01 scaffold](operations.md#ops-01-development-and-production-compose-topology)
+now passes local Compose demonstrations and host/image baseline parity. Reserved
+services still refuse startup pending their owning implementation packages.
+Continue with Phase 0 OPS-09 CI/coverage, then DOM-05 clock/traceability and M0
+scaffold review. No later phase or review gate is released. Do not wait for
+Phase 1's database-backed ARC-02 integration or mark that work complete early.
 
 1. [ARC-01](architecture.md#arc-01-dependency-decisions-and-package-skeleton) → [DOM-01](campaign-domain.md#dom-01-domain-vocabulary-and-decision-records) → [ARC-02](architecture.md#arc-02-shared-cli-configuration-paths-and-app-startup) → [OPS-01](operations.md#ops-01-development-and-production-compose-topology).
 2. Start [OPS-09](operations.md#ops-09-ci-coverage-browser-acceptance-and-release-pipeline) baseline CI/coverage and [DOM-05](campaign-domain.md#dom-05-cross-domain-acceptance-harness) clock/traceability work.

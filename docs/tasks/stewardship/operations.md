@@ -11,13 +11,36 @@ Follow the [execution and completion rules](README.md#execution-and-completion).
 
 Scope and dependencies: [OPS-01 work package](../../plans/stewardship/operations.md#ops-01-development-and-production-compose-topology).
 
-- [ ] OPS-01.01 — Create development and production Compose definitions.
+- [x] OPS-01.01 — Create development and production Compose definitions.
 - [ ] OPS-01.02 — Build one non-root image with explicit service commands.
-- [ ] OPS-01.03 — Implement cross-platform bind-mounted development reload.
-- [ ] OPS-01.04 — Restrict service ports to the intended networks.
-- [ ] OPS-01.05 — Test and document Compose startup.
+- [x] OPS-01.03 — Implement cross-platform bind-mounted development reload.
+- [x] OPS-01.04 — Restrict service ports to the intended networks.
+- [x] OPS-01.05 — Test and document Compose startup.
 
-Evidence: Not started.
+Evidence: Phase 0 Compose scaffold on `pr/stewardship-spec`; implementation and
+this evidence are committed together. See the
+[Compose guide](../../development/stewardship-compose.md),
+[`deploy/stewardship`](../../../deploy/stewardship/),
+[`test_services.py`](../../../tests/stewardship/test_services.py), and
+[`test_compose.py`](../../../tests/stewardship/test_compose.py).
+September 7, 2026: application image built on macOS/arm64 with Docker 29.7.2 and
+Compose 5.3.1. Host and in-image baseline each passed 570 tests (3 explicitly
+opt-in Docker checks skipped). The separately enabled Compose suite passed
+5 tests, including both rendered overlays, real source reload, localhost/internal
+route checks, no token-bearing access logs, non-root web execution, synthetic
+PostgreSQL/Valkey persistence across replacement, production startup refusal,
+and graceful web stop/restart. Ruff and Markdown checks passed. Both architecture
+manifests are pinned; native Windows/Linux-host and amd64 execution are not yet
+claimed and will receive CI/runtime evidence in OPS-09.
+
+OPS-01.02 is partial: one non-root image provides the working development web
+entry point, init/signal handling, read-only root, and local liveness probe.
+Reserved worker/installer/operator identities have no credential/data mounts
+and explicitly refuse startup; they do not pretend to process work or pass
+health checks. Their concrete commands/mounts/readiness arrive with the owning
+ARC-06, background, and OPS-02/04 packages. Production remains fail-closed.
+OPS-02 still owns CLI/YAML-to-Compose path integration, full provisioning, and
+mount/queue isolation. No review gate, deployment, or release is claimed.
 
 ## OPS-02: Durable runtime paths and least-privilege secrets
 

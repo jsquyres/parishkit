@@ -1,0 +1,3 @@
+# Isolated application-image build tools; resolved separately from runtime deps.
+hatchling>=1.25
+editables>=0.3

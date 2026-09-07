@@ -13,12 +13,17 @@ exit criteria pass, even if all implementation checkboxes are checked.
 
 Scope: [Phase 0](../../plans/stewardship/overall.md#phase-0-reproducible-project-skeleton).
 
-- [ ] M0.01 — Demonstrate local bind-mount reload, routes, and internal health.
-- [ ] M0.02 — Run the same baseline tests on the host and in the image.
-- [ ] M0.03 — Demonstrate safe startup rejection for incomplete production settings.
+- [x] M0.01 — Demonstrate local bind-mount reload, routes, and internal health.
+- [x] M0.02 — Run the same baseline tests on the host and in the image.
+- [x] M0.03 — Demonstrate safe startup rejection for incomplete production settings.
 - [ ] M0.04 — Review and correct the scaffold before foundation work.
 
-Evidence: Not started.
+Evidence: September 7, 2026, macOS/arm64 host and Linux/arm64 image. The
+[OPS-01 evidence](operations.md#ops-01-development-and-production-compose-topology)
+records 570 passing baseline tests on both environments and 5 passing opt-in
+Compose checks. Production rejects startup rather than using development keys.
+OPS-09 coverage/CI and DOM-05 clock/traceability are still pending Phase 0 work.
+M0.04 has not run; no foundation work or formal gate is released.
 
 ## Phase 1: Secure foundation
 
