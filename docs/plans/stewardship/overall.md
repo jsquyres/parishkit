@@ -57,7 +57,12 @@ Execute in this order:
 2. **DOM-01** — establish domain vocabulary and decision records in that
    package skeleton.
 3. **ARC-02** — integrate shared ParishKit configuration, define the versioned
-   Stewardship YAML authority, paths, logging, and startup validation.
+   Stewardship YAML authority and materializer interfaces, paths, logging, and
+   fail-closed scaffold settings. Exercise configuration contracts with fake
+   materializers. Defer concrete database-backed activation/startup checks to
+   DAT-01 integration in Phase 1; complete credential/mount/service checks with
+   ARC-06 and OPS-02/OPS-04 before Gate 1. Leave tasks with that remaining scope
+   unchecked; this phase split does not waive their verification.
 4. **OPS-01** — start the development/production Compose topology with web,
    config/credential installers, general worker, backup-worker, mail-dispatch,
    token-key-rotation, scheduler, PostgreSQL, Valkey, and Caddy.
@@ -84,7 +89,9 @@ and lifecycle foundations before collecting parish data.
 ### 1A: Base data and lifecycle
 
 1. **DAT-01** — applied-YAML/change/secret-request, parish, audit, and session
-   base records.
+   base records. Integrate ARC-02's concrete configuration materializer and
+   database-backed digest/mode checks against these records; do not create
+   substitute tables during Phase 0.
 2. Land **DOM-02** item 1 — the canonical campaign-interval resolver required
    by database interval constraints.
 3. **DAT-02** — campaigns, schedules, lifecycle constraints, and boundary
@@ -113,6 +120,10 @@ and lifecycle foundations before collecting parish data.
 1. **OPS-02** — durable paths/volumes and least-privilege mounts.
 2. **OPS-03** — ingress/TLS/proxy/logging boundary.
 3. **OPS-04** — migrations/startup/upgrade mechanics.
+   Complete ARC-02's production startup integration and PostgreSQL-backed
+   failure/recovery tests using DAT-01 records, ARC-06 installer boundaries,
+   and OPS-02 mounts. Production must not become runnable through placeholder
+   validators or an unconditional readiness result.
 4. Establish the baseline portions of **OPS-08** for logs, health, and metrics.
 
 Phase demonstration:

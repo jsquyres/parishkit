@@ -76,6 +76,8 @@ materializer in tests proves coordination behavior, not database durability.
 Production settings remain intentionally disabled. ARC-02.05 still needs actual
 database/migration/mode/configuration agreement and credential/mount/Valkey
 checks. Those checks need the records assigned to DAT-01 and the operational
-adapters assigned to ARC-06/OPS-04. Phase 0 currently orders ARC-02 before those
-Phase 1 packages; the phase split needs clarification before advancing beyond
-this independent configuration-contract increment.
+adapters assigned to ARC-06/OPS-04. The approved
+[master-plan phase split](../plans/stewardship/overall.md#phase-0-reproducible-project-skeleton)
+keeps independent contracts in Phase 0 and completes database-backed production
+startup integration in Phase 1 before Gate 1. All review gates remain unchanged;
+partial tasks remain unchecked until their remaining verification passes.
