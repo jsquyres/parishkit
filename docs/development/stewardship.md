@@ -88,3 +88,18 @@ The eight Django app labels use the `stewardship_` prefix. Treat these labels as
 stable before adding migrations. No app currently defines models or migrations.
 The package's [decision index](../../src/parishkit/stewardship/DECISIONS.md)
 records the canonical domain vocabulary and persisted compatibility boundaries.
+
+## Logging scaffold
+
+Django uses the shared ParishKit logging setup with a Stewardship JSON formatter
+on stderr. Timestamps have explicit UTC offsets. Reviewed event enums and UUID
+correlation/task identifiers are the only accepted message context at this stage;
+arbitrary messages, exception text, paths, and unknown extras are suppressed.
+The five standard severity levels remain available. Default Django request/server
+handlers are removed so they cannot bypass redaction with raw access paths.
+
+Each request gets a new internal correlation UUID, ignoring browser-supplied
+tracing headers. Nested request/task scopes restore context even on failure.
+Future workers must preserve this logging configuration when initializing their
+frameworks. ARC-07 owns richer audited schemas; BG packages own task/service
+integration, and operational notification delivery remains unimplemented.

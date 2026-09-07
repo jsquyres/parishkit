@@ -30,6 +30,12 @@ source scope so exceptions and demonstrations are not redefined here.
 
 Source scope: [Phase 0: Skeleton](../../plans/stewardship/overall.md#phase-0-reproducible-project-skeleton).
 
+Execution checkpoint (September 7, 2026): active work is ARC-02; see its
+[completion evidence and sequencing clarification](architecture.md#arc-02-shared-cli-configuration-paths-and-app-startup).
+ARC-01 and DOM-01 evidence is recorded in their owning checklists. Docker is
+reachable, but Compose demonstrations and M0 review have not been run. No later
+phase or review gate is released.
+
 1. [ARC-01](architecture.md#arc-01-dependency-decisions-and-package-skeleton) → [DOM-01](campaign-domain.md#dom-01-domain-vocabulary-and-decision-records) → [ARC-02](architecture.md#arc-02-shared-cli-configuration-paths-and-app-startup) → [OPS-01](operations.md#ops-01-development-and-production-compose-topology).
 2. Start [OPS-09](operations.md#ops-09-ci-coverage-browser-acceptance-and-release-pipeline) baseline CI/coverage and [DOM-05](campaign-domain.md#dom-05-cross-domain-acceptance-harness) clock/traceability work.
 3. Complete M0 evidence and the scaffold correction pass before Phase 1.

@@ -22,6 +22,7 @@ INSTALLED_APPS = [
 ]
 # Deliberately no Django admin/password authentication. ARC-04 owns identity.
 MIDDLEWARE = [
+    "parishkit.stewardship.observability.CorrelationMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -43,6 +44,8 @@ X_FRAME_OPTIONS = "DENY"
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "no-referrer"
 EMAIL_BACKEND = "django.core.mail.backends.dummy.EmailBackend"
+LOGGING_CONFIG = "parishkit.stewardship.observability.configure_logging"
+LOGGING = {"version": 1}
 # Until ARC-02 installs deployment configuration, any accidental DB operation
 # fails instead of silently creating a SQLite file in the checkout.
 DATABASES = {"default": {"ENGINE": "django.db.backends.dummy"}}

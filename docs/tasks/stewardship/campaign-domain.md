@@ -16,8 +16,8 @@ Scope and dependencies: [DOM-01 work package](../../plans/stewardship/campaign-d
 - [x] DOM-01.03 — Test stable serialization and invalid states.
 - [x] DOM-01.04 — Document persisted contracts and migration boundaries.
 
-Evidence: Implementation on `pr/stewardship-spec` in the commit titled
-`feat: define stewardship domain vocabulary`, following ARC-01 commit `5ef5d5c`.
+Evidence: Implementation commit `587b6e5` on `pr/stewardship-spec`
+(`feat: define stewardship domain vocabulary`), following ARC-01 commit `5ef5d5c`.
 See the [decision index](../../../src/parishkit/stewardship/DECISIONS.md) and
 [`test_domain.py`](../../../tests/stewardship/test_domain.py).
 Host validation on September 7, 2026: `python -m pytest` passed 407 tests;
