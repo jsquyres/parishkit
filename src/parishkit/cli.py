@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
 import re
 import sys
 from collections.abc import Callable, Sequence
@@ -23,13 +22,8 @@ from parishkit.constant_contact import CCAPIError
 from parishkit.google.auth import GoogleAPIError
 from parishkit.logging import parse_log_level
 from parishkit.parishsoft import ParishSoftAPIError
+from parishkit.paths import runtime_root as _default_root
 from parishkit.retry import RetryError
-
-
-def _default_root() -> Path:
-    """Return the runtime root implied by the current environment."""
-    return Path(os.environ.get("PARISHKIT_ROOT", "/opt/parishkit")).expanduser()
-
 
 OPT_ROOT = _default_root()
 DEFAULT_CONFIG_DIR = OPT_ROOT / "config"
