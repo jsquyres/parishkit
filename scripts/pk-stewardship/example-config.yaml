@@ -1,0 +1,3 @@
+# Syntax-only diagnostic input. ARC-02 defines the deployment schema.
+# Never put provider credentials in this example.
+{}

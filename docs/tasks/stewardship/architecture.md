@@ -11,14 +11,24 @@ Follow the [execution and completion rules](README.md#execution-and-completion).
 
 Scope and dependencies: [ARC-01 work package](../../plans/stewardship/architecture.md#arc-01-dependency-decisions-and-package-skeleton).
 
-- [ ] ARC-01.01 — Record and pin supported dependency lines.
-- [ ] ARC-01.02 — Create the Django project and app boundaries.
-- [ ] ARC-01.03 — Configure validated development, test, and production settings.
-- [ ] ARC-01.04 — Add the console entry point and thin wrapper.
-- [ ] ARC-01.05 — Create URL namespaces and intentional placeholders.
-- [ ] ARC-01.06 — Test imports, settings, entry points, and URL resolution.
+- [x] ARC-01.01 — Record and pin supported dependency lines.
+- [x] ARC-01.02 — Create the Django project and app boundaries.
+- [x] ARC-01.03 — Configure validated development, test, and production settings.
+- [x] ARC-01.04 — Add the console entry point and thin wrapper.
+- [x] ARC-01.05 — Create URL namespaces and intentional placeholders.
+- [x] ARC-01.06 — Test imports, settings, entry points, and URL resolution.
 
-Evidence: Not started.
+Evidence: Implementation on `pr/stewardship-spec` in the commit titled
+`feat: scaffold the stewardship application`. See
+[development notes](../../development/stewardship.md) and
+[`test_scaffold.py`](../../../tests/stewardship/test_scaffold.py).
+Host validation on September 7, 2026: `python -m pytest` passed 356 tests;
+the 30 Stewardship smoke tests passed with 92.24% scoped statement coverage
+(`python -m pytest tests/stewardship --cov=parishkit.stewardship --cov-fail-under=80`).
+Ruff check/format and Markdown checks passed. The production profile deliberately
+rejects startup while ARC-02 is unimplemented; its complete deployment validation
+is not claimed by this scaffold. Internal readiness and metrics remain closed;
+ingress isolation and container verification belong to ARC-03/OPS-01 and M0.
 
 ## ARC-02: Shared CLI, configuration, paths, and app startup
 
