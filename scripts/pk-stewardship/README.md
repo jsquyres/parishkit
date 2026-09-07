@@ -10,6 +10,13 @@ no keys, values, or secret paths and explicitly reports that deployment has
 not been validated. It does not initialize Django or contact a provider.
 No bootstrap, publish, purge, or other mutating command is available yet.
 
+`validate-deployment` checks the typed deployment metadata, including profile,
+origin, proxy hops, service role, paths, and connection settings. It prints only
+success flags, explicitly distinguishing metadata validation from startup
+readiness. `--profile`, `--service-role`, `--public-origin`, and `--runtime-root`
+override the corresponding environment/YAML settings. See the
+[deployment schema](../../docs/development/stewardship-deployment.md).
+
 For the current implementation scope, see the
 [architecture tasks](../../docs/tasks/stewardship/architecture.md) and
 [dependency and development notes](../../docs/development/stewardship.md).
