@@ -133,10 +133,28 @@ Evidence: Not started.
 Scope and dependencies: [OPS-09 work package](../../plans/stewardship/operations.md#ops-09-ci-coverage-browser-acceptance-and-release-pipeline).
 
 - [ ] OPS-09.01 — Build repository lint, test, migration, and frontend CI.
-- [ ] OPS-09.02 — Enforce separate scoped line and branch coverage floors.
+- [x] OPS-09.02 — Enforce separate scoped line and branch coverage floors.
 - [ ] OPS-09.03 — Build integration, browser, Compose, and image validation jobs.
 - [ ] OPS-09.04 — Provide credential-free CI and human-run smoke tools.
 - [ ] OPS-09.05 — Complete required suites, saturated-download load tests, and acceptance traceability.
 - [ ] OPS-09.06 — Publish release artifacts only after the authorized final gate.
 
-Evidence: Not started.
+Evidence: Phase 0 coverage/CI increment on `pr/stewardship-spec`, committed with
+this evidence. The mandatory package plus exact shared CLI/config/path modules
+are declared in [`coverage-stewardship.toml`](../../../coverage-stewardship.toml).
+The [coverage runner](../../../src/parishkit/stewardship/quality.py) derives its
+pytest-cov source arguments from the validated manifest and rejects incomplete
+or non-branch reports before evaluating independent floors. Its 33 regression
+tests include each invalid-manifest category and either-floor-only failures.
+September 7, 2026: the complete host runner passed 603 tests (3 opt-in Docker
+checks skipped), with 96.91% lines and 95.22% branches. Migration drift reported
+no changes. Ruff and Markdown checks passed.
+
+OPS-09.01 is partial: required lint/format/Markdown, manifest-derived coverage,
+and scaffold migration drift are in CI; database-backed migration and frontend
+checks follow their implementation. OPS-09.03 now defines a Linux CI image-build
+and isolated Compose smoke job; remote execution is not yet claimed. The earlier
+macOS/arm64 smoke evidence remains under OPS-01. Browser/accessibility, full
+database integrations, multi-architecture release/SBOM/scanning/provenance, all
+acceptance/load suites, and real-provider human-run smoke tools remain open.
+All current tests are fake-backed. No image or release tag is published.

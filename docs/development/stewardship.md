@@ -3,6 +3,27 @@
 For local container commands and runtime limitations, see the
 [Compose scaffold guide](stewardship-compose.md).
 
+## Scoped coverage gate
+
+Run the complete baseline with the same independent line/branch gates as CI:
+
+```sh
+python -m parishkit.stewardship.quality --report /absolute/temporary/path/coverage.json
+```
+
+The report's parent must exist; keep this generated artifact outside the checkout.
+The runner always measures the complete stewardship package plus the exact
+shared modules in `coverage-stewardship.toml`, derives pytest-cov targets from
+that manifest, and independently requires at least 80% lines and 80% branches.
+It rejects missing/duplicate/non-Python/outside-repository manifest paths,
+symlink aliases, missing scoped report files, and reports without branch data.
+Unrelated tool coverage and blended percentages cannot mask either failure.
+Add every materially extended shared module to the manifest in the same change.
+
+CI also checks migration drift and runs the opt-in Compose suite on a Linux
+runner. This is baseline coverage/Compose enforcement, not completion of future
+browser, transaction, acceptance, load, or release validation.
+
 This is implementation evidence for
 [ARC-01](../tasks/stewardship/architecture.md#arc-01-dependency-decisions-and-package-skeleton),
 not a replacement for the [architecture specification](../specs/stewardship/architecture/spec.md).
