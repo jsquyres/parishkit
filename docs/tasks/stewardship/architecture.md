@@ -18,8 +18,8 @@ Scope and dependencies: [ARC-01 work package](../../plans/stewardship/architectu
 - [x] ARC-01.05 — Create URL namespaces and intentional placeholders.
 - [x] ARC-01.06 — Test imports, settings, entry points, and URL resolution.
 
-Evidence: Implementation on `pr/stewardship-spec` in the commit titled
-`feat: scaffold the stewardship application`. See
+Evidence: Implementation commit `5ef5d5c` on `pr/stewardship-spec`
+(`feat: scaffold the stewardship application`). See
 [development notes](../../development/stewardship.md) and
 [`test_scaffold.py`](../../../tests/stewardship/test_scaffold.py).
 Host validation on September 7, 2026: `python -m pytest` passed 356 tests;

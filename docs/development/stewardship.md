@@ -86,3 +86,5 @@ substitute for the remaining configuration, cryptographic, and admission work.
 
 The eight Django app labels use the `stewardship_` prefix. Treat these labels as
 stable before adding migrations. No app currently defines models or migrations.
+The package's [decision index](../../src/parishkit/stewardship/DECISIONS.md)
+records the canonical domain vocabulary and persisted compatibility boundaries.
