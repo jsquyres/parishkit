@@ -1,5 +1,8 @@
 # Stewardship development baseline
 
+For local container commands and runtime limitations, see the
+[Compose scaffold guide](stewardship-compose.md).
+
 This is implementation evidence for
 [ARC-01](../tasks/stewardship/architecture.md#arc-01-dependency-decisions-and-package-skeleton),
 not a replacement for the [architecture specification](../specs/stewardship/architecture/spec.md).

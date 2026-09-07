@@ -4,25 +4,36 @@ import json
 import sys
 from collections.abc import Sequence
 from importlib.metadata import version
+from pathlib import Path
 
 from parishkit.cli import parser_with_common_options
 from parishkit.config import ConfigError, load_yaml_config
 
 from .deployment import DeploymentProfile, ServiceRole, load_deployment
+from .services import healthcheck, prepare_development, run_service
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Report package version or YAML readability without printing its contents.
+    """Dispatch explicit scaffold commands without disclosing configuration.
 
     Syntax validation is explicitly not deployment readiness. Do not configure
-    Django, contact providers, or perform any writes from these diagnostics.
+    Django, contact providers, or perform writes from syntax diagnostics.
+    Service execution and new development-tree provisioning are explicit commands.
     """
     parser = parser_with_common_options(
-        "pk-stewardship", description="Stewardship application diagnostics"
+        "pk-stewardship", description="Stewardship application commands"
     )
     parser.add_argument("--version", action="store_true")
     parser.add_argument(
-        "command", nargs="?", choices=["config-check", "validate-deployment"]
+        "command",
+        nargs="?",
+        choices=[
+            "config-check",
+            "validate-deployment",
+            "service",
+            "healthcheck",
+            "prepare-development",
+        ],
     )
     parser.add_argument("--profile", choices=list(DeploymentProfile))
     parser.add_argument("--service-role", choices=list(ServiceRole))
@@ -35,6 +46,24 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command is None:
         parser.print_help()
         return 2
+    if args.command == "service":
+        return run_service(args.profile, args.service_role)
+    if args.command == "healthcheck":
+        return healthcheck()
+    if args.command == "prepare-development":
+        if args.runtime_root is None:
+            parser.error("prepare-development requires an explicit --runtime-root")
+        try:
+            prepare_development(Path(args.runtime_root).absolute())
+        except OSError:
+            print(
+                "ERROR: use a new writable runtime directory with an existing parent; "
+                "no existing data was replaced",
+                file=sys.stderr,
+            )
+            return 2
+        print("Created local scaffold storage; application bootstrap is still required")
+        return 0
     if args.command == "validate-deployment":
         overrides = {
             key: value

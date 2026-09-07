@@ -1,0 +1,16 @@
+# Default-deny context: ignored local configuration must never enter an image.
+**
+!pyproject.toml
+!README.md
+!requirements/
+!requirements/stewardship.txt
+!requirements/stewardship-build.txt
+!src/
+!src/**/
+!src/**/*.py
+!src/**/*.html
+!src/**/*.css
+!src/**/*.js
+!src/**/*.svg
+!src/**/*.png
+!src/**/*.ico
