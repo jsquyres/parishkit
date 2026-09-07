@@ -67,9 +67,26 @@ Evidence: Not started.
 Scope and dependencies: [DOM-05 work package](../../plans/stewardship/campaign-domain.md#dom-05-cross-domain-acceptance-harness).
 
 - [ ] DOM-05.01 — Build cross-domain database factories.
-- [ ] DOM-05.02 — Build deterministic clock and timezone scenario helpers.
+- [x] DOM-05.02 — Build deterministic clock and timezone scenario helpers.
 - [ ] DOM-05.03 — Map acceptance scenarios to executable tests and owners.
-- [ ] DOM-05.04 — Track coverage of every specification section and package.
+- [x] DOM-05.04 — Track coverage of every specification section and package.
 - [ ] DOM-05.05 — Execute and close the complete acceptance matrix.
 
-Evidence: Not started.
+Evidence: Phase 0 clock/traceability increment on `pr/stewardship-spec`, committed
+with this evidence. See the [acceptance guide](../../development/stewardship-acceptance.md)
+and [ownership manifest](../../development/stewardship-acceptance.yaml).
+[`clock.py`](../../../src/parishkit/stewardship/clock.py) supplies an injectable
+UTC contract and explicit IANA-zone projection; the test-only ManualClock
+advances elapsed UTC without sleeps. Ten tests cover UTC selection, naive input
+rejection, nonnegative advancement, spring gaps, autumn folds, and different
+parish/browser local dates. The traceability test matches every specification
+section, all 69 work packages, and all ten normative acceptance scenarios to
+declared owners. New headings/packages and stale test references fail validation.
+
+September 7, 2026: the complete host coverage runner passed 614 tests (3 opt-in
+Docker checks skipped), with 96.99% scoped lines and 95.29% scoped branches.
+Ruff and Markdown checks passed. DOM-05.01 remains deferred to DAT-01 for real
+database factories/transaction clock integration. DOM-05.03 has owners but no
+implemented end-to-end scenario nodes; all ten scenarios are explicitly
+`planned`, not falsely covered by helper tests. Add executable scenario evidence
+with each vertical slice and complete DOM-05.05 in Phase 7.
