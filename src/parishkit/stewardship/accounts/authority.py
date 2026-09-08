@@ -96,7 +96,9 @@ class ConfigurationVersion:
 
     def yaml_text(self) -> str:
         """Render canonical non-secret data as human-readable, deterministic YAML."""
-        return yaml.safe_dump(self.document(), sort_keys=True, allow_unicode=True)
+        # Escape Unicode separators such as NEL: literal YAML line breaks can
+        # normalize on load and change the canonical document's digest.
+        return yaml.safe_dump(self.document(), sort_keys=True, allow_unicode=False)
 
 
 def parse_version(
@@ -233,6 +235,8 @@ class AuthorityStore:
         """Read the atomic manifest once, then verify its immutable document hash."""
         path = self.root / "active.yaml"
         try:
+            if not stat.S_ISDIR(self.root.stat().st_mode):
+                raise ConfigError("authority root must be an existing directory")
             try:
                 metadata = path.lstat()
             except FileNotFoundError:

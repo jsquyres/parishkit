@@ -125,6 +125,58 @@ def test_inaccessible_manifest_is_not_absent(authority, monkeypatch):
     assert "private" not in str(exc.value)
 
 
+@pytest.mark.parametrize("kind", ["missing", "file", "inaccessible"])
+def test_invalid_authority_root_is_not_unconfigured(tmp_path, monkeypatch, kind):
+    """Missing mounts and inaccessible roots fail before materializer writes."""
+    root = tmp_path / "authority"
+    if kind == "file":
+        root.write_text("synthetic-original")
+    elif kind == "inaccessible":
+        root.mkdir()
+        original_stat = Path.stat
+
+        def inaccessible(path, **kwargs):
+            """Inject a root access error without depending on the test UID."""
+            if path == root:
+                raise PermissionError("synthetic-private-path")
+            return original_stat(path, **kwargs)
+
+        monkeypatch.setattr(Path, "stat", inaccessible)
+    store = AuthorityStore(root, validate_synthetic_schema)
+    materializer = MemoryMaterializer()
+    with pytest.raises(ConfigError, match="manifest is unreadable or invalid"):
+        apply_version(store, materializer, candidate())
+    assert materializer.current is None
+    assert not materializer.prepared
+    if kind == "missing":
+        assert not root.exists()
+    elif kind == "file":
+        assert root.read_text() == "synthetic-original"
+
+
+def test_select_cannot_create_missing_authority_root(tmp_path):
+    """Selection requires the persisted version before the manifest writer runs."""
+    root = tmp_path / "absent" / "authority"
+    store = AuthorityStore(root, validate_synthetic_schema)
+    with pytest.raises(ConfigError, match="version is unreadable or invalid"):
+        store.select(candidate())
+    assert not root.parent.exists()
+
+
+@pytest.mark.parametrize(
+    "value", ["a\u0085b", "a\u2028b", "a\u2029b", "a\nb", "María ☺"]
+)
+def test_unicode_authority_round_trip_preserves_digest(authority, value):
+    """YAML emission must preserve text even for normalized line separators."""
+    data = document()
+    data["sections"]["parish"][0]["values"]["label"] = value
+    version = parse_version(data, validate_sections=validate_synthetic_schema)
+    authority.write_version(version)
+    assert authority.read_version(version.version_id) == version
+    authority.select(version)
+    assert authority.active() == version
+
+
 @pytest.mark.parametrize("target", ["manifest", "version"])
 @pytest.mark.parametrize("kind", ["directory", "fifo"])
 def test_nonregular_authority_is_rejected_before_read(
