@@ -175,6 +175,14 @@ def test_development_and_production_overlays():
     assert web["ports"] == ["127.0.0.1:${STEWARDSHIP_HTTP_PORT:-8000}:8000"]
     assert web["volumes"][0]["target"] == "/app/src"
     assert web["volumes"][0]["read_only"]
+    assert web["command"] == [
+        "service",
+        "--profile",
+        "development",
+        "--service-role",
+        "web",
+        "--bind-all-interfaces",
+    ]
     production = definition("compose.production.yaml")
     for name, service in production["services"].items():
         assert "build" not in service
@@ -388,6 +396,11 @@ def test_rendered_compose_contract(profile, tmp_path):
     )
     assert set(config["services"]) == expected_services
     if profile == "development":
+        web = config["services"]["web"]
+        assert "--bind-all-interfaces" in web["command"]
+        assert len(web["ports"]) == 1
+        assert web["ports"][0]["host_ip"] == "127.0.0.1"
+        assert web["ports"][0]["target"] == 8000
         fixtures = definition("compose.development.yaml")["services"]["tests"][
             "volumes"
         ]

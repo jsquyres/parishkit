@@ -98,13 +98,17 @@ def test_command_inapplicable_options_fail_before_dispatch(
 
 @pytest.mark.parametrize("profile", [None, *DeploymentProfile])
 @pytest.mark.parametrize("role", [None, *ServiceRole])
+@pytest.mark.parametrize("bind_all_interfaces", [False, True])
 def test_service_startup_is_explicit_and_fail_closed(
-    profile, role, monkeypatch, capsys
+    profile, role, bind_all_interfaces, monkeypatch, capsys
 ):
     """Only the implemented development web identity can replace its process."""
     execute = Mock()
     monkeypatch.setattr(services.os, "execve", execute)
-    assert services.run_service(profile, role) == 2
+    assert (
+        services.run_service(profile, role, bind_all_interfaces=bind_all_interfaces)
+        == 2
+    )
     if profile == "development" and role == "web":
         executable, arguments, environment = execute.call_args.args
         assert executable == sys.executable
@@ -113,7 +117,7 @@ def test_service_startup_is_explicit_and_fail_closed(
             "-m",
             "django",
             "runserver",
-            "0.0.0.0:8000",
+            "0.0.0.0:8000" if bind_all_interfaces else "127.0.0.1:8000",
         ]
         assert environment["DJANGO_SETTINGS_MODULE"].endswith(".development")
         assert environment["PATH"] == os.environ["PATH"]
@@ -123,13 +127,59 @@ def test_service_startup_is_explicit_and_fail_closed(
         assert "startup refused" in capsys.readouterr().err
 
 
-def test_service_cli(monkeypatch):
-    """The installed CLI delegates rather than duplicating process behavior."""
+@pytest.mark.parametrize("bind_all_interfaces", [False, True])
+@pytest.mark.parametrize("before_command", [False, True])
+def test_service_cli(bind_all_interfaces, before_command, monkeypatch):
+    """Host use defaults to loopback; only explicit opt-in exposes all interfaces."""
     execute = Mock()
     monkeypatch.setattr(services.os, "execve", execute)
-    assert main(["service", "--profile", "development", "--service-role", "web"]) == 2
+    arguments = ["service", "--profile", "development", "--service-role", "web"]
+    opt_in = ["--bind-all-interfaces"] if bind_all_interfaces else []
+    assert main(opt_in + arguments if before_command else arguments + opt_in) == 2
     execute.assert_called_once()
+    assert execute.call_args.args[1][-1] == (
+        "0.0.0.0:8000" if bind_all_interfaces else "127.0.0.1:8000"
+    )
     assert main(["service"]) == 2
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        [],
+        ["--version"],
+        ["config-check"],
+        ["validate-deployment"],
+        ["healthcheck"],
+        ["prepare-development"],
+        ["service"],
+        ["service", "--profile", "production", "--service-role", "web"],
+        ["service", "--profile", "development", "--service-role", "worker"],
+    ],
+)
+@pytest.mark.parametrize("before_command", [False, True])
+def test_bind_opt_in_is_rejected_before_unrelated_dispatch(
+    arguments, before_command, monkeypatch, capsys
+):
+    """The opt-in cannot silently affect other commands or unimplemented services."""
+    operations = []
+    for name in (
+        "prepare_development",
+        "run_service",
+        "healthcheck",
+        "load_deployment",
+        "load_yaml_config",
+    ):
+        operation = Mock()
+        monkeypatch.setattr(cli, name, operation)
+        operations.append(operation)
+    opt_in = ["--bind-all-interfaces"]
+    with pytest.raises(SystemExit) as exc:
+        main(opt_in + arguments if before_command else arguments + opt_in)
+    assert exc.value.code == 2
+    assert not capsys.readouterr().out
+    for operation in operations:
+        operation.assert_not_called()
 
 
 @pytest.mark.parametrize(

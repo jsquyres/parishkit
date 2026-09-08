@@ -81,6 +81,11 @@ def test_argument_registration_and_health_cli_do_not_import_providers(scenario):
         (["--public-origin", "--" + PRIVATE], "--public-origin requires a URL"),
         (["--runtime-root", "--" + PRIVATE], "--runtime-root requires a path"),
         (["--version=" + PRIVATE], "--version does not accept a value"),
+        (
+            ["--bind-all-interfaces=" + PRIVATE],
+            "--bind-all-interfaces does not accept a value",
+        ),
+        (["--bind-all=" + PRIVATE], "contents redacted"),
         (["--help=" + PRIVATE], "invalid argument (contents redacted)"),
         (
             ["healthcheck", "--config", PRIVATE],

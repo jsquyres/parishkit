@@ -17,7 +17,13 @@ services:
     build:
       context: ../..
       dockerfile: deploy/stewardship/Dockerfile
-    command: [service, --profile, development, --service-role, web]
+    command:
+      - service
+      - --profile
+      - development
+      - --service-role
+      - web
+      - --bind-all-interfaces
     volumes: [*live-source]
     ports: ["127.0.0.1:${STEWARDSHIP_HTTP_PORT:-8000}:8000"]
     networks: [backend, development]

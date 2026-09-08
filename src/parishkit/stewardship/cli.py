@@ -22,7 +22,7 @@ _COMMAND_OPTIONS = {
         "public_origin",
         "runtime_root",
     },
-    "service": {"profile", "service_role"},
+    "service": {"profile", "service_role", "bind_all_interfaces"},
     "healthcheck": set(),
     "prepare-development": {"runtime_root"},
 }
@@ -48,6 +48,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "--public-origin": "--public-origin requires a URL (value redacted)",
             "--runtime-root": "--runtime-root requires a path (value redacted)",
             "--version": "--version does not accept a value",
+            "--bind-all-interfaces": "--bind-all-interfaces does not accept a value",
         },
     )
     add_common_arguments(parser, options="config")
@@ -61,6 +62,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--service-role", choices=list(ServiceRole))
     parser.add_argument("--public-origin")
     parser.add_argument("--runtime-root")
+    parser.add_argument(
+        "--bind-all-interfaces",
+        action="store_true",
+        default=None,
+        help="development web only: listen on every interface (container opt-in)",
+    )
     args = parser.parse_args(argv)
     supplied = {
         name
@@ -84,7 +91,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         names = ", ".join("--" + name.replace("_", "-") for name in sorted(unsupported))
         parser.usage_error(f"options not supported by {args.command}: {names}")
     if args.command == "service":
-        return run_service(args.profile, args.service_role)
+        if args.bind_all_interfaces and (
+            args.profile != DeploymentProfile.DEVELOPMENT
+            or args.service_role != ServiceRole.WEB
+        ):
+            parser.usage_error(
+                "--bind-all-interfaces requires --profile development "
+                "and --service-role web"
+            )
+        return run_service(
+            args.profile,
+            args.service_role,
+            bind_all_interfaces=args.bind_all_interfaces is True,
+        )
     if args.command == "healthcheck":
         return healthcheck()
     if args.command == "prepare-development":

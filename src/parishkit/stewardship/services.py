@@ -10,13 +10,17 @@ from urllib.request import ProxyHandler, Request, build_opener
 from .deployment import DeploymentProfile, ServiceRole
 
 
-def run_service(profile: str | None, role: str | None) -> int:
+def run_service(
+    profile: str | None, role: str | None, *, bind_all_interfaces: bool = False
+) -> int:
     """Replace the launcher with the development web process, or refuse startup.
 
     Workers, migrations, bootstrap, and production must not look operational
     before their database, authorization, and startup interlocks exist. Exec
     preserves signal delivery through Compose's init process. The development
-    server reloader watches the read-only source bind mount.
+    server reloader watches the read-only source bind mount. Direct host use is
+    loopback-only; containers must explicitly opt into listening on every
+    interface and separately constrain their published host ports.
     """
     if profile != DeploymentProfile.DEVELOPMENT or role != ServiceRole.WEB:
         print(
@@ -25,9 +29,10 @@ def run_service(profile: str | None, role: str | None) -> int:
         return 2
     environment = dict(os.environ)
     environment["DJANGO_SETTINGS_MODULE"] = "parishkit.stewardship.settings.development"
+    address = "0.0.0.0:8000" if bind_all_interfaces is True else "127.0.0.1:8000"
     os.execve(
         sys.executable,
-        [sys.executable, "-m", "django", "runserver", "0.0.0.0:8000"],
+        [sys.executable, "-m", "django", "runserver", address],
         environment,
     )
     return 2  # Defensive fallback for mocked/nonconforming exec implementations.

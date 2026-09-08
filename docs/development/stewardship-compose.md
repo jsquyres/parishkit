@@ -72,6 +72,11 @@ Set `STEWARDSHIP_HTTP_PORT` to change the localhost port (default `8000`). No
 database or broker port is published. Application containers use non-root
 numeric identities, an init process for signals, a read-only filesystem,
 temporary `/tmp`, dropped capabilities, and no-new-privileges.
+The development web command explicitly opts into `--bind-all-interfaces` inside
+the container; the host port remains localhost-only. Direct host launches
+without that flag listen only on `127.0.0.1:8000`. See the
+[service command warning](../../scripts/pk-stewardship/README.md) before using
+the opt-in outside Compose.
 
 Stop without deleting durable data:
 

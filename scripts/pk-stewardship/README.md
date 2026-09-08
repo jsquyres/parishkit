@@ -24,6 +24,11 @@ target, including a symlink, is refused without changes.
 
 `service` starts the selected service role. Currently only the development web
 role is implemented; production and reserved roles refuse startup.
+The development server defaults to `127.0.0.1:8000`. Compose explicitly supplies
+`--bind-all-interfaces` so the server is reachable inside its container, while
+publishing the host port only on localhost. Supplying that flag directly on a
+workstation exposes the debug server to its other network interfaces; do not
+use it on an untrusted network. The flag requires the development web role.
 `healthcheck` probes the development web liveness endpoint and returns a
 nonzero status when it is unavailable. See the
 [Compose guide](../../docs/development/stewardship-compose.md) for invocation
@@ -42,7 +47,7 @@ in full; abbreviations are not accepted.
 | --- | --- |
 | `config-check` | `--config` (required) |
 | `validate-deployment` | `--config`, `--profile`, `--service-role`, `--public-origin`, `--runtime-root` |
-| `service` | `--profile`, `--service-role` |
+| `service` | `--profile`, `--service-role`, `--bind-all-interfaces` (development web only) |
 | `healthcheck` | None |
 | `prepare-development` | `--runtime-root` (required) |
 
