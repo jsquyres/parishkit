@@ -17,8 +17,8 @@ Scope and dependencies: [OPS-01 work package](../../plans/stewardship/operations
 - [x] OPS-01.04 — Restrict service ports to the intended networks.
 - [x] OPS-01.05 — Test and document Compose startup.
 
-Evidence: Phase 0 Compose scaffold on `pr/stewardship-spec`; implementation and
-this evidence are committed together. See the
+Evidence: Phase 0 Compose scaffold commit `72f31f3` on
+`pr/stewardship-implementation`. See the
 [Compose guide](../../development/stewardship-compose.md),
 [`deploy/stewardship`](../../../deploy/stewardship/),
 [`test_services.py`](../../../tests/stewardship/test_services.py), and
@@ -139,8 +139,8 @@ Scope and dependencies: [OPS-09 work package](../../plans/stewardship/operations
 - [ ] OPS-09.05 — Complete required suites, saturated-download load tests, and acceptance traceability.
 - [ ] OPS-09.06 — Publish release artifacts only after the authorized final gate.
 
-Evidence: Phase 0 coverage/CI increment on `pr/stewardship-spec`, committed with
-this evidence. The mandatory package plus exact shared CLI/config/path modules
+Evidence: Phase 0 coverage/CI commit `8557a78` on
+`pr/stewardship-implementation`. The mandatory package plus exact shared CLI/config/path modules
 are declared in [`coverage-stewardship.toml`](../../../coverage-stewardship.toml).
 The [coverage runner](../../../src/parishkit/stewardship/quality.py) derives its
 pytest-cov source arguments from the validated manifest and rejects incomplete

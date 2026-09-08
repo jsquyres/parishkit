@@ -18,7 +18,7 @@ Scope and dependencies: [ARC-01 work package](../../plans/stewardship/architectu
 - [x] ARC-01.05 — Create URL namespaces and intentional placeholders.
 - [x] ARC-01.06 — Test imports, settings, entry points, and URL resolution.
 
-Evidence: Implementation commit `5ef5d5c` on `pr/stewardship-spec`
+Evidence: Implementation commit `fb3b25c` on `pr/stewardship-implementation`
 (`feat: scaffold the stewardship application`). See
 [development notes](../../development/stewardship.md) and
 [`test_scaffold.py`](../../../tests/stewardship/test_scaffold.py).
@@ -42,9 +42,9 @@ Scope and dependencies: [ARC-02 work package](../../plans/stewardship/architectu
 - [x] ARC-02.06 — Configure redacted correlated logging.
 - [ ] ARC-02.07 — Test YAML recovery, precedence, startup, and redaction.
 
-Evidence: Shared-helper commit `fe0c94a` and deployment/authority-contract commit
-`b554e17`, followed by logging/evidence commit `2ececb2`, all on
-`pr/stewardship-spec`. See [deployment metadata](../../development/stewardship-deployment.md),
+Evidence: Shared-helper commit `cbdc391` and deployment/authority-contract commit
+`b5851a3`, followed by logging/evidence commit `20330dd`, all on
+`pr/stewardship-implementation`. See [deployment metadata](../../development/stewardship-deployment.md),
 [authority contracts and remaining integration](../../development/stewardship-authority.md),
 and the deployment/authority/observability tests under
 [`tests/stewardship`](../../../tests/stewardship/).

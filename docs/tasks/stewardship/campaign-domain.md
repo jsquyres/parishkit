@@ -16,8 +16,8 @@ Scope and dependencies: [DOM-01 work package](../../plans/stewardship/campaign-d
 - [x] DOM-01.03 — Test stable serialization and invalid states.
 - [x] DOM-01.04 — Document persisted contracts and migration boundaries.
 
-Evidence: Implementation commit `587b6e5` on `pr/stewardship-spec`
-(`feat: define stewardship domain vocabulary`), following ARC-01 commit `5ef5d5c`.
+Evidence: Implementation commit `9cb45a5` on `pr/stewardship-implementation`
+(`feat: define stewardship domain vocabulary`), following ARC-01 commit `fb3b25c`.
 See the [decision index](../../../src/parishkit/stewardship/DECISIONS.md) and
 [`test_domain.py`](../../../tests/stewardship/test_domain.py).
 Host validation on September 7, 2026: `python -m pytest` passed 407 tests;
@@ -72,8 +72,8 @@ Scope and dependencies: [DOM-05 work package](../../plans/stewardship/campaign-d
 - [x] DOM-05.04 — Track coverage of every specification section and package.
 - [ ] DOM-05.05 — Execute and close the complete acceptance matrix.
 
-Evidence: Phase 0 clock/traceability increment on `pr/stewardship-spec`, committed
-with this evidence. See the [acceptance guide](../../development/stewardship-acceptance.md)
+Evidence: Phase 0 clock/traceability commit `b5bdc01` on
+`pr/stewardship-implementation`. See the [acceptance guide](../../development/stewardship-acceptance.md)
 and [ownership manifest](../../development/stewardship-acceptance.yaml).
 [`clock.py`](../../../src/parishkit/stewardship/clock.py) supplies an injectable
 UTC contract and explicit IANA-zone projection; the test-only ManualClock
