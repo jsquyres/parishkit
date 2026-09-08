@@ -577,6 +577,47 @@ evidence handoff. M0.04 remains open pending fresh independent review and human
 approval; committing or pushing does not release the gate. Pika branch review
 reads committed HEAD, so the next review can now cover these corrections.
 
+Fifth M0 review and triage: finalized September 8, 2026, reviewed SHA `fa55500`,
+base `c810839`, session `20260907-234727-dfcba6`. All five Claude shards and the
+Codex reviewer completed their reviews. Four Claude drafts could not run the
+child-session validator; the parent subsequently validated all five artifacts
+with `pika review check-findings` and promoted only the four passing drafts.
+No findings were rewritten or reviewers rerun during delivery recovery. Finalize
+reported COMMENT, 9 retained Medium findings from 49 raw (1 agreed, 7
+Claude-only, 1 Codex-only), 39 below-cutoff findings, no High/Critical findings,
+and no final reviewer failures, verdict mismatches, or degradations.
+
+The human delegated routine technical/triage decisions and approved the
+[automated phase delivery cycle](../../plans/stewardship/overall.md#automated-phase-delivery-cycle).
+This replaces routine per-finding approval stops, not authorization boundaries
+or final human PR merge approval. Identifiers below use the finalized bucket
+order: agreed A1, Claude-only C1–C7, Codex-only X1.
+
+| Finding | Disposition and evidence |
+| --- | --- |
+| A1 | Fixed: image-baked build-input snapshots now include Dockerfile and both ignore policies; separate checkout references cannot overwrite evidence. Synthetic changed/missing cases cover all seven inputs; Docker checks prove matching/stale recipe and ignore-policy behavior. |
+| C1 | Fixed: all eight shipped example configurations pass the actual deployment loader verbatim, in addition to synthetic coexistence tests. |
+| C2, C5 | Discarded as duplicates of A1; the same snapshot/reference change resolves both. |
+| C3 | Fixed: development provisioning expands user paths before making them absolute; regressions verify the resolved target and absence of writes on resolution failure. |
+| C4 | Fixed: deployment path resolution converts expected expansion errors to sanitized ConfigError at the owning boundary; loader and CLI regressions cover RuntimeError, ValueError, and OSError. |
+| C6 | Addressed with explicit adjacent service comments: vendor infrastructure entrypoint/capability hardening belongs to OPS-02 before Gate 1. Production application startup is still unavailable, and the scaffold admits no parish data. No unsupported capability recipe was introduced in Phase 0. |
+| C7 | Addressed: native Windows skips POSIX authority filesystem tests explicitly, while pure schema tests remain portable. The development guide requires Linux Compose/WSL for full authority durability validation; production fsync guarantees are not weakened. |
+| X1 | Fixed: active-manifest inspection uses guarded lstat, accepts only regular files, and treats only FileNotFoundError as absence. Regression recovery rejects inaccessible entries even when pathlib predicates suppress errors. |
+
+Validation after corrections: all 928 host tests passed with 10 opt-in Docker
+checks skipped, scoped coverage 97.39% lines / 95.96% branches. The rebuilt image
+`405dd37af3f19d2d90556336c81f9aa3f6fed0c9cba5b83d934376b9b95c6b19`
+passed the same 928 tests/10 skips with exact parity across 938 collected IDs.
+All 25 opt-in Compose tests passed, including four matching/stale input cases,
+both synthetic default-deny context checks, reload, persistence, and production
+refusal. Ruff, formatting, all tracked Markdown, migration drift, and whitespace
+checks passed. Coverage evidence is `triage-coverage.json` in the review session.
+No provider calls, deployment, release, merge, or gate approval occurred.
+
+Five review/triage rounds are now complete. M0.04 remains open: material fixes
+will receive a fresh independent review before PR/CI handoff and human merge
+approval. Phase 1 has not started.
+
 ## Phase 1: Secure foundation
 
 Scope: [Phase 1](../../plans/stewardship/overall.md#phase-1-secure-foundation-and-durable-domain).
