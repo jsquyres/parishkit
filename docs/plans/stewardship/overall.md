@@ -77,8 +77,9 @@ Human-approved workflow, September 8, 2026:
    approaches when the specifications establish the intended behavior.
 5. Exit the loop only after at least three completed rounds, no validated High
    or Critical finding in the final round, no unresolved accepted Medium-or-
-   higher findings, and passing validation. Material behavior changes made in
-   the final correction pass require another independent review. Record raw
+   higher findings, and passing validation. Fixes and their regression tests
+   are part of that round; corrections alone do not require another round or
+   a finding-free final review. Record raw
    reviewer severities as well as any evidence-backed rejected findings; never
    treat an incomplete review as a clean round.
 6. Use one PR per phase by default. Split a large phase into smaller coherent,

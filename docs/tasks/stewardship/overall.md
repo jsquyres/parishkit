@@ -43,7 +43,7 @@ now passes local Compose demonstrations and host/image baseline parity. Reserved
 services still refuse startup pending their owning implementation packages.
 Phase 0 [OPS-09 CI/coverage](operations.md#ops-09-ci-coverage-browser-acceptance-and-release-pipeline)
 and [DOM-05 clock/traceability](campaign-domain.md#dom-05-cross-domain-acceptance-harness)
-are implemented for their admitted scope. Seven M0 review/fix rounds and
+are implemented for their admitted scope. Eight M0 review/fix rounds and
 post-correction validation are complete; see the latest
 [milestone evidence](milestones.md#phase-0-skeleton). Finish PR/CI handoff and
 obtain human merge approval before foundation work. No later phase or review

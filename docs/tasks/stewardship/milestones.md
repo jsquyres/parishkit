@@ -701,6 +701,49 @@ whitespace checks. Evidence is `ci-correction-coverage.json` in the seventh
 session. The correction will receive independent review and fresh PR CI;
 M0.04 and human merge approval remain open.
 
+Eighth M0 review and triage: September 8, 2026, reviewed SHA `e50a394`, base
+`c810839`, session `20260908-114901-553509`. The permission preflight, five
+Claude shards, and Codex all completed successfully without artifact recovery.
+Finalize reported COMMENT: eight Claude-only Medium findings from 48 raw,
+40 Low findings below cutoff, no High/Critical findings, and no failed reviewers,
+verdict mismatches, or degradations. C1–C8 below use finalized bucket order.
+
+| Finding | Disposition and evidence |
+| --- | --- |
+| C1 | Discarded as inaccurate: select calls read_version before atomic_write_text, so a missing root cannot reach the parent-creating writer. A new regression proves selection neither creates the root nor its parent. The coordinator also writes the version before materializer.prepare, contrary to the claimed ordering. |
+| C2 | Fixed in 0220afc: invalid IANA identifiers and malformed paths consistently raise a value-free ValueError. Tests cover unknown, empty, and relative-path zone names. |
+| C3 | Fixed in cf2d2e8: acceptance references are checked against exact pytest collection, not flattened AST names. A collection-only regression covers parameterized functions and class methods while excluding nested closures and fixtures; stale parameter IDs cannot match the exact set. |
+| C4 | Fixed in 8031ab9: active checks the provisioned authority root before treating a missing manifest as unconfigured. Missing, non-directory, and inaccessible roots fail without preparing materializer state. This does not imply the root-creation path claimed in C1 exists. |
+| C5 | Discarded: the parser accepts exact Decimal-compatible inputs; only serialization promises canonical two-place output. Existing round-trip tests intentionally normalize 0, -0, and 1.2. Requiring canonical spelling on input would change that contract; no current digest/deduplication consumer compares raw parser input as alleged. |
+| C6 | Discarded as already handled/out of phase: ingress remains disabled and the guide explicitly describes the operator-supplied mount and its limitations. OPS-03 items 1 and 5 already own installation and validation of effective ingress before enabling it. Defaulting to a checkout template would contradict the production no-checkout-mount boundary. |
+| C7 | Fixed in 8031ab9 after reproducing PyYAML normalization of U+0085. Emission now escapes Unicode separators; five write/read/select regressions prove exact document and digest preservation, including accented text. |
+| C8 | Fixed in a6936a3: the traversal marker is emitted by the PostgreSQL-user process after the access check, and both cases require successful setup/process exit. Source, mkdir, or gosu failures cannot impersonate expected denied traversal. |
+
+PR CI at `e50a394` passed PostgreSQL startup but exposed a test-only reloader
+race: HTTP can serve before the restarted watcher's first timestamp snapshot.
+The copied fixture is now re-touched while the expected response is pending,
+without extending the deadline or changing application code. Both forward and
+reverse reload assertions remain. Three regressions cover old content, wrong
+status, and connection startup failures. Bounded logs from only the synthetic
+UUID test project are retained on Compose failures before teardown.
+
+Post-correction validation at implementation SHA `a6936a3`: 955 host/image
+baseline passes, 12 opt-in skips, exact parity across 967 collected IDs, all 30
+opt-in Compose checks passed, and scoped coverage 97.44% lines / 96.04% branches.
+Ruff, formatting, tracked Markdown, migration drift, and whitespace checks
+passed. Coverage is `triage-coverage.json` in the eighth session. An initial
+local Compose attempt exited during PostgreSQL startup without service logs;
+it did not recur in the diagnostic-enabled lifecycle and full-suite reruns.
+No additional cause is claimed for that isolated attempt.
+
+Eight review/fix rounds are complete: five eighth-round findings fixed and
+three rejected with evidence; no accepted Medium-or-higher findings remain.
+The final round found no High/Critical issues. The delivery-cycle wording now
+matches the human's requested stopping rule: validated corrections belong to
+their round, without automatically requiring a finding-free next review.
+Fresh CI at the corrected PR head is still required. M0.04 remains open for
+human merge approval; Phase 1, merge, deployment, and release remain unapproved.
+
 ## Phase 1: Secure foundation
 
 Scope: [Phase 1](../../plans/stewardship/overall.md#phase-1-secure-foundation-and-durable-domain).
