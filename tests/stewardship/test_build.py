@@ -56,6 +56,26 @@ def test_release_build_uses_installed_locked_tools():
     assert "build" in locked_requirements("stewardship.txt")
 
 
+@pytest.mark.parametrize(
+    "step_name", ["Scoped line and branch coverage", "Migration drift"]
+)
+def test_release_requires_ci_quality_gates_before_build(step_name):
+    """Require unmodified CI quality checks before building release artifacts."""
+    ci = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())
+    release = yaml.safe_load((ROOT / ".github/workflows/release.yml").read_text())
+    expected = next(
+        step
+        for step in ci["jobs"]["validate"]["steps"]
+        if step.get("name") == step_name
+    )
+    steps = release["jobs"]["validate-build"]["steps"]
+    matches = [step for step in steps if step.get("name") == step_name]
+    # Compare the complete step, including environment and failure/skip policy.
+    assert matches == [expected]
+    build = next(step for step in steps if step.get("name") == "Build artifacts")
+    assert steps.index(matches[0]) < steps.index(build)
+
+
 def test_build_lock_is_pinned_and_compatible_with_runtime_lock():
     """Installing runtime tools cannot replace shared build dependencies with drift."""
     build = locked_requirements("stewardship-build.txt")

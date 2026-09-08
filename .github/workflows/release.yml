@@ -45,8 +45,13 @@ jobs:
       - name: Markdown lint
         run: python -m pymarkdown --config .pymarkdown.json scan $(git ls-files '*.md')
 
-      - name: Pytest
-        run: python -m pytest
+      - name: Scoped line and branch coverage
+        run: python -m parishkit.stewardship.quality --report "$RUNNER_TEMP/stewardship-coverage.json"
+
+      - name: Migration drift
+        env:
+          DJANGO_SETTINGS_MODULE: parishkit.stewardship.settings.test
+        run: python -m django makemigrations --check --dry-run
 
       - name: Build artifacts
         run: python -m build --no-isolation
