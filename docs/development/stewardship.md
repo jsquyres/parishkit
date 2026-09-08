@@ -16,6 +16,10 @@ The runner rejects existing files and paths resolving into the checkout before
 launching tests. Use a new report filename for each run; even a failed run may
 leave an empty or partial report for diagnostics. A prior passing report cannot
 stand in for missing new measurement, and existing files are never overwritten.
+Raw coverage data is retained in a fresh `stewardship-coverage-*` directory beside
+the JSON report. The child process ignores ambient `PYTEST_*`, `COVERAGE_*`, and
+`COV_CORE_*` controls and uses that new raw-data destination, so shell settings
+cannot silently deselect tests or overwrite an existing coverage database.
 The runner always measures the complete stewardship package plus the exact
 shared modules in `coverage-stewardship.toml`, derives pytest-cov targets from
 that manifest, and independently requires at least 80% lines and 80% branches.

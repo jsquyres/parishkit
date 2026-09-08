@@ -196,6 +196,78 @@ def test_failed_pytest_returns_status_without_reading_report(repository, monkeyp
     )
 
 
+@pytest.mark.parametrize("ambient_coverage", [False, True])
+def test_runner_isolates_test_selection_and_raw_coverage(
+    repository, monkeypatch, ambient_coverage
+):
+    """Ambient selection cannot hide tests or redirect writes to existing data."""
+    report = repository.parent / "report.json"
+    original = repository / "important.toml"
+    original.write_text("synthetic-original")
+    existing_data = repository / ".coverage"
+    existing_data.write_text("synthetic-existing-coverage")
+    monkeypatch.setenv("PYTEST_ADDOPTS", "--deselect=tests/test_important.py")
+    monkeypatch.setenv("PYTEST_PLUGINS", "synthetic_plugin")
+    monkeypatch.setenv("COVERAGE_RCFILE", "synthetic-config")
+    monkeypatch.setenv("COV_CORE_DATAFILE", str(original))
+    monkeypatch.setenv("PARISHKIT_TEST_SENTINEL", "preserved")
+    if ambient_coverage:
+        monkeypatch.setenv("COVERAGE_FILE", str(original))
+    else:
+        monkeypatch.delenv("COVERAGE_FILE", raising=False)
+
+    def emit_report(*args, **kwargs):
+        """Inspect the actual child environment before simulating its outputs."""
+        environment = kwargs["env"]
+        assert not any(
+            name.startswith(("PYTEST_", "COV_CORE_")) for name in environment
+        )
+        assert "COVERAGE_RCFILE" not in environment
+        assert environment["PARISHKIT_TEST_SENTINEL"] == "preserved"
+        data = quality.Path(environment["COVERAGE_FILE"])
+        assert data.is_absolute()
+        assert data.parent.parent == report.parent
+        assert not data.is_relative_to(repository)
+        assert data.parent.is_dir()
+        assert not data.exists()
+        data.write_text("synthetic-new-coverage")
+        report.write_text(json.dumps(report_data(quality.load_scope(repository))))
+        return subprocess.CompletedProcess([], 0)
+
+    monkeypatch.setattr(quality.subprocess, "run", Mock(side_effect=emit_report))
+    assert (
+        quality.main(["--repository-root", str(repository), "--report", str(report)])
+        == 0
+    )
+    assert original.read_text() == "synthetic-original"
+    assert existing_data.read_text() == "synthetic-existing-coverage"
+    assert "--deselect" in quality.os.environ["PYTEST_ADDOPTS"]
+
+
+def test_runner_redacts_coverage_directory_failure(repository, monkeypatch, capsys):
+    """Failure to reserve raw coverage storage must prevent any test launch."""
+    monkeypatch.setattr(
+        quality.tempfile,
+        "mkdtemp",
+        Mock(side_effect=OSError("synthetic-private-directory")),
+    )
+    run = Mock()
+    monkeypatch.setattr(quality.subprocess, "run", run)
+    assert (
+        quality.main(
+            [
+                "--repository-root",
+                str(repository),
+                "--report",
+                str(repository.parent / "report.json"),
+            ]
+        )
+        == 2
+    )
+    run.assert_not_called()
+    assert capsys.readouterr().err == "ERROR: invalid coverage report\n"
+
+
 @pytest.mark.parametrize(
     "fault", ["branch_off", "missing", "outside", "alias", "negative", "bool", "excess"]
 )

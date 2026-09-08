@@ -1,8 +1,10 @@
 """Developer-only scoped coverage runner; no provider or deployment operations."""
 
 import json
+import os
 import subprocess
 import sys
+import tempfile
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -155,10 +157,24 @@ def main(argv=None) -> int:
         # accept a previous passing report when pytest emits no new coverage.
         with report.open("x", encoding="utf-8"):
             pass
+        # pytest-cov rewrites its raw database independently of the JSON output.
+        # Keep that database in a fresh private directory beside the report;
+        # retain it for diagnostics without touching existing coverage data.
+        data_directory = Path(
+            tempfile.mkdtemp(prefix="stewardship-coverage-", dir=report.parent)
+        )
     except (OSError, ValueError, RuntimeError):
         print("ERROR: invalid coverage report", file=sys.stderr)
         return 2
     try:
+        # Ambient pytest selection and coverage controls cannot narrow this
+        # full-baseline gate or redirect its writes into an existing user file.
+        environment = {
+            name: value
+            for name, value in os.environ.items()
+            if not name.startswith(("PYTEST_", "COVERAGE_", "COV_CORE_"))
+        }
+        environment["COVERAGE_FILE"] = str(data_directory / ".coverage")
         result = subprocess.run(
             [
                 sys.executable,
@@ -172,6 +188,7 @@ def main(argv=None) -> int:
                 "no:cacheprovider",
             ],
             cwd=root,
+            env=environment,
             check=False,
         )
     except OSError:
