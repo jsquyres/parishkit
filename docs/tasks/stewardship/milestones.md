@@ -229,6 +229,196 @@ A fresh independent review of the corrected branch and human approval are still
 required before M0.04 can close or foundation work can begin. Pika branch review
 uses committed changes, so the next review can now cover these corrections.
 
+### Third local review and triage
+
+Session `20260907-215721-1698c1` reviewed clean committed HEAD `3605c28`
+against `c810839`. Verdict: COMMENT, with 14 validated MEDIUM findings,
+all Claude-only; no agreed findings, failed reviewers, or finalization
+degradations. The human authorized parent-side validation of the existing
+reviewer artifacts after reviewer-local command permissions blocked validation.
+No review was rerun or posted remotely during that recovery.
+
+Third-triage identifiers C1–C14 follow this session's finalized order; they are
+independent of earlier sessions' identifiers. Initial automatic dispositions:
+
+- Auto-fixed C11: render both Compose overlays with all profiles explicitly
+  selected and require exact service-name coverage. The new assertion first
+  failed for both overlays, confirming that the previous check covered only
+  web, PostgreSQL, and Valkey. Rendering does not start pending services.
+- Auto-fixed C12: test the provisioned development directories against the
+  typed deployment defaults, with the intentional parish-authority exclusion
+  and required Caddy data/config children. Full path integration stays OPS-02.
+- Auto-skipped C6 (already handled): the standard ZoneInfo lookup exception is
+  explicitly tested; this domain value has no configuration/request caller
+  through `validate_with`. The earlier exception-contract decision still holds.
+- Auto-skipped C8 (false-positive): there is no mismatched alias today, and the
+  existing CLI regression asserts the authored config hint. Adding an alias
+  that breaks the mapping would fail that test, contrary to the finding.
+- Auto-skipped C9 (false-positive): `select()` itself calls `read_version()`
+  before writing, not only through its coordinator. The claimed missing-root
+  invocation fails before the shared atomic writer can create directories.
+- Auto-skipped C13 (false-positive): inspection of the pinned PostgreSQL 18.6
+  image's entrypoint confirms `docker_setup_env` reads the password file and
+  unsets its `_FILE` variable before `gosu` re-execution. The claimed reversed
+  ordering is incorrect. This does not claim native Linux-host validation.
+- Auto-skipped C14 (false-positive): the pinned Caddy 2.11.4 image successfully
+  adapted the unchanged template with networking disabled and a synthetic
+  hostname. Its JSON puts the three internal-path 404 responses before the
+  reverse proxy; in-route matcher placement is accepted by this version.
+
+Initially seven findings awaited human decisions, in order: C1 (automated Caddy
+validation now versus its existing OPS-03.05 assignment), C2 (release validation parity),
+C3 (strict-loader diagnostic privacy), C4 (test-bind missing-path behavior),
+C5 (Caddy hardening and explicit production prerequisites), C7 (CLI import
+overhead), and C10 (host development-server listen address). C7's host import
+diagnostic measured about 74 ms for `parishkit.cli`, including about 50 ms for
+`requests`; this establishes avoidable imports, not a health timeout failure.
+
+Focused validation after the two automatic test fixes: 119 tests passed,
+including both all-profile Compose renders and synthetic build-context checks;
+the separately gated lifecycle test was not enabled. No application runtime
+behavior changed, no pending service started, and no commit, push, deployment,
+release, or gate approval is implied. M0.04 remains open.
+
+Human-approved C1 is fixed: the opt-in Compose suite now passes the committed
+template over stdin to the production overlay's pinned Caddy image and runs
+`caddy adapt --validate`. Exact adapted-JSON assertions cover the enclosing
+host match, all three internal-path 404 rules, and their precedence over the
+catch-all proxy. The disposable validation container has no networking,
+published ports, or host mounts and uses temporary Caddy storage. This does
+not start ingress, request certificates, or complete OPS-03's live tests.
+
+After C1, the focused Compose/service suite passed 120 tests, with one lifecycle
+test skipped because its separate opt-in was not enabled. Ruff and formatting
+passed. The complete host baseline passed 777 tests with 6 Docker checks
+skipped; changed Markdown and diff whitespace checks also passed. Six
+interactive findings remain: C2, C3, C4, C5, C7, and C10. Nothing is committed
+or pushed, and M0.04 remains open.
+
+Human-approved C2 is fixed: release validation now runs the same scoped
+line/branch coverage command and test-settings migration-drift check as CI,
+before artifact building. Two regression cases require exact step parity,
+including environment and failure/skip policy, and ordering before the build.
+Both cases failed against the prior release workflow, then passed after the
+change; all 13 build-contract tests passed.
+
+The local scoped coverage run passed 779 tests (6 opt-in Docker checks skipped),
+with 97.17% lines and 95.72% branches. The migration check detected no changes.
+This validation does not execute the release workflow, build release artifacts,
+or authorize publication. Five interactive findings remain: C3, C4, C5, C7,
+and C10. All triage changes remain uncommitted and M0.04 remains open.
+
+Human-approved C3 is fixed: strict YAML loading has its own diagnostic boundary
+covering path expansion/existence/read failures, parsing, scalar conversion,
+and top-level shape validation. It preserves authored duplicate/unhashable-key
+hints, numeric parser locations, repair guidance, and resource-limit messages,
+but omits configuration paths, source snippets, and chained exception details
+from normal traceback rendering. Legacy non-strict loading is unchanged.
+
+All 12 new regression cases failed against the old implementation and passed
+after the fix. They exercise direct exception/traceback rendering, missing and
+optional files, parser failures with and without marks, file-operation errors,
+and legacy diagnostic compatibility. The focused configuration/stewardship
+suite passed 185 tests. The full scoped run passed 791 tests (6 opt-in Docker
+checks skipped), with 97.30% lines and 95.86% branches; Ruff and formatting
+passed. Four interactive findings remain: C4, C5, C7, and C10. Nothing is
+committed or pushed, and M0.04 remains open.
+
+Human-approved C4 is fixed: all 36 short-form test-fixture mounts now use a
+shared long-form read-only bind definition with `create_host_path: false`.
+Their source/target pairs are unchanged, and the existing live-source mount
+retains its explicit no-creation setting. A new structural regression first
+failed against the old short syntax and now verifies existing checkout sources,
+unique matching container targets, read-only access, and disabled creation.
+The real all-profile development render also checks the complete fixture
+mapping and effective mount flags.
+
+After C4, the host scoped run passed 792 tests (6 opt-in checks skipped), with
+97.30% lines and 95.86% branches. The separately enabled Compose suite passed
+all 21 checks, including Caddy validation and the disposable development
+lifecycle. Its in-image baseline passed 792 tests (6 skipped), matching all
+798 host collection IDs. Ruff, formatting, tracked Markdown, and diff whitespace
+checks passed. No image publication, deployment, commit, or push occurred.
+Three interactive findings remain: C5, C7, and C10; M0.04 remains open.
+
+Human-directed C5 is deferred to OPS-03, not claimed as runtime remediation.
+The controlling plan now makes Caddy identity/capability/filesystem hardening,
+restricted writable state, network isolation, and their runtime validation
+explicit prerequisites for enabling ingress. Existing OPS-03.01/05 checklist
+labels point to that work without adding or renumbering tasks. The Compose
+comment and development guide link the unfinished boundary to its owner.
+The `pending-ingress` profile and all effective runtime settings are unchanged;
+neither template validation nor this documentation authorizes ingress startup.
+Two interactive findings remain: C7 and C10. Nothing is committed or pushed,
+and M0.04 remains open.
+
+After the C5 documentation/comment change, the focused Compose and traceability
+suite passed 21 tests, with its separately gated lifecycle check skipped.
+Both real all-profile renders and pinned Caddy validation passed. Ruff,
+formatting, tracked Markdown lint, and diff whitespace checks passed; no new
+runtime hardening or full lifecycle run is claimed for this documentation step.
+
+Human-approved C7 is fixed: shared argument registration and its default-value
+constants now live in the provider-free `parishkit.cli_arguments` module and
+remain available through `parishkit.cli`. Stewardship imports the lightweight
+module directly. Flags, help text, defaults, and legacy exception-handling
+imports retain their behavior. The new shared module is explicitly included
+in the scoped coverage manifest and its regression test.
+
+Five isolated-interpreter tests cover all/config/none argument registration,
+CLI help, and the real healthcheck with a synthetic local response. They assert
+that legacy CLI, provider modules, requests, and urllib3 remain unloaded.
+The pre-fix health/help cases reproduced the unwanted imports; the three helper
+cases failed because the extracted module did not yet exist. A separate test
+checks the legacy re-export and shared defaults.
+
+After C7, the host scoped run passed 798 tests (6 opt-in checks skipped), with
+97.31% lines and 95.86% branches. All 21 separately enabled Compose checks
+passed, including lifecycle and an in-image baseline of 798 passed/6 skipped
+matching all 804 host collection IDs. Ruff, formatting, migration drift,
+tracked Markdown lint, and diff whitespace checks passed. Only C10 remains
+for an interactive decision. Nothing is committed or pushed; M0.04 is open.
+
+Human-approved C10 is fixed: direct development web launches default to
+`127.0.0.1:8000`. The explicit `--bind-all-interfaces` option is accepted only
+for the development web service; Compose supplies it inside the container
+while continuing to publish solely on host loopback. Unrelated commands,
+unimplemented profiles/roles, abbreviations, and value-bearing forms are
+rejected without dispatch or private-value disclosure. The service API retains
+two-argument compatibility with a new default-false keyword-only opt-in.
+
+Tests cover both bind modes across the service/profile matrix, default and
+explicit CLI dispatch, options before/after commands, safe syntax errors, and
+the raw/rendered Compose command and localhost port. The pre-fix default/opt-in
+CLI and Compose checks failed, then passed after the change. Updated CLI and
+Compose documentation warns against opting into network exposure on a host.
+
+Third triage is complete, with all 14 finalized findings accounted for:
+
+| Findings | Disposition |
+| --- | --- |
+| C11, C12 | Auto-fixed: profile coverage and provisioned-path regression tests |
+| C6 | Auto-skipped: intentional, previously handled timezone exception contract |
+| C8, C9, C13, C14 | Auto-skipped: verified false positives |
+| C1, C2, C3, C4, C7, C10 | Fixed with human approval |
+| C5 | Deferred at human direction to explicit OPS-03 hardening prerequisites |
+
+Totals: 2 auto-fixed, 5 auto-skipped, 6 interactively fixed, and 1 interactively
+deferred. The final host scoped run passed 865 tests (6 opt-in Docker checks
+skipped), with 97.31% lines and 95.89% branches. The rebuilt local image
+`448845e0ffe6650d5aa159c1b22d73b9420ced6c504c6a924e829d1528920c59`
+passed the same baseline and matched all 871 host collection IDs. All 21
+separately enabled Compose checks passed. Ruff, formatting, tracked Markdown,
+migration drift, and diff whitespace checks passed.
+
+No commit, push, merge, deployment, release, or gate approval occurred during
+the triage pass itself. Following human authorization, the corrections were
+committed as separate logical, signed-off changes, with this evidence recorded
+in a final documentation commit. No push or new review was performed as part
+of that commit handoff. M0.04 remains open pending a fresh independent review
+and human approval. Pika branch review reads committed HEAD, so the next review
+can now cover these corrections.
+
 ## Phase 1: Secure foundation
 
 Scope: [Phase 1](../../plans/stewardship/overall.md#phase-1-secure-foundation-and-durable-domain).
