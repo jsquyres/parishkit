@@ -175,6 +175,12 @@ PARISHKIT_RUN_COMPOSE_TESTS=1 PARISHKIT_RUN_COMPOSE_SMOKE=1 python -m pytest tes
 ```
 
 In PowerShell, set both variables through `$env:` before invoking pytest.
+The `PARISHKIT_RUN_COMPOSE_TESTS` checks also validate the committed Caddy
+template using the production overlay's pinned image and a synthetic hostname.
+They run `caddy adapt --validate` and assert that all three internal-path 404
+rules precede the catch-all proxy. The validation container has no network or
+published ports, receives the template through stdin, and uses temporary Caddy
+storage. This does not enable ingress or replace OPS-03's live boundary tests.
 Two additional build checks exercise the root and Dockerfile-specific ignore
 files independently against synthetic allowed/private fixtures. They export a
 scratch filesystem under pytest's temporary directory, without using real

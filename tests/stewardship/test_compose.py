@@ -205,6 +205,67 @@ def compose_environment(root):
 
 @pytest.mark.skipif(
     os.environ.get("PARISHKIT_RUN_COMPOSE_TESTS") != "1",
+    reason="explicit opt-in required for pinned Caddy validation",
+)
+def test_caddy_template_denies_internal_paths_before_proxy():
+    """Validate the real template without serving traffic or requesting TLS.
+
+    Pass only committed template text and a synthetic hostname to the pinned
+    image. No host configuration, credentials, ports, or networks are attached.
+    Exact route assertions intentionally require review of matcher/order changes.
+    """
+    hostname = "stewardship.example.invalid"
+    image = definition("compose.production.yaml")["services"]["caddy"]["image"]
+    result = subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "--interactive",
+            "--network",
+            "none",
+            "--read-only",
+            "--tmpfs",
+            "/config",
+            "--tmpfs",
+            "/data",
+            "--env",
+            f"STEWARDSHIP_HOSTNAME={hostname}",
+            image,
+            "caddy",
+            "adapt",
+            "--config",
+            "-",
+            "--adapter",
+            "caddyfile",
+            "--validate",
+        ],
+        input=(DEPLOY / "Caddyfile").read_text(),
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=60,
+    )
+    config = json.loads(result.stdout)
+    (server,) = config["apps"]["http"]["servers"].values()
+    # Guard every enclosing route too: a correct denial hidden behind another
+    # matcher or a preceding catch-all would not protect the internal endpoints.
+    internal = {
+        "match": [{"path": ["/health/live", "/health/ready", "/metrics"]}],
+        "handle": [{"handler": "static_response", "status_code": 404}],
+    }
+    proxy = {
+        "handle": [{"handler": "reverse_proxy", "upstreams": [{"dial": "web:8000"}]}]
+    }
+    ordered = {"handler": "subroute", "routes": [internal, proxy]}
+    site = {"handler": "subroute", "routes": [{"handle": [ordered]}]}
+    assert server["routes"] == [
+        {"match": [{"host": [hostname]}], "handle": [site], "terminal": True}
+    ]
+
+
+@pytest.mark.skipif(
+    os.environ.get("PARISHKIT_RUN_COMPOSE_TESTS") != "1",
     reason="explicit opt-in required for Docker build-context checks",
 )
 @pytest.mark.parametrize("ignore_kind", ["root", "dockerfile"])
