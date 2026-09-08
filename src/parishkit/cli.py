@@ -10,6 +10,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from importlib.metadata import version
 from pathlib import Path
+from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from parishkit.config import (
@@ -185,14 +186,27 @@ def validate_timezone(value: str, *, name: str = "common.timezone") -> str:
     return value
 
 
-def add_common_arguments(parser: argparse.ArgumentParser) -> None:
-    """Register the CLI flags shared by every ParishKit tool.
+def add_common_arguments(
+    parser: argparse.ArgumentParser,
+    *,
+    options: Literal["all", "config", "none"] = "all",
+) -> None:
+    """Register shared flags, optionally limiting them to config or none.
 
     The tri-state flags default to ``None`` (via BooleanOptionalAction) so that
     :func:`resolve_common_options` can tell "not specified on the command line"
     apart from an explicit true/false and fall back to config in that case.
+    Existing tools retain all flags by default. Diagnostics that do not resolve
+    common runtime options can request a smaller set without advertising flags
+    they cannot honor.
     """
+    if options not in {"all", "config", "none"}:
+        raise ValueError("unknown common option set")
+    if options == "none":
+        return
     parser.add_argument("--config", type=Path, help="YAML configuration file")
+    if options == "config":
+        return
     parser.add_argument(
         "--dry-run",
         action=argparse.BooleanOptionalAction,
@@ -244,14 +258,16 @@ def parser_with_common_options(
     prog: str,
     *,
     description: str | None = None,
+    common_options: Literal["all", "config", "none"] = "all",
 ) -> argparse.ArgumentParser:
     """Build an ArgumentParser pre-populated with the common flags.
 
     Convenience wrapper so each tool can create its parser and add only its
-    own tool-specific arguments.
+    own tool-specific arguments. Narrow consumers can select only ``config``
+    or ``none``; existing callers keep the complete shared flag set.
     """
     parser = argparse.ArgumentParser(prog=prog, description=description)
-    add_common_arguments(parser)
+    add_common_arguments(parser, options=common_options)
     return parser
 
 

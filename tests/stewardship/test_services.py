@@ -8,9 +8,88 @@ from urllib.error import URLError
 
 import pytest
 
-from parishkit.stewardship import services
+from parishkit.stewardship import cli, services
 from parishkit.stewardship.cli import main
 from parishkit.stewardship.deployment import DeploymentProfile, ServiceRole
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ["--dry-run"],
+        ["--no-dry-run"],
+        ["--verbose"],
+        ["--no-verbose"],
+        ["--debug"],
+        ["--no-debug"],
+        ["--log-file", "unused"],
+        ["--log-dir", "unused"],
+        ["--slack-token-file", "unused"],
+        ["--slack-channel", "unused"],
+        ["--slack-log-level", "ERROR"],
+        ["--ps-api-key-file", "unused"],
+        ["--ps-cache-dir", "unused"],
+        ["--ps-cache-limit", "1d"],
+        ["--runtime-ro", "unused"],
+    ],
+)
+def test_unsupported_options_cannot_provision_storage(tmp_path, arguments):
+    """Unsupported shared flags and abbreviations fail before real disk writes."""
+    target = tmp_path / "new-runtime"
+    with pytest.raises(SystemExit) as exc:
+        main([*arguments, "prepare-development", "--runtime-root", str(target)])
+    assert exc.value.code == 2
+    assert not target.exists()
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    ("command", "option", "value"),
+    [
+        ("config-check", "--profile", "development"),
+        ("config-check", "--service-role", "web"),
+        ("config-check", "--public-origin", "synthetic-sensitive-value"),
+        ("config-check", "--runtime-root", "synthetic-sensitive-value"),
+        ("service", "--config", "synthetic-sensitive-value"),
+        ("service", "--public-origin", "synthetic-sensitive-value"),
+        ("service", "--runtime-root", "synthetic-sensitive-value"),
+        ("healthcheck", "--config", "synthetic-sensitive-value"),
+        ("healthcheck", "--profile", "development"),
+        ("healthcheck", "--service-role", "web"),
+        ("healthcheck", "--public-origin", "synthetic-sensitive-value"),
+        ("healthcheck", "--runtime-root", "synthetic-sensitive-value"),
+        ("prepare-development", "--config", "synthetic-sensitive-value"),
+        ("prepare-development", "--profile", "development"),
+        ("prepare-development", "--service-role", "web"),
+        ("prepare-development", "--public-origin", "synthetic-sensitive-value"),
+    ],
+)
+@pytest.mark.parametrize("before_command", [True, False])
+def test_command_inapplicable_options_fail_before_dispatch(
+    command, option, value, before_command, monkeypatch, capsys
+):
+    """Reject ignored flags on either side of the command without echoing values."""
+    operations = []
+    for name in (
+        "prepare_development",
+        "run_service",
+        "healthcheck",
+        "load_deployment",
+        "load_yaml_config",
+    ):
+        operation = Mock()
+        monkeypatch.setattr(cli, name, operation)
+        operations.append(operation)
+    arguments = [option, value, command] if before_command else [command, option, value]
+    with pytest.raises(SystemExit) as exc:
+        main(arguments)
+    assert exc.value.code == 2
+    output = capsys.readouterr()
+    assert "options not supported by" in output.err
+    assert "synthetic-sensitive-value" not in output.err
+    assert not output.out
+    for operation in operations:
+        operation.assert_not_called()
 
 
 @pytest.mark.parametrize("profile", [None, *DeploymentProfile])

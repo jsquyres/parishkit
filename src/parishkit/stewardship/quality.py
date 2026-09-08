@@ -119,7 +119,9 @@ def main(argv=None) -> int:
     parser = parser_with_common_options(
         "python -m parishkit.stewardship.quality",
         description="Run credential-free tests with stewardship coverage gates",
+        common_options="none",
     )
+    parser.allow_abbrev = False
     parser.add_argument("--repository-root", type=Path, default=Path.cwd())
     parser.add_argument("--report", type=Path, required=True)
     args = parser.parse_args(argv)

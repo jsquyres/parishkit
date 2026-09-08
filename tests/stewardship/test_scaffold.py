@@ -128,7 +128,26 @@ def test_cli_version_and_help(capsys):
     assert main(["--version"]) == 0
     assert capsys.readouterr().out == f"pk-stewardship {version('parishkit')}\n"
     assert main([]) == 2
-    assert "config-check" in capsys.readouterr().out
+    help_text = capsys.readouterr().out
+    assert "config-check" in help_text
+    for flag in ("--dry-run", "--debug", "--slack", "--ps-", "--log-"):
+        assert flag not in help_text
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ["--version", "healthcheck"],
+        ["--version", "--config", "unused"],
+        ["--runtime-root", "unused"],
+    ],
+)
+def test_options_without_consuming_command_are_rejected(arguments, capsys):
+    """Neither version nor missing-command handling silently discards options."""
+    with pytest.raises(SystemExit) as exc:
+        main(arguments)
+    assert exc.value.code == 2
+    assert not capsys.readouterr().out
 
 
 def test_config_diagnostics_are_redacted(tmp_path, capsys):

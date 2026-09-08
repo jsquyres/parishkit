@@ -9,6 +9,41 @@ import pytest
 from parishkit.stewardship import quality
 
 
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ["--dry-run"],
+        ["--config", "unused.yaml"],
+        ["--debug"],
+        ["--slack-token-file", "unused"],
+        ["--ps-api-key-file", "unused"],
+        ["--rep", "unused.json"],
+    ],
+)
+def test_runner_rejects_unused_flags_before_launch(tmp_path, monkeypatch, arguments):
+    """Unconsumed flags cannot launch pytest or create a misleading report."""
+    run = Mock()
+    monkeypatch.setattr(quality.subprocess, "run", run)
+    report = tmp_path / "report.json"
+    with pytest.raises(SystemExit) as exc:
+        quality.main(["--report", str(report), *arguments])
+    assert exc.value.code == 2
+    run.assert_not_called()
+    assert not report.exists()
+
+
+def test_runner_help_only_advertises_implemented_flags(capsys):
+    """The quality runner has no shared runtime or provider option consumers."""
+    with pytest.raises(SystemExit) as exc:
+        quality.main(["--help"])
+    assert exc.value.code == 0
+    help_text = capsys.readouterr().out
+    assert "--repository-root" in help_text
+    assert "--report" in help_text
+    for flag in ("--config", "--dry-run", "--debug", "--slack", "--ps-", "--log-"):
+        assert flag not in help_text
+
+
 @pytest.fixture
 def repository(tmp_path):
     """Build a tiny repository with one package file and one shared module."""

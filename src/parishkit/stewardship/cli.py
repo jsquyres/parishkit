@@ -12,6 +12,20 @@ from parishkit.config import ConfigError, load_yaml_config
 from .deployment import DeploymentProfile, ServiceRole, load_deployment
 from .services import healthcheck, prepare_development, run_service
 
+_COMMAND_OPTIONS = {
+    "config-check": {"config"},
+    "validate-deployment": {
+        "config",
+        "profile",
+        "service_role",
+        "public_origin",
+        "runtime_root",
+    },
+    "service": {"profile", "service_role"},
+    "healthcheck": set(),
+    "prepare-development": {"runtime_root"},
+}
+
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Dispatch explicit scaffold commands without disclosing configuration.
@@ -21,31 +35,43 @@ def main(argv: Sequence[str] | None = None) -> int:
     Service execution and new development-tree provisioning are explicit commands.
     """
     parser = parser_with_common_options(
-        "pk-stewardship", description="Stewardship application commands"
+        "pk-stewardship",
+        description="Stewardship application commands",
+        common_options="config",
     )
+    parser.allow_abbrev = False
     parser.add_argument("--version", action="store_true")
     parser.add_argument(
         "command",
         nargs="?",
-        choices=[
-            "config-check",
-            "validate-deployment",
-            "service",
-            "healthcheck",
-            "prepare-development",
-        ],
+        choices=list(_COMMAND_OPTIONS),
     )
     parser.add_argument("--profile", choices=list(DeploymentProfile))
     parser.add_argument("--service-role", choices=list(ServiceRole))
     parser.add_argument("--public-origin")
     parser.add_argument("--runtime-root")
     args = parser.parse_args(argv)
+    supplied = {
+        name
+        for name, value in vars(args).items()
+        if name not in {"command", "version"} and value is not None
+    }
     if args.version:
+        if args.command is not None or supplied:
+            parser.error("--version must be used alone")
         print(f"pk-stewardship {version('parishkit')}")
         return 0
     if args.command is None:
+        if supplied:
+            parser.error("options require a command")
         parser.print_help()
         return 2
+    unsupported = supplied - _COMMAND_OPTIONS[args.command]
+    if unsupported:
+        # Check before any filesystem, network, or process operation. Report
+        # option names only: the values may contain credential paths or URLs.
+        names = ", ".join("--" + name.replace("_", "-") for name in sorted(unsupported))
+        parser.error(f"options not supported by {args.command}: {names}")
     if args.command == "service":
         return run_service(args.profile, args.service_role)
     if args.command == "healthcheck":
