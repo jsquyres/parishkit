@@ -8,6 +8,7 @@ import sys
 import time
 from collections import Counter
 from pathlib import Path
+from unittest.mock import MagicMock, Mock
 from urllib.error import HTTPError, URLError
 from urllib.request import ProxyHandler, build_opener
 from uuid import uuid4
@@ -561,8 +562,13 @@ def test_image_build_inputs_detect_stale_checkout(tmp_path, name):
             assert "synthetic-stale-input" not in result.stdout + result.stderr
 
 
-def wait_http(origin, path, status, body=None):
-    """Boundedly poll an isolated container, including expected error responses."""
+def wait_http(origin, path, status, body=None, *, touch_on_retry=None):
+    """Poll boundedly; re-touch a copied source fixture across watcher startup.
+
+    HTTP serving can precede the restarted reloader's first mtime snapshot.
+    Retouching the fixture while pending prevents that snapshot swallowing an
+    edit. Never touch the checkout or extend the deadline on retries.
+    """
     deadline = time.monotonic() + 30
     opener = build_opener(ProxyHandler({}))
     while time.monotonic() < deadline:
@@ -578,8 +584,36 @@ def wait_http(origin, path, status, body=None):
                     return
         except (URLError, OSError):
             pass
+        if touch_on_retry is not None:
+            os.utime(touch_on_retry, None)
         time.sleep(0.2)
     pytest.fail(f"Scaffold endpoint did not reach expected status {status}")
+
+
+@pytest.mark.parametrize("pending", ["body", "status", "unavailable"])
+def test_http_wait_retouches_fixture_only_while_pending(tmp_path, monkeypatch, pending):
+    """A startup race retries the copied fixture, then stops when content matches."""
+    response = MagicMock(status=200)
+    response.__enter__.return_value = response
+    response.read.return_value = b"ok\n"
+    old = MagicMock(status=503 if pending == "status" else 200)
+    old.__enter__.return_value = old
+    old.read.return_value = b"old\n"
+    opener = Mock()
+    opener.open.side_effect = [
+        URLError("synthetic-offline") if pending == "unavailable" else old,
+        response,
+    ]
+    monkeypatch.setattr(
+        sys.modules[__name__], "build_opener", Mock(return_value=opener)
+    )
+    touch = Mock()
+    monkeypatch.setattr(os, "utime", touch)
+    monkeypatch.setattr(time, "sleep", Mock())
+    fixture = tmp_path / "copied-views.py"
+    wait_http("http://localhost", "/health/live", 200, b"ok\n", touch_on_retry=fixture)
+    touch.assert_called_once_with(fixture, None)
+    assert opener.open.call_count == 2
 
 
 @pytest.mark.skipif(
@@ -612,14 +646,20 @@ def test_postgres_volume_traversal_after_privilege_drop(tmp_path, restrict_paren
             "-ec",
             "source /usr/local/bin/docker-entrypoint.sh; "
             "docker_create_db_directories; "
-            'exec gosu postgres test -x "$PGDATA"',
+            "exec gosu postgres bash -ec '"
+            'if test -x "$PGDATA"; then echo POSTGRES_TRAVERSAL_ALLOWED; '
+            "else echo POSTGRES_TRAVERSAL_DENIED; fi'",
         ],
         capture_output=True,
         text=True,
         check=False,
         timeout=120,
     )
-    assert result.returncode == (1 if restrict_parent else 0), result.stderr
+    assert result.returncode == 0, result.stderr
+    expected = (
+        "POSTGRES_TRAVERSAL_DENIED" if restrict_parent else "POSTGRES_TRAVERSAL_ALLOWED"
+    )
+    assert result.stdout.strip() == expected
 
 
 @pytest.mark.skipif(
@@ -686,7 +726,20 @@ def test_development_container_lifecycle(tmp_path):
             check=False,
         )
         if check and result.returncode:
-            pytest.fail(result.stdout + result.stderr)
+            # This UUID project contains synthetic data only. Capture bounded
+            # service diagnostics before teardown so CI startup failures retain
+            # their cause, not just Compose's "container exited" summary.
+            diagnostics = subprocess.run(
+                [*prefix, "logs", "--no-color", "--tail", "100"],
+                env=environment,
+                capture_output=True,
+                text=True,
+                timeout=15,
+                check=False,
+            )
+            pytest.fail(
+                result.stdout + result.stderr + diagnostics.stdout + diagnostics.stderr
+            )
         return result
 
     try:
@@ -756,16 +809,15 @@ def test_development_container_lifecycle(tmp_path):
         assert sentinel not in logs and "synthetic-private-query" not in logs
 
         # A Python-only source change must be visible without image rebuild or
-        # container replacement. Updating fixture mtime avoids one-second races.
+        # container replacement. Re-touch only this copied fixture while waiting
+        # so startup of the new watcher's mtime snapshot cannot swallow an edit.
         views = source / "parishkit/stewardship/views.py"
         original = views.read_text()
         assert '"ok\\n"' in original
         views.write_text(original.replace('"ok\\n"', '"reloaded\\n"'))
-        os.utime(views, (time.time() + 2, time.time() + 2))
-        wait_http(origin, "/health/live", 200, b"reloaded\n")
+        wait_http(origin, "/health/live", 200, b"reloaded\n", touch_on_retry=views)
         views.write_text(original)
-        os.utime(views, (time.time() + 4, time.time() + 4))
-        wait_http(origin, "/health/live", 200, b"ok\n")
+        wait_http(origin, "/health/live", 200, b"ok\n", touch_on_retry=views)
 
         config = json.loads(compose("config", "--format", "json").stdout)
         for name in ("postgres", "valkey"):
