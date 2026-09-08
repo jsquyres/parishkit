@@ -103,6 +103,132 @@ pika branch mode compares committed HEAD, so the dirty-tree attempt in session
 `20260907-202524-ac35dc` was aborted before Claude launch and has no verdict.
 Re-review and human gate approval remain pending.
 
+Second M0 review: September 7, 2026, reviewed clean implementation SHA `85d94e7`,
+base `c810839`, local session `20260907-202815-cc5525`. Codex and three Claude
+shards completed without failures. The finalized verdict was COMMENT: 14
+validated Medium findings (13 Claude-only, 1 Codex-only), no agreed findings.
+The six signed-off correction commits through this SHA were pushed before
+review. M0.04 remains open.
+
+Second triage uses C1–C13 and X1 in this session's finalized order, independent
+of the first review's identifiers. All findings were checked against current
+source, callers, tests, and the approved Phase 0 scope before decisions:
+
+- Auto-fixed C2: README local validation now includes the scoped coverage runner,
+  migration drift with test settings, report-path and PowerShell guidance, and
+  the Compose validation link. Two regression cases compare README commands
+  with CI steps using the existing workflow-test pattern.
+- Auto-fixed C6: the Compose guide identifies the checked-in Caddyfile as an
+  uninstalled reference template. Operators must copy it and supply its path;
+  Compose does not validate its contents. Production ingress remains disabled.
+- Auto-fixed C7: the CLI deployment-validation test removes ambient deployment
+  overrides and PARISHKIT_ROOT with monkeypatch. The YAML-failure tests already
+  reject their invalid document before consulting environment settings.
+- Auto-skipped C1 (false-positive): Django's configure_logging integration calls
+  the custom hook with LOGGING settings. Its argument is required for that
+  protocol; this scaffold intentionally installs a fixed redacted stderr setup,
+  not arbitrary caller-supplied handlers.
+- Auto-skipped C3 (false-positive): select() first reads the persisted version
+  from the configured root. A missing or mistyped root fails before any write;
+  atomic_write_text cannot make the described empty-root activation succeed.
+  Concurrent mount/ownership integration remains assigned to OPS-02/ARC-06.
+- Auto-skipped C4 (false-positive): only Money.to_string promises canonical
+  output. from_string promises exact decimal value parsing, not canonical input
+  rejection. Existing tests deliberately normalize strings such as 0 and 1.2.
+- Auto-skipped C5 (duplicate/false-positive): same input-policy claim as C4;
+  authority document hashing has no Money parser dependency. Normalizing exact
+  values does not invalidate canonical output or authority digest checks.
+- Auto-skipped C8 (already handled): prepare-development explicitly provisions
+  only the Phase 0 layout, not configuration authority/bootstrap. OPS-02/ARC-06
+  own the later typed-path provisioning and service mount integration.
+- Auto-skipped C9 (already handled): standard ZoneInfo lookup errors are an
+  intentional tested contract, consistent with the earlier clock disposition.
+  LocalDayInterval has no request caller or promise of one exception type;
+  future request-boundary validation must handle the documented input types.
+- Auto-skipped C12 (false-positive): installed pytest-django metadata requires
+  pytest unconditionally, but Django only under its optional django extra.
+  The alleged unconditional unbounded Django upgrade does not occur; the
+  supported checkout installation includes the locked stewardship dependencies.
+- Fixed decision 1, C10 with human approval: the opt-in Compose lifecycle check
+  independently collects the full host baseline and compares its exact node IDs
+  with the actual in-image baseline run. A test-only pytest hook emits structured
+  collection evidence without new dependencies or broader mounts. Comparison
+  retains duplicate occurrences, ignores order only, and reports missing and
+  unexpected IDs. Empty, malformed, or missing evidence fails closed. Tests
+  cover equal-count substitutions, duplicates, missing IDs, and real collection
+  of parameterized/skipped synthetic tests without executing their bodies.
+- Fixed decision 2, C11 with human approval: added a root .dockerignore fallback
+  synchronized with the Dockerfile-specific policy by a normal regression test.
+  A narrow read-only mount makes that policy fixture available in image tests.
+  Two opt-in scratch builds independently exercise each ignore file with only
+  synthetic allowed/private files, exporting locally without publishing images.
+  These checks exposed directory exceptions in the original specialized policy
+  that also admitted unlisted descendants (private YAML, bytecode, and an extra
+  requirements file). Removed those exceptions from both copies; explicit file
+  patterns still admit all required build inputs. Both functional checks now
+  pass. The guide requires maintained BuildKit/Buildx usage, records tested
+  versions, and documents the fallback and limits of filename-based exclusions.
+- Skipped decision 3, C13 at human direction: compatibility with older Docker
+  versions is not required. No legacy Compose JSON adapter will be added. The
+  guide replaces the broad v2+ claim with current maintained tooling and records
+  the validated Compose 5.3.1 baseline alongside Docker/Buildx versions. The
+  existing per-container JSON check already passes on that baseline. Retain the
+  approved root ignore policy as defense in depth, not legacy-builder support.
+- Fixed decision 4, X1 with human approval of selective redaction: stewardship
+  uses an opt-in parser that replaces structured argument failures with explicit
+  authored hints about recognized fields and enum choices. Raw input values,
+  converter exception messages, unknown options, and extra positional tokens
+  never enter syntax diagnostics. Existing safe application validation messages
+  use a separate trusted path; help remains available. Both stewardship entry
+  points use this policy; other ParishKit parsers are unchanged. Regression
+  tests cover private values in split/equals-form options, unknown option names,
+  positional values, invalid choices, missing values, converter failures, safe
+  application messages, and rejection before dispatch or coverage execution.
+
+Automatic corrections passed 738 host tests (3 opt-in Docker checks skipped),
+with 97.13% scoped lines and 95.70% branches. All 87 deployment tests also passed
+with deliberately conflicting/unknown ambient deployment overrides. Ruff,
+formatting, and migration drift checks passed. No container rebuild, new review,
+commit, or gate approval is implied by this partial triage evidence.
+
+After C10, the complete host baseline passed 750 tests (3 opt-in Docker checks
+skipped), with 97.13% scoped lines and 95.70% branches. The rebuilt development
+image passed the same baseline; all 753 collected node IDs matched the host.
+All 17 separately enabled Compose checks passed, including the lifecycle smoke,
+reload, private routes, durable replacement, and production startup refusal.
+An earlier smoke invocation overlapped test-file edits and failed; the recorded
+passing validation used the stable updated files. Three decisions remain open;
+no commit, push, or M0.04 approval has occurred in this triage pass.
+
+After C11, 751 host baseline tests passed (5 opt-in Docker checks skipped), with
+97.13% scoped lines and 95.70% branches. The rebuilt image passed the same
+baseline and matched all 756 host collection IDs. All 19 separately enabled
+Docker checks passed, including both synthetic build-context tests and the
+development lifecycle. Docker Engine/CLI 29.7.2 and Buildx 0.36.0-desktop.1 were
+used. Ruff, formatting, tracked Markdown lint, and diff whitespace checks passed.
+Two interactive decisions remain open; changes are not committed or pushed.
+
+After the C13 decision, one interactive finding remains (X1). Only documentation
+and disposition evidence changed; Markdown lint and diff whitespace checks
+passed. No compatibility code was added and no new runtime test run is claimed.
+
+Second triage is complete: 3 auto-fixed (C2, C6, C7), 7 auto-skipped (C1, C3, C4,
+C5, C8, C9, C12), 3 fixed with human approval (C10, C11, X1), and 1 skipped at
+human direction (C13). All 14 findings have dispositions; none await a decision.
+
+After X1, the complete host baseline passed 776 tests (5 opt-in Docker checks
+skipped), with 97.17% scoped lines and 95.72% branches. The rebuilt image passed
+the same baseline and matched all 781 host collection IDs. All 19 separately
+enabled Docker checks passed. Ruff, formatting, tracked Markdown lint, migration
+drift, and diff whitespace checks passed. This includes 25 new selective-error
+regression cases; shared-tool behavior remains unchanged.
+
+These corrections are committed for re-review in logical signed-off commits
+after human authorization. No push is included in this commit-only handoff.
+A fresh independent review of the corrected branch and human approval are still
+required before M0.04 can close or foundation work can begin. Pika branch review
+uses committed changes, so the next review can now cover these corrections.
+
 ## Phase 1: Secure foundation
 
 Scope: [Phase 1](../../plans/stewardship/overall.md#phase-1-secure-foundation-and-durable-domain).
