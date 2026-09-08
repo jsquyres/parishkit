@@ -6,9 +6,10 @@ from collections.abc import Sequence
 from importlib.metadata import version
 from pathlib import Path
 
-from parishkit.cli import parser_with_common_options
+from parishkit.cli import add_common_arguments
 from parishkit.config import ConfigError, load_yaml_config
 
+from .arguments import StewardshipArgumentParser
 from .deployment import DeploymentProfile, ServiceRole, load_deployment
 from .services import healthcheck, prepare_development, run_service
 
@@ -34,12 +35,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     Django, contact providers, or perform writes from syntax diagnostics.
     Service execution and new development-tree provisioning are explicit commands.
     """
-    parser = parser_with_common_options(
+    parser = StewardshipArgumentParser(
         "pk-stewardship",
         description="Stewardship application commands",
-        common_options="config",
+        error_hints={
+            "command": "invalid command; choose " + ", ".join(_COMMAND_OPTIONS),
+            "--profile": "--profile requires a valid value; choose "
+            + ", ".join(DeploymentProfile),
+            "--service-role": "--service-role requires a valid value; choose "
+            + ", ".join(ServiceRole),
+            "--config": "--config requires a configuration file path (value redacted)",
+            "--public-origin": "--public-origin requires a URL (value redacted)",
+            "--runtime-root": "--runtime-root requires a path (value redacted)",
+            "--version": "--version does not accept a value",
+        },
     )
-    parser.allow_abbrev = False
+    add_common_arguments(parser, options="config")
     parser.add_argument("--version", action="store_true")
     parser.add_argument(
         "command",
@@ -58,12 +69,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     }
     if args.version:
         if args.command is not None or supplied:
-            parser.error("--version must be used alone")
+            parser.usage_error("--version must be used alone")
         print(f"pk-stewardship {version('parishkit')}")
         return 0
     if args.command is None:
         if supplied:
-            parser.error("options require a command")
+            parser.usage_error("options require a command")
         parser.print_help()
         return 2
     unsupported = supplied - _COMMAND_OPTIONS[args.command]
@@ -71,14 +82,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         # Check before any filesystem, network, or process operation. Report
         # option names only: the values may contain credential paths or URLs.
         names = ", ".join("--" + name.replace("_", "-") for name in sorted(unsupported))
-        parser.error(f"options not supported by {args.command}: {names}")
+        parser.usage_error(f"options not supported by {args.command}: {names}")
     if args.command == "service":
         return run_service(args.profile, args.service_role)
     if args.command == "healthcheck":
         return healthcheck()
     if args.command == "prepare-development":
         if args.runtime_root is None:
-            parser.error("prepare-development requires an explicit --runtime-root")
+            parser.usage_error(
+                "prepare-development requires an explicit --runtime-root"
+            )
         try:
             prepare_development(Path(args.runtime_root).absolute())
         except OSError:
@@ -109,7 +122,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps({"deployment_syntax_valid": True, "startup_validated": False}))
         return 0
     if args.config is None:
-        parser.error("config-check requires --config")
+        parser.usage_error("config-check requires --config")
     try:
         load_yaml_config(args.config, required=True, reject_duplicate_keys=True)
     except (ConfigError, OSError, UnicodeError):

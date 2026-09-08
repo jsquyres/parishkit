@@ -121,6 +121,16 @@ These shell environment-assignment examples are for POSIX hosts; use the same
 environment variables through PowerShell or the forthcoming development Compose
 configuration on Windows.
 
+Both stewardship CLI entry points use selective syntax-error redaction. Known
+option names and valid choices come from authored public hints; supplied values
+and converter exception text are never copied into diagnostics. Unknown tokens
+are redacted in full, including option-looking tokens that may themselves contain
+private data. Existing safe application-validation messages and help remain
+available. Add an explicit public hint when introducing an argument; never pass
+input values or raw exception text to the parser's trusted `usage_error` path.
+Other ParishKit tools retain their existing shared-parser behavior. This protects
+application output, not shell history or operating-system process listings.
+
 The Family and Admin routes intentionally return 503 without collecting data.
 Internal liveness returns 200 without dependency access, readiness remains 503,
 and metrics returns 404 until its authentication is implemented. Bind the

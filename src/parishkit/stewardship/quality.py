@@ -7,7 +7,7 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-from parishkit.cli import parser_with_common_options
+from .arguments import StewardshipArgumentParser
 
 PACKAGE = "src/parishkit/stewardship"
 FLOOR = 80
@@ -116,15 +116,19 @@ def coverage_percentages(
 
 def main(argv=None) -> int:
     """Run the full baseline with manifest-derived sources, then enforce floors."""
-    parser = parser_with_common_options(
+    parser = StewardshipArgumentParser(
         "python -m parishkit.stewardship.quality",
         description="Run credential-free tests with stewardship coverage gates",
-        common_options="none",
+        error_hints={
+            "--repository-root": "--repository-root requires a path (value redacted)",
+            "--report": "--report requires a file path (value redacted)",
+        },
     )
-    parser.allow_abbrev = False
     parser.add_argument("--repository-root", type=Path, default=Path.cwd())
-    parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument("--report", type=Path, help="required coverage report path")
     args = parser.parse_args(argv)
+    if args.report is None:
+        parser.usage_error("--report is required")
     try:
         root = args.repository_root.resolve(strict=True)
         scope = load_scope(root)
