@@ -17,6 +17,7 @@ import yaml
 
 from parishkit.stewardship.deployment import SECRET_NAMES
 from parishkit.stewardship.services import prepare_development
+from parishkit.stewardship.urls import internal_patterns
 
 ROOT = Path(__file__).resolve().parents[2]
 DEPLOY = ROOT / "deploy/stewardship"
@@ -149,7 +150,8 @@ def test_scaffold_roles_have_no_accidental_authority():
     installers = [app_services[name] for name in sorted(expected)]
     assert len({service["user"] for service in installers}) == len(targets)
     for name, service in app_services.items():
-        assert service["user"].split(":")[0] != "0"
+        uid = service["user"].split(":")[0]
+        assert uid.isascii() and uid.isdecimal() and int(uid) > 0
         assert service["read_only"] and service["init"]
         assert service["cap_drop"] == ["ALL"]
         assert service["security_opt"] == ["no-new-privileges:true"]
@@ -273,8 +275,10 @@ def test_caddy_template_denies_internal_paths_before_proxy():
     (server,) = config["apps"]["http"]["servers"].values()
     # Guard every enclosing route too: a correct denial hidden behind another
     # matcher or a preceding catch-all would not protect the internal endpoints.
+    # Derive paths from the application so adding an internal route cannot
+    # silently leave the ingress deny-list and this test's expectations stale.
     internal = {
-        "match": [{"path": ["/health/live", "/health/ready", "/metrics"]}],
+        "match": [{"path": ["/" + str(route.pattern) for route in internal_patterns]}],
         "handle": [{"handler": "static_response", "status_code": 404}],
     }
     proxy = {
