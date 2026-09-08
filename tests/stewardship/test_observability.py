@@ -3,6 +3,7 @@
 import json
 import logging
 from datetime import UTC, datetime
+from unittest.mock import Mock
 from uuid import UUID, uuid4
 
 import pytest
@@ -11,6 +12,7 @@ from parishkit.stewardship.observability import (
     CorrelationMiddleware,
     Event,
     SafeJsonFormatter,
+    configure_logging,
     correlation,
     emit,
 )
@@ -104,8 +106,21 @@ def test_client_cannot_supply_correlation_id(client):
     assert identifier != UUID(client.get("/")["X-Correlation-ID"])
 
 
-def test_django_logging_cannot_bypass_redaction():
-    """Default Django request/server handlers cannot retain raw path output."""
+@pytest.mark.parametrize(
+    "emitter",
+    ["", "django", "django.server", "gunicorn.error", "gunicorn.access", "celery"],
+)
+def test_configured_logging_cannot_bypass_redaction(monkeypatch, capsys, emitter):
+    """Replace existing handlers and redact real stderr output from every route."""
+    root = logging.getLogger()
+    # Protect pytest's capture handlers from setup_logging's close-and-replace
+    # behavior, and restore all global logger state when this test ends.
+    monkeypatch.setattr(root, "handlers", [])
+    monkeypatch.setattr(root, "level", logging.DEBUG)
+    monkeypatch.setattr(root, "propagate", True)
+    monkeypatch.setattr(root, "disabled", False)
+    sentinels = []
+    children = []
     for name in (
         "django",
         "django.server",
@@ -114,8 +129,43 @@ def test_django_logging_cannot_bypass_redaction():
         "celery",
     ):
         logger = logging.getLogger(name)
-        assert logger.handlers == []
-        assert logger.propagate
+        sentinel = logging.StreamHandler()
+        monkeypatch.setattr(sentinel, "close", Mock(wraps=sentinel.close))
+        monkeypatch.setattr(logger, "handlers", [sentinel])
+        monkeypatch.setattr(logger, "propagate", False)
+        monkeypatch.setattr(logger, "level", logging.DEBUG)
+        monkeypatch.setattr(logger, "disabled", False)
+        sentinels.append(sentinel)
+        children.append(logger)
+    try:
+        configure_logging()
+        for logger, sentinel in zip(children, sentinels, strict=True):
+            assert logger.handlers == []
+            assert logger.propagate
+            sentinel.close.assert_called_once_with()
+        try:
+            raise RuntimeError("synthetic-secret-exception")
+        except RuntimeError:
+            logging.getLogger(emitter).error(
+                "synthetic-secret-message=%s",
+                "synthetic-secret-argument",
+                exc_info=True,
+                stack_info=True,
+                extra={"extra": {"email": "synthetic-secret-extra"}},
+            )
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "synthetic-secret" not in captured.err
+        payload = json.loads(captured.err)
+        assert payload["message"] == "unstructured_log_suppressed"
+        assert payload["level"] == "ERROR"
+        assert payload["extra"] == {}
+        assert datetime.fromisoformat(
+            payload["timestamp"]
+        ).utcoffset() == UTC.utcoffset(None)
+    finally:
+        for handler in root.handlers:
+            handler.close()
 
 
 def test_middleware_restores_context_on_failure(caplog):
