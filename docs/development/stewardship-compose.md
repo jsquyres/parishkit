@@ -125,6 +125,10 @@ Do not enable these profiles to bypass unfinished prerequisites.
 The production overlay has no build context or checkout mount. Every app role
 uses one required GHCR digest, assembled from `STEWARDSHIP_GHCR_REPOSITORY`
 (`owner/repository`) and `STEWARDSHIP_IMAGE_SHA256` (64 hexadecimal characters).
+The image name follows the [release specification](../specs/stewardship/operations/spec.md):
+`ghcr.io/<owner>/<repository>/parishkit@sha256:<hex>`. For repository
+`example/parishkit`, the `/parishkit/parishkit` suffix is intentional: the first
+component is the GitHub repository and the second is its application image.
 Docker rejects malformed digests. The overlay also requires
 `STEWARDSHIP_HOSTNAME`, an operator-installed `STEWARDSHIP_CADDY_CONFIG_FILE`, and
 `STEWARDSHIP_PRODUCTION_POSTGRES_PASSWORD_FILE`. Production cannot fall back to

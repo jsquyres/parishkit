@@ -17,6 +17,15 @@ from parishkit.stewardship.deployment import (
     load_deployment,
 )
 
+EXAMPLES = tuple(
+    sorted(Path(__file__).resolve().parents[2].glob("scripts/*/example-config.yaml"))
+)
+
+
+def test_shipped_example_set_cannot_disappear():
+    """A missing example tree must fail instead of yielding empty parametrizations."""
+    assert len(EXAMPLES) >= 8, "shipped example coverage is incomplete"
+
 
 def config_file(tmp_path, deployment):
     """Write only synthetic deployment metadata to a temporary test YAML file."""
@@ -27,7 +36,7 @@ def config_file(tmp_path, deployment):
 
 @pytest.mark.parametrize(
     "example",
-    sorted(Path(__file__).resolve().parents[2].glob("scripts/*/example-config.yaml")),
+    EXAMPLES,
     ids=lambda path: path.parent.name,
 )
 def test_shipped_examples_validate_without_modification(example):
@@ -58,7 +67,7 @@ def test_deployment_path_expansion_failure_is_sanitized(error, monkeypatch, caps
 
 @pytest.mark.parametrize(
     "example",
-    sorted(Path(__file__).resolve().parents[2].glob("scripts/*/example-config.yaml")),
+    EXAMPLES,
     ids=lambda path: path.parent.name,
 )
 @pytest.mark.parametrize("explicit_deployment", [False, True])

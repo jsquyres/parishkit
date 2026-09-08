@@ -459,6 +459,11 @@ def test_rendered_compose_contract(profile, tmp_path):
             assert not service.get("ports")
         if profile == "production":
             assert not service.get("build")
+            if name not in {"caddy", "postgres", "valkey"}:
+                assert (
+                    service["image"]
+                    == "ghcr.io/example/parishkit/parishkit@sha256:" + "0" * 64
+                )
             if name != "caddy":
                 assert not service.get("ports")
             for mount in service.get("volumes", []):
