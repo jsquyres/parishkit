@@ -650,6 +650,37 @@ in this session. Six rounds are complete; material input/output guard fixes
 will receive independent re-review before PR/CI handoff. No merge, deployment,
 release, real-provider operation, or human gate approval occurred.
 
+Seventh M0 review and triage: September 8, 2026, reviewed SHA `7e6a4c1`, base
+`c810839`, session `20260908-112244-2adbb1`. The permission preflight passed;
+all five Claude shards delivered validated final artifacts without recovery,
+and Codex completed successfully. Finalize reported COMMENT, three retained
+Medium findings from 43 raw (one Claude-only, two Codex-only), 40 below-cutoff
+Low findings, no High/Critical findings, and no failed reviewers, verdict
+mismatches, or degradations. All retained findings were accepted and fixed
+under delegated triage; none requires a product decision.
+
+| Finding | Disposition and evidence |
+| --- | --- |
+| C1 | Fixed in f1ff517: correlation-header regression now includes a valid UUID and explicitly rejects equality with the supplied value, alongside the malformed-header case. |
+| X1 | Fixed in c412c22: the coverage subprocess removes ambient PYTEST controls; regression seeds a deselection and confirms it cannot reach the child while unrelated environment values remain intact. |
+| X2 | Fixed in c412c22: raw coverage uses fresh external storage beside the report, ignoring ambient COVERAGE/COV_CORE controls. Tests preserve existing checkout data under both default and overridden COVERAGE_FILE, and reject storage failures before launch. |
+
+Post-correction validation at implementation SHA `f1ff517`: 942 host tests
+passed with 10 opt-in Docker skips, scoped coverage 97.43% lines / 96.01%
+branches. Rebuilt image baseline: the same 942 passes/10 skips, exact parity
+across 952 collected IDs. All 25 opt-in Compose checks passed. Ruff, formatting,
+all tracked Markdown, migration drift, and whitespace checks passed. Coverage
+evidence is `triage-coverage.json` in this session; the runner also retains its
+raw database in fresh external diagnostic storage.
+
+Seven review/fix rounds are complete. The final correction pass changes only
+developer validation and regression tests, not application behavior. The
+automated loop exit criteria are satisfied: at least three completed rounds,
+no final-round High/Critical findings, no unresolved accepted Medium-or-higher
+findings, and passing validation. Proceed to PR/CI handoff; M0.04 remains open
+for human merge approval. No Phase 1 work, merge, deployment, release, real
+provider operation, or gate approval is authorized by this evidence.
+
 ## Phase 1: Secure foundation
 
 Scope: [Phase 1](../../plans/stewardship/overall.md#phase-1-secure-foundation-and-durable-domain).

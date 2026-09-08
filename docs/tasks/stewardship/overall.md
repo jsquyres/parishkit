@@ -34,7 +34,7 @@ source scope so exceptions and demonstrations are not redefined here.
 
 Source scope: [Phase 0: Skeleton](../../plans/stewardship/overall.md#phase-0-reproducible-project-skeleton).
 
-Execution checkpoint (September 7, 2026): the human approved the ARC-02 phase
+Execution checkpoint (September 8, 2026): the human approved the ARC-02 phase
 split now recorded in the controlling plan. See its
 [partial completion evidence](architecture.md#arc-02-shared-cli-configuration-paths-and-app-startup).
 ARC-01 and DOM-01 evidence is recorded in their owning checklists. The
@@ -43,9 +43,11 @@ now passes local Compose demonstrations and host/image baseline parity. Reserved
 services still refuse startup pending their owning implementation packages.
 Phase 0 [OPS-09 CI/coverage](operations.md#ops-09-ci-coverage-browser-acceptance-and-release-pipeline)
 and [DOM-05 clock/traceability](campaign-domain.md#dom-05-cross-domain-acceptance-harness)
-are implemented for their admitted scope. Finish the current validation and
-M0 scaffold review before any foundation work. No later phase or review gate is
-released. Do not wait for
+are implemented for their admitted scope. Seven M0 review/fix rounds and
+post-correction validation are complete; see the latest
+[milestone evidence](milestones.md#phase-0-skeleton). Finish PR/CI handoff and
+obtain human merge approval before foundation work. No later phase or review
+gate is released. Do not wait for
 Phase 1's database-backed ARC-02 integration or mark that work complete early.
 
 1. [ARC-01](architecture.md#arc-01-dependency-decisions-and-package-skeleton) → [DOM-01](campaign-domain.md#dom-01-domain-vocabulary-and-decision-records) → [ARC-02](architecture.md#arc-02-shared-cli-configuration-paths-and-app-startup) → [OPS-01](operations.md#ops-01-development-and-production-compose-topology).
