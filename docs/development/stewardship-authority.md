@@ -29,6 +29,9 @@ does not alter the canonical digest. The parser bounds depth, node count, and
 canonical size; file reads additionally bound input size. Duplicate YAML keys,
 including ambiguous merge overrides, are rejected by the shared opt-in strict
 loader without changing legacy ParishKit tools' default YAML behavior.
+The shared [strict loading limits](stewardship-deployment.md#strict-yaml-loading)
+also bound composition and alias expansion before YAML object construction;
+canonicalization checks remain an additional layer, not the first resource bound.
 
 The required `validate_sections` callback owns the complete product schema,
 required/unknown/secret fields, and cross-reference checks. No permissive default

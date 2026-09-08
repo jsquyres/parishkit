@@ -10,13 +10,67 @@ import yaml
 
 ConfigData = dict[str, Any]
 
+# Only the opt-in strict loader enforces these ceilings. Keep legacy tools'
+# configuration compatibility independent of stewardship's bounded read path.
+STRICT_YAML_MAX_BYTES = 8_000_000
+STRICT_YAML_MAX_NODES = 100_000
+STRICT_YAML_MAX_DEPTH = 64
+
 
 class ConfigError(ValueError):
     """Raised when runtime configuration is missing or invalid."""
 
 
 class _UniqueKeySafeLoader(yaml.SafeLoader):
-    """Opt-in strict mappings for versioned/security-sensitive configuration."""
+    """Bound composition and alias expansion before constructing strict mappings."""
+
+    def __init__(self, stream):
+        """Initialize per-load budgets, never shared across configuration reads."""
+        self._parse_nodes = 0
+        self._parse_depth = 0
+        self._expanded_nodes = 0
+        super().__init__(stream)
+
+    def compose_node(self, parent, index):
+        """Stop recursive composition before it exhausts stack or node budgets."""
+        self._parse_nodes += 1
+        self._parse_depth += 1
+        try:
+            if (
+                self._parse_nodes > STRICT_YAML_MAX_NODES
+                or self._parse_depth > STRICT_YAML_MAX_DEPTH
+            ):
+                raise ConfigError("configuration YAML exceeds structural limits")
+            return super().compose_node(parent, index)
+        finally:
+            self._parse_depth -= 1
+
+    def _check_expansion(self, node, depth=1):
+        """Count each alias occurrence before merge flattening can amplify it.
+
+        Do not memoize shared nodes: the expanded graph, not just its compact
+        representation, needs a budget. Cycles terminate at the depth ceiling.
+        This traversal uses at most the bounded nesting depth of stack frames.
+        """
+        self._expanded_nodes += 1
+        if (
+            self._expanded_nodes > STRICT_YAML_MAX_NODES
+            or depth > STRICT_YAML_MAX_DEPTH
+        ):
+            raise ConfigError("configuration YAML exceeds structural limits")
+        if isinstance(node, yaml.MappingNode):
+            for key, value in node.value:
+                self._check_expansion(key, depth + 1)
+                self._check_expansion(value, depth + 1)
+        elif isinstance(node, yaml.SequenceNode):
+            for value in node.value:
+                self._check_expansion(value, depth + 1)
+
+    def construct_document(self, node):
+        """Check the complete graph before any object or merged mapping is built."""
+        self._expanded_nodes = 0
+        self._check_expansion(node)
+        return super().construct_document(node)
 
     def construct_mapping(self, node, deep=False):
         """Reject duplicate keys, including ambiguous overrides through YAML merges."""
@@ -38,6 +92,20 @@ class _UniqueKeySafeLoader(yaml.SafeLoader):
         return super().construct_mapping(node, deep=deep)
 
 
+def _load_strict_yaml(path: Path) -> Any:
+    """Bound actual bytes read, including growing files, and normalize recursion."""
+    try:
+        with path.open("rb") as stream:
+            data = stream.read(STRICT_YAML_MAX_BYTES + 1)
+        if len(data) > STRICT_YAML_MAX_BYTES:
+            raise ConfigError("configuration YAML exceeds input byte limit")
+        return yaml.load(data.decode("utf-8"), Loader=_UniqueKeySafeLoader)
+    except (RecursionError, UnicodeError):
+        # A lowered interpreter recursion limit or decoder failure must not
+        # leak input, filenames, or implementation tracebacks to strict callers.
+        raise ConfigError("configuration YAML cannot be safely parsed") from None
+
+
 def load_yaml_config(
     path: str | Path | None,
     *,
@@ -48,8 +116,9 @@ def load_yaml_config(
 
     Empty files are treated as empty dictionaries. Invalid YAML and non-
     mapping top-level values fail fast with a user-facing ``ConfigError``.
-    ``reject_duplicate_keys`` opts into strict nested mappings; the default
-    preserves existing tools' YAML merge/last-value behavior.
+    ``reject_duplicate_keys`` opts into strict nested mappings and bounded
+    byte/node/depth consumption (including alias expansion). The default
+    preserves existing tools' YAML merge/last-value behavior and read limits.
     """
 
     if path is None:
@@ -64,11 +133,10 @@ def load_yaml_config(
         return {}
 
     try:
-        text = config_path.read_text(encoding="utf-8")
         raw_data = (
-            yaml.load(text, Loader=_UniqueKeySafeLoader)
+            _load_strict_yaml(config_path)
             if reject_duplicate_keys
-            else yaml.safe_load(text)
+            else yaml.safe_load(config_path.read_text(encoding="utf-8"))
         )
     except yaml.YAMLError as exc:
         location = _yaml_error_location(exc)

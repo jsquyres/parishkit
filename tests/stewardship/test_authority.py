@@ -8,6 +8,7 @@ from uuid import UUID
 import pytest
 import yaml
 
+from parishkit import config as shared_config
 from parishkit.config import ConfigError
 from parishkit.stewardship.accounts.authority import (
     AuthorityStore,
@@ -100,6 +101,41 @@ class MemoryMaterializer:
 def authority(tmp_path):
     """Use an isolated, already provisioned directory, never runtime defaults."""
     return AuthorityStore(tmp_path, validate_synthetic_schema)
+
+
+@pytest.mark.parametrize("target", ["version", "manifest"])
+@pytest.mark.parametrize("fault", ["depth", "nodes", "bytes", "recursion"])
+def test_strict_resource_failures_are_sanitized(authority, monkeypatch, target, fault):
+    """Both authority read boundaries sanitize parser limits and recursion errors."""
+    version = candidate()
+    authority.write_version(version)
+    authority.select(version)
+    name = f"{version.version_id}.yaml" if target == "version" else "active.yaml"
+    if fault == "depth":
+        # Flow notation fits even the manifest's pre-existing 4,096-byte limit,
+        # so it exercises the strict parser instead of the earlier stat check.
+        (authority.root / name).write_text("key: " + "[" * 550 + "0" + "]" * 550)
+    elif fault == "nodes":
+        monkeypatch.setattr(shared_config, "STRICT_YAML_MAX_NODES", 4)
+    elif fault == "bytes":
+        monkeypatch.setattr(shared_config, "STRICT_YAML_MAX_BYTES", 16)
+    else:
+
+        def fail(*args, **kwargs):
+            """Simulate recursion below the consumer's configuration boundary."""
+            raise RecursionError("synthetic-secret")
+
+        monkeypatch.setattr(shared_config.yaml, "load", fail)
+    error = (
+        "configuration version is unreadable or invalid"
+        if target == "version"
+        else "active configuration manifest is unreadable or invalid"
+    )
+    with pytest.raises(ConfigError, match=f"^{error}$"):
+        if target == "version":
+            authority.read_version(version.version_id)
+        else:
+            authority.active()
 
 
 def test_canonical_round_trip_preserves_ids_and_ignores_order():
