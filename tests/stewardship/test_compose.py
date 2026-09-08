@@ -186,6 +186,21 @@ def test_development_and_production_overlays():
     assert production["services"]["caddy"]["profiles"] == ["pending-ingress"]
 
 
+def test_test_fixture_mounts_require_existing_read_only_sources():
+    """A missing checkout fixture must fail mounting, never create a directory."""
+    mounts = definition("compose.development.yaml")["services"]["tests"]["volumes"]
+    targets = set()
+    for mount in mounts:
+        assert isinstance(mount, dict), "Test mounts must use explicit long syntax"
+        assert mount["type"] == "bind" and mount["read_only"] is True
+        assert mount["bind"]["create_host_path"] is False
+        source = (DEPLOY / mount["source"]).resolve()
+        assert source.exists()
+        assert mount["target"] == "/app/" + source.relative_to(ROOT).as_posix()
+        assert mount["target"] not in targets
+        targets.add(mount["target"])
+
+
 def compose_environment(root):
     """Isolate tests from local operator Compose/deployment configuration."""
     return {
@@ -372,6 +387,20 @@ def test_rendered_compose_contract(profile, tmp_path):
         definition(f"compose.{profile}.yaml")["services"]
     )
     assert set(config["services"]) == expected_services
+    if profile == "development":
+        fixtures = definition("compose.development.yaml")["services"]["tests"][
+            "volumes"
+        ]
+        expected_mounts = {
+            mount["target"]: str((DEPLOY / mount["source"]).resolve())
+            for mount in fixtures
+        }
+        mounts = config["services"]["tests"]["volumes"]
+        assert {mount["target"]: mount["source"] for mount in mounts} == expected_mounts
+        for mount in mounts:
+            assert mount["type"] == "bind" and mount["read_only"] is True
+            # Compose may omit a false boolean when serializing normalized JSON.
+            assert mount.get("bind", {}).get("create_host_path", False) is False
     for name, service in config["services"].items():
         if name not in {"web", "caddy"}:
             assert not service.get("ports")

@@ -1,3 +1,9 @@
+x-test-bind: &test-bind
+  type: bind
+  read_only: true
+  bind:
+    create_host_path: false
+
 x-live-source: &live-source
   type: bind
   source: ../../src
@@ -27,42 +33,114 @@ services:
       disable: true
     volumes:
       - *live-source
-      - ../../tests:/app/tests:ro
-      - ../../.dockerignore:/app/.dockerignore:ro
-      - ../../scripts/pk-stewardship/pk-stewardship.py:/app/scripts/pk-stewardship/pk-stewardship.py:ro
-      - ../../scripts/pk-stewardship/README.md:/app/scripts/pk-stewardship/README.md:ro
-      - ../../scripts/pk-stewardship/example-config.yaml:/app/scripts/pk-stewardship/example-config.yaml:ro
-      - ../../scripts/pk-cron-runner/pk-cron-runner.py:/app/scripts/pk-cron-runner/pk-cron-runner.py:ro
-      - ../../scripts/pk-cron-runner/README.md:/app/scripts/pk-cron-runner/README.md:ro
-      - ../../scripts/pk-cron-runner/example-config.yaml:/app/scripts/pk-cron-runner/example-config.yaml:ro
-      - ../../scripts/pk-query-ps-memfam/pk-query-ps-memfam.py:/app/scripts/pk-query-ps-memfam/pk-query-ps-memfam.py:ro
-      - ../../scripts/pk-query-ps-memfam/README.md:/app/scripts/pk-query-ps-memfam/README.md:ro
-      - ../../scripts/pk-query-ps-memfam/example-config.yaml:/app/scripts/pk-query-ps-memfam/example-config.yaml:ro
-      - ../../scripts/pk-print-ps-ministries/pk-print-ps-ministries.py:/app/scripts/pk-print-ps-ministries/pk-print-ps-ministries.py:ro
-      - ../../scripts/pk-print-ps-ministries/README.md:/app/scripts/pk-print-ps-ministries/README.md:ro
-      - ../../scripts/pk-print-ps-ministries/example-config.yaml:/app/scripts/pk-print-ps-ministries/example-config.yaml:ro
-      - ../../scripts/pk-validate-gcalendar-reservations/pk-validate-gcalendar-reservations.py:/app/scripts/pk-validate-gcalendar-reservations/pk-validate-gcalendar-reservations.py:ro
-      - ../../scripts/pk-validate-gcalendar-reservations/README.md:/app/scripts/pk-validate-gcalendar-reservations/README.md:ro
-      - ../../scripts/pk-validate-gcalendar-reservations/example-config.yaml:/app/scripts/pk-validate-gcalendar-reservations/example-config.yaml:ro
-      - ../../scripts/pk-create-ps-ministry-rosters/pk-create-ps-ministry-rosters.py:/app/scripts/pk-create-ps-ministry-rosters/pk-create-ps-ministry-rosters.py:ro
-      - ../../scripts/pk-create-ps-ministry-rosters/README.md:/app/scripts/pk-create-ps-ministry-rosters/README.md:ro
-      - ../../scripts/pk-create-ps-ministry-rosters/example-config.yaml:/app/scripts/pk-create-ps-ministry-rosters/example-config.yaml:ro
-      - ../../scripts/pk-sync-ps-to-ggroup/pk-sync-ps-to-ggroup.py:/app/scripts/pk-sync-ps-to-ggroup/pk-sync-ps-to-ggroup.py:ro
-      - ../../scripts/pk-sync-ps-to-ggroup/README.md:/app/scripts/pk-sync-ps-to-ggroup/README.md:ro
-      - ../../scripts/pk-sync-ps-to-ggroup/example-config.yaml:/app/scripts/pk-sync-ps-to-ggroup/example-config.yaml:ro
-      - ../../scripts/pk-sync-ps-to-cc/pk-sync-ps-to-cc.py:/app/scripts/pk-sync-ps-to-cc/pk-sync-ps-to-cc.py:ro
-      - ../../scripts/pk-sync-ps-to-cc/README.md:/app/scripts/pk-sync-ps-to-cc/README.md:ro
-      - ../../scripts/pk-sync-ps-to-cc/example-config.yaml:/app/scripts/pk-sync-ps-to-cc/example-config.yaml:ro
-      - ../../tools/prepare-release.py:/app/tools/prepare-release.py:ro
-      - ../../install.py:/app/install.py:ro
-      - ../../coverage-stewardship.toml:/app/coverage-stewardship.toml:ro
-      - ../../docs/specs/stewardship:/app/docs/specs/stewardship:ro
-      - ../../docs/plans/stewardship:/app/docs/plans/stewardship:ro
-      - ../../docs/development/stewardship-acceptance.yaml:/app/docs/development/stewardship-acceptance.yaml:ro
-      - ../../docs/development/stewardship.md:/app/docs/development/stewardship.md:ro
-      - ../../.github/workflows/ci.yml:/app/.github/workflows/ci.yml:ro
-      - ../../.github/workflows/release.yml:/app/.github/workflows/release.yml:ro
-      - ../../deploy/stewardship:/app/deploy/stewardship:ro
+      - <<: *test-bind
+        source: ../../tests
+        target: /app/tests
+      - <<: *test-bind
+        source: ../../.dockerignore
+        target: /app/.dockerignore
+      - <<: *test-bind
+        source: ../../scripts/pk-stewardship/pk-stewardship.py
+        target: /app/scripts/pk-stewardship/pk-stewardship.py
+      - <<: *test-bind
+        source: ../../scripts/pk-stewardship/README.md
+        target: /app/scripts/pk-stewardship/README.md
+      - <<: *test-bind
+        source: ../../scripts/pk-stewardship/example-config.yaml
+        target: /app/scripts/pk-stewardship/example-config.yaml
+      - <<: *test-bind
+        source: ../../scripts/pk-cron-runner/pk-cron-runner.py
+        target: /app/scripts/pk-cron-runner/pk-cron-runner.py
+      - <<: *test-bind
+        source: ../../scripts/pk-cron-runner/README.md
+        target: /app/scripts/pk-cron-runner/README.md
+      - <<: *test-bind
+        source: ../../scripts/pk-cron-runner/example-config.yaml
+        target: /app/scripts/pk-cron-runner/example-config.yaml
+      - <<: *test-bind
+        source: ../../scripts/pk-query-ps-memfam/pk-query-ps-memfam.py
+        target: /app/scripts/pk-query-ps-memfam/pk-query-ps-memfam.py
+      - <<: *test-bind
+        source: ../../scripts/pk-query-ps-memfam/README.md
+        target: /app/scripts/pk-query-ps-memfam/README.md
+      - <<: *test-bind
+        source: ../../scripts/pk-query-ps-memfam/example-config.yaml
+        target: /app/scripts/pk-query-ps-memfam/example-config.yaml
+      - <<: *test-bind
+        source: ../../scripts/pk-print-ps-ministries/pk-print-ps-ministries.py
+        target: /app/scripts/pk-print-ps-ministries/pk-print-ps-ministries.py
+      - <<: *test-bind
+        source: ../../scripts/pk-print-ps-ministries/README.md
+        target: /app/scripts/pk-print-ps-ministries/README.md
+      - <<: *test-bind
+        source: ../../scripts/pk-print-ps-ministries/example-config.yaml
+        target: /app/scripts/pk-print-ps-ministries/example-config.yaml
+      - <<: *test-bind
+        source: ../../scripts/pk-validate-gcalendar-reservations/pk-validate-gcalendar-reservations.py
+        target: /app/scripts/pk-validate-gcalendar-reservations/pk-validate-gcalendar-reservations.py
+      - <<: *test-bind
+        source: ../../scripts/pk-validate-gcalendar-reservations/README.md
+        target: /app/scripts/pk-validate-gcalendar-reservations/README.md
+      - <<: *test-bind
+        source: ../../scripts/pk-validate-gcalendar-reservations/example-config.yaml
+        target: /app/scripts/pk-validate-gcalendar-reservations/example-config.yaml
+      - <<: *test-bind
+        source: ../../scripts/pk-create-ps-ministry-rosters/pk-create-ps-ministry-rosters.py
+        target: /app/scripts/pk-create-ps-ministry-rosters/pk-create-ps-ministry-rosters.py
+      - <<: *test-bind
+        source: ../../scripts/pk-create-ps-ministry-rosters/README.md
+        target: /app/scripts/pk-create-ps-ministry-rosters/README.md
+      - <<: *test-bind
+        source: ../../scripts/pk-create-ps-ministry-rosters/example-config.yaml
+        target: /app/scripts/pk-create-ps-ministry-rosters/example-config.yaml
+      - <<: *test-bind
+        source: ../../scripts/pk-sync-ps-to-ggroup/pk-sync-ps-to-ggroup.py
+        target: /app/scripts/pk-sync-ps-to-ggroup/pk-sync-ps-to-ggroup.py
+      - <<: *test-bind
+        source: ../../scripts/pk-sync-ps-to-ggroup/README.md
+        target: /app/scripts/pk-sync-ps-to-ggroup/README.md
+      - <<: *test-bind
+        source: ../../scripts/pk-sync-ps-to-ggroup/example-config.yaml
+        target: /app/scripts/pk-sync-ps-to-ggroup/example-config.yaml
+      - <<: *test-bind
+        source: ../../scripts/pk-sync-ps-to-cc/pk-sync-ps-to-cc.py
+        target: /app/scripts/pk-sync-ps-to-cc/pk-sync-ps-to-cc.py
+      - <<: *test-bind
+        source: ../../scripts/pk-sync-ps-to-cc/README.md
+        target: /app/scripts/pk-sync-ps-to-cc/README.md
+      - <<: *test-bind
+        source: ../../scripts/pk-sync-ps-to-cc/example-config.yaml
+        target: /app/scripts/pk-sync-ps-to-cc/example-config.yaml
+      - <<: *test-bind
+        source: ../../tools/prepare-release.py
+        target: /app/tools/prepare-release.py
+      - <<: *test-bind
+        source: ../../install.py
+        target: /app/install.py
+      - <<: *test-bind
+        source: ../../coverage-stewardship.toml
+        target: /app/coverage-stewardship.toml
+      - <<: *test-bind
+        source: ../../docs/specs/stewardship
+        target: /app/docs/specs/stewardship
+      - <<: *test-bind
+        source: ../../docs/plans/stewardship
+        target: /app/docs/plans/stewardship
+      - <<: *test-bind
+        source: ../../docs/development/stewardship-acceptance.yaml
+        target: /app/docs/development/stewardship-acceptance.yaml
+      - <<: *test-bind
+        source: ../../docs/development/stewardship.md
+        target: /app/docs/development/stewardship.md
+      - <<: *test-bind
+        source: ../../.github/workflows/ci.yml
+        target: /app/.github/workflows/ci.yml
+      - <<: *test-bind
+        source: ../../.github/workflows/release.yml
+        target: /app/.github/workflows/release.yml
+      - <<: *test-bind
+        source: ../../deploy/stewardship
+        target: /app/deploy/stewardship
     environment:
       DJANGO_SETTINGS_MODULE: parishkit.stewardship.settings.test
 

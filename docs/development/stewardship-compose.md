@@ -162,7 +162,9 @@ docker compose -f deploy/stewardship/compose.yaml -f deploy/stewardship/compose.
 
 The test-only profile mounts test/wrapper/tool fixtures read-only, not credentials
 or the Docker socket. It does not inherit host Compose-smoke flags, preventing
-recursive orchestration.
+recursive orchestration. Every test bind explicitly disables host-path creation;
+a missing source fails mounting instead of leaving an empty directory in the
+checkout. Structural and all-profile rendering tests enforce this invariant.
 
 The opt-in lifecycle check below compares the exact host and in-image collected
 test IDs, including parameterized cases and duplicate occurrences. It fails with
