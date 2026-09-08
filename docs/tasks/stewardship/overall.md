@@ -8,15 +8,19 @@ Use [milestones](milestones.md) for demonstration and review status.
 
 ## How to select the next work
 
-1. Find the earliest incomplete phase whose preceding review gate has passed.
+1. Find the earliest incomplete phase whose preceding review gate has passed and
+   whose preceding phase PR has merged. Follow the controlling plan's
+   [automated phase delivery cycle](../../plans/stewardship/overall.md#automated-phase-delivery-cycle)
+   for branch creation, delegated decisions, review rounds, CI, and merge approval.
 2. Follow the ordered package links below; within a package, inspect its full
    plan item, task evidence, and dependencies before selecting work.
 3. Deliver a bounded increment, verify it, and update only its owning task list.
    Record partial scope when a package spans phases; do not mark a whole package
    done because its first consumer works.
-4. Complete the phase demonstration. At a formal gate, stop feature work, run
-   two independent reviews, correct findings, rerun validation and review, and
-   record the required approval before proceeding.
+4. Complete the phase demonstration and required review/fix rounds, then create
+   or update its PR and correct CI failures. At a formal gate, also validate and
+   review the complete integrated gate scope. Stop for human merge approval with
+   the applicable gate evidence before proceeding to the next phase.
 5. On handoff, record active phase, completed task IDs, implementation SHA,
    validation evidence, remaining scope, and the next dependency-ready task.
 
