@@ -10,7 +10,11 @@ import pytest
 
 from parishkit.stewardship import cli, services
 from parishkit.stewardship.cli import main
-from parishkit.stewardship.deployment import DeploymentProfile, ServiceRole
+from parishkit.stewardship.deployment import (
+    DeploymentProfile,
+    ServiceRole,
+    load_deployment,
+)
 
 
 @pytest.mark.parametrize(
@@ -204,3 +208,17 @@ def test_development_provisioning_requires_explicit_new_target(tmp_path):
         link.symlink_to(tmp_path, target_is_directory=True)
         assert main(["prepare-development", "--runtime-root", str(link)]) == 2
         assert link.is_symlink()
+
+
+def test_development_tree_matches_resolved_standard_paths(tmp_path):
+    """Detect layout drift without treating local provisioning as bootstrap."""
+    root = tmp_path / "local"
+    paths = load_deployment(environ={"PARISHKIT_ROOT": str(root)}).paths
+    services.prepare_development(root)
+    # Parish authority is deliberately absent until the offline bootstrap work.
+    expected = {path for name, path in paths.values.items() if name != "authority"} | {
+        paths["caddy"] / "data",
+        paths["caddy"] / "config",
+    }
+    assert {path for path in root.rglob("*") if path.is_dir()} == expected
+    assert not paths["authority"].exists()

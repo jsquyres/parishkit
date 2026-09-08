@@ -288,6 +288,8 @@ def test_rendered_compose_contract(profile, tmp_path):
         [
             "docker",
             "compose",
+            "--profile",
+            "*",
             "--env-file",
             os.devnull,
             "-f",
@@ -305,6 +307,10 @@ def test_rendered_compose_contract(profile, tmp_path):
         timeout=30,
     )
     config = json.loads(result.stdout)
+    expected_services = set(definition("compose.yaml")["services"]) | set(
+        definition(f"compose.{profile}.yaml")["services"]
+    )
+    assert set(config["services"]) == expected_services
     for name, service in config["services"].items():
         if name not in {"web", "caddy"}:
             assert not service.get("ports")
