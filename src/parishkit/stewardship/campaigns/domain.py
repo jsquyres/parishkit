@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation, localcontext
 from enum import StrEnum
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 class CampaignState(StrEnum):
@@ -204,7 +204,10 @@ class LocalDayInterval:
             raise ValueError("local day requires a date and UTC interval")
         if type(self.timezone) is not str:
             raise ValueError("local day timezone must be an IANA identifier")
-        ZoneInfo(self.timezone)
+        try:
+            ZoneInfo(self.timezone)
+        except (ZoneInfoNotFoundError, ValueError):
+            raise ValueError("local day timezone must be an IANA identifier") from None
 
     def to_dict(self) -> dict[str, object]:
         """Retain the immutable campaign timezone alongside normalized instants."""

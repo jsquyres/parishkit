@@ -4,7 +4,7 @@ import json
 from dataclasses import FrozenInstanceError
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, localcontext
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -217,5 +217,6 @@ def test_local_day_serialization_retains_zone():
         LocalDayInterval(day.day, "UTC", "not an interval")
     with pytest.raises(ValueError):
         LocalDayInterval(day.day, None, interval)
-    with pytest.raises(ZoneInfoNotFoundError):
-        LocalDayInterval(day.day, "Not/A_Zone", interval)
+    for invalid_zone in ("Not/A_Zone", "", "../private"):
+        with pytest.raises(ValueError, match="timezone must be an IANA identifier"):
+            LocalDayInterval(day.day, invalid_zone, interval)
