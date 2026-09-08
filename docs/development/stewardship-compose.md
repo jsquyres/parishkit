@@ -51,8 +51,12 @@ $env:PARISHKIT_ROOT = 'C:/absolute/path/to/new-stewardship-runtime'
 pk-stewardship prepare-development --runtime-root $env:PARISHKIT_ROOT
 ```
 
-Provisioning refuses an existing target, creates owner-only directories where
-POSIX modes are supported, and generates a synthetic PostgreSQL password file.
+Provisioning refuses an existing target and generates a synthetic PostgreSQL
+password file. With POSIX modes, directories are owner-only except the PostgreSQL
+mount root, which allows traversal (0711), not listing or writing, by the
+container's database UID. PostgreSQL 18 makes its nested database directory
+owner-only; its vendor entrypoint does not change the mount root's ownership.
+The enclosing host runtime tree remains owner-only (0700).
 It creates no parish configuration, application keys, or provider credentials.
 Protect the runtime directory with equivalent Windows ACLs. After partial
 failure, inspect the newly created tree and choose another new target; the
@@ -220,6 +224,10 @@ Image-freshness checks run the test service with temporary README, Dockerfile,
 and both ignore-policy references, first matching and then deliberately stale,
 and verify the rebuild diagnostic.
 It never changes the checkout or starts application/provider services.
+PostgreSQL traversal checks use Linux tmpfs with a different owner's UID to
+exercise the pinned entrypoint's privilege drop, independent of Docker Desktop's
+host bind-mount permission translation. They verify both the provisioned mode
+and a deliberately inaccessible parent; no database or host mount is used.
 Two additional build checks exercise the root and Dockerfile-specific ignore
 files independently against synthetic allowed/private fixtures. They export a
 scratch filesystem under pytest's temporary directory, without using real

@@ -239,7 +239,11 @@ def test_new_development_tree_is_private_and_not_application_bootstrap(
     for path in [root, *root.rglob("*")]:
         if os.name == "posix":
             assert stat.S_IMODE(path.stat().st_mode) == (
-                0o700 if path.is_dir() else 0o600
+                0o711
+                if path == root / "run/persistent/postgresql"
+                else 0o700
+                if path.is_dir()
+                else 0o600
             )
     assert main(["prepare-development", "--runtime-root", str(root)]) == 2
     assert password_file.read_text() == password

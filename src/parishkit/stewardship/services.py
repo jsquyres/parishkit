@@ -60,7 +60,7 @@ def healthcheck() -> int:
 
 
 def prepare_development(root: Path) -> None:
-    """Create a new, owner-only local scaffold tree with a synthetic DB password.
+    """Create a new private local scaffold tree with a synthetic DB password.
 
     This is not application bootstrap: it creates no parish authority, provider
     credentials, or application keys. The parent must already exist, and any
@@ -85,6 +85,10 @@ def prepare_development(root: Path) -> None:
         "run/persistent/media",
     ):
         (root / relative).mkdir(mode=0o700)
+    # PostgreSQL 18 drops privileges after chowning PGDATA (18/docker), not
+    # its mount root. Permit traversal there without listing or write access;
+    # the enclosing host tree and the actual database stay owner-only.
+    (root / "run/persistent/postgresql").chmod(0o711)
     password_path = root / "credentials" / "development-postgres-password"
     descriptor = os.open(password_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(descriptor, "w", encoding="ascii") as stream:

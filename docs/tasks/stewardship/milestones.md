@@ -681,6 +681,26 @@ findings, and passing validation. Proceed to PR/CI handoff; M0.04 remains open
 for human merge approval. No Phase 1 work, merge, deployment, release, real
 provider operation, or gate approval is authorized by this evidence.
 
+Initial [Phase 0 PR #8](https://github.com/epiphany40223/parishkit/pull/8) CI at
+`ce6844c` passed validation and DCO but failed the Linux Compose lifecycle:
+PostgreSQL could not traverse its bind-mount root after its entrypoint dropped
+privileges. The pinned PostgreSQL 18 entrypoint chowns nested PGDATA, not its
+parent. Docker Desktop's host permission translation masked this locally.
+Reproduced using the pinned image and Linux tmpfs owned by another UID: 0700
+fails traversal and 0711 allows initialization.
+
+The development provisioner now gives only that mount root traversal permission
+(0711); enclosing host directories, credentials, and actual PGDATA stay private.
+No production prerequisite or existing-runtime migration is bypassed. Two
+opt-in tmpfs regressions exercise actual vendor privilege-drop behavior with
+both provisioned and deliberately restricted modes, without host mounts or a
+database. Local correction validation: 942 host/image passes, 12 opt-in skips,
+exact parity across 954 IDs, all 27 opt-in Compose tests passing, scoped coverage
+97.43% lines / 96.01% branches, plus lint, formatting, migration drift, and
+whitespace checks. Evidence is `ci-correction-coverage.json` in the seventh
+session. The correction will receive independent review and fresh PR CI;
+M0.04 and human merge approval remain open.
+
 ## Phase 1: Secure foundation
 
 Scope: [Phase 1](../../plans/stewardship/overall.md#phase-1-secure-foundation-and-durable-domain).

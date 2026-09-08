@@ -583,6 +583,46 @@ def wait_http(origin, path, status, body=None):
 
 
 @pytest.mark.skipif(
+    os.environ.get("PARISHKIT_RUN_COMPOSE_TESTS") != "1",
+    reason="explicit opt-in required for PostgreSQL volume permission checks",
+)
+@pytest.mark.parametrize("restrict_parent", [False, True])
+def test_postgres_volume_traversal_after_privilege_drop(tmp_path, restrict_parent):
+    """Linux tmpfs exposes permissions that Desktop bind mounts can mask."""
+    runtime = tmp_path / "runtime"
+    prepare_development(runtime)
+    mode = (runtime / "run/persistent/postgresql").stat().st_mode & 0o777
+    if restrict_parent:
+        mode = 0o700
+    image = yaml.safe_load((DEPLOY / "compose.yaml").read_text())["services"][
+        "postgres"
+    ]["image"]
+    result = subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "--network",
+            "none",
+            "--tmpfs",
+            f"/var/lib/postgresql:rw,mode={mode:o},uid=10001,gid=10001",
+            "--entrypoint",
+            "bash",
+            image,
+            "-ec",
+            "source /usr/local/bin/docker-entrypoint.sh; "
+            "docker_create_db_directories; "
+            'exec gosu postgres test -x "$PGDATA"',
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=120,
+    )
+    assert result.returncode == (1 if restrict_parent else 0), result.stderr
+
+
+@pytest.mark.skipif(
     os.environ.get("PARISHKIT_RUN_COMPOSE_SMOKE") != "1",
     reason="explicit opt-in required for disposable local Docker services",
 )
