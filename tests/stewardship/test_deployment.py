@@ -1,5 +1,6 @@
 """ARC-02 deployment input precedence, shape validation, and path contracts."""
 
+import os
 from pathlib import Path
 
 import pytest
@@ -331,8 +332,13 @@ def test_yaml_resource_failures_are_sanitized_at_deployment_and_cli(
         assert capsys.readouterr() == ("", error)
 
 
-def test_cli_deployment_validation_is_not_readiness(capsys):
+def test_cli_deployment_validation_is_not_readiness(capsys, monkeypatch):
     """The CLI validates metadata without claiming that service checks ran."""
+    # Unlike direct loader tests, CLI dispatch reads the process environment.
+    # Local operator settings must not change this synthetic scenario.
+    for name in os.environ:
+        if name == "PARISHKIT_ROOT" or name.startswith("PARISHKIT_STEWARDSHIP_"):
+            monkeypatch.delenv(name)
     assert main(["validate-deployment", "--profile", "development"]) == 0
     assert '"startup_validated": false' in capsys.readouterr().out
     assert main(["validate-deployment", "--profile", "production"]) == 2
