@@ -19,6 +19,9 @@ BUILD_INPUTS = (
     "pyproject.toml",
     "requirements/stewardship.txt",
     "requirements/stewardship-build.txt",
+    ".dockerignore",
+    "deploy/stewardship/Dockerfile",
+    "deploy/stewardship/Dockerfile.dockerignore",
 )
 
 
@@ -53,12 +56,12 @@ def test_image_build_inputs_match_checkout():
     checkout = os.environ.get("PARISHKIT_TEST_CHECKOUT_ROOT")
     if checkout is not None:
         assert checkout, "PARISHKIT_TEST_CHECKOUT_ROOT must not be empty"
-        assert_build_inputs_match(ROOT, Path(checkout))
+        assert_build_inputs_match(ROOT / "baked-build-inputs", Path(checkout))
 
 
 @pytest.fixture
 def build_input_copies(tmp_path):
-    """Create two independent synthetic trees with the four required inputs."""
+    """Create independent synthetic trees with every required build input."""
     roots = (tmp_path / "image", tmp_path / "checkout")
     for root in roots:
         for name in BUILD_INPUTS:

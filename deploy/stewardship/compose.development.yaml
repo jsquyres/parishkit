@@ -55,6 +55,15 @@ services:
         source: ../../requirements/stewardship-build.txt
         target: /app/checkout-build-inputs/requirements/stewardship-build.txt
       - <<: *test-bind
+        source: ../../.dockerignore
+        target: /app/checkout-build-inputs/.dockerignore
+      - <<: *test-bind
+        source: Dockerfile
+        target: /app/checkout-build-inputs/deploy/stewardship/Dockerfile
+      - <<: *test-bind
+        source: Dockerfile.dockerignore
+        target: /app/checkout-build-inputs/deploy/stewardship/Dockerfile.dockerignore
+      - <<: *test-bind
         source: ../../tests
         target: /app/tests
       - <<: *test-bind

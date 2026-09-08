@@ -172,13 +172,16 @@ a missing source fails mounting instead of leaving an empty directory in the
 checkout. Structural and all-profile rendering tests enforce this invariant.
 
 The test service also mounts read-only checkout reference copies of `README.md`,
-`pyproject.toml`, `requirements/stewardship.txt`, and
-`requirements/stewardship-build.txt` under `/app/checkout-build-inputs`.
+`pyproject.toml`, `requirements/stewardship.txt`,
+`requirements/stewardship-build.txt`, `.dockerignore`,
+`deploy/stewardship/Dockerfile`, and its `Dockerfile.dockerignore` under
+`/app/checkout-build-inputs`.
 `PARISHKIT_TEST_CHECKOUT_ROOT` enables a freshness test comparing those copies
-byte-for-byte with the image-baked files. Missing, unreadable, or different inputs
+byte-for-byte with immutable copies under `/app/baked-build-inputs`, which no
+test mount overlays. Missing, unreadable, or different inputs
 fail with a request to rebuild the development image; compared contents are not
 printed. The original image metadata and installed dependencies stay intact.
-Rebuild after changing any of these four inputs, including documentation-only
+Rebuild after changing any of these seven inputs, including documentation-only
 README edits, before running the in-image baseline. Host-only runs have no image
 to compare; synthetic tests exercise both matching and stale/missing inputs.
 
@@ -209,8 +212,9 @@ They run `caddy adapt --validate` and assert that all three internal-path 404
 rules precede the catch-all proxy. The validation container has no network or
 published ports, receives the template through stdin, and uses temporary Caddy
 storage. This does not enable ingress or replace OPS-03's live boundary tests.
-An image-freshness check runs the test service with a temporary README reference,
-first matching and then deliberately stale, and verifies the rebuild diagnostic.
+Image-freshness checks run the test service with temporary README, Dockerfile,
+and both ignore-policy references, first matching and then deliberately stale,
+and verify the rebuild diagnostic.
 It never changes the checkout or starts application/provider services.
 Two additional build checks exercise the root and Dockerfile-specific ignore
 files independently against synthetic allowed/private fixtures. They export a

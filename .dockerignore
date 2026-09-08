@@ -5,6 +5,9 @@
 !README.md
 !requirements/stewardship.txt
 !requirements/stewardship-build.txt
+!.dockerignore
+!deploy/stewardship/Dockerfile
+!deploy/stewardship/Dockerfile.dockerignore
 !src/**/*.py
 !src/**/*.html
 !src/**/*.css

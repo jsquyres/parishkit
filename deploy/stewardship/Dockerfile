@@ -11,6 +11,10 @@ COPY requirements/stewardship.txt requirements/stewardship-build.txt requirement
 RUN python -m pip install --no-cache-dir -r requirements/stewardship-build.txt \
     && python -m pip install --no-cache-dir -r requirements/stewardship.txt
 COPY pyproject.toml README.md ./
+# Immutable freshness evidence is separate from every live test fixture mount.
+COPY pyproject.toml README.md .dockerignore baked-build-inputs/
+COPY requirements/stewardship.txt requirements/stewardship-build.txt baked-build-inputs/requirements/
+COPY deploy/stewardship/Dockerfile deploy/stewardship/Dockerfile.dockerignore baked-build-inputs/deploy/stewardship/
 COPY src/ src/
 # Editable metadata points at /app/src, the only live-code development mount.
 RUN python -m pip install --no-cache-dir --no-deps --no-build-isolation -e . \

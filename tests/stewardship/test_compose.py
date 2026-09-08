@@ -205,6 +205,11 @@ def test_test_fixture_mounts_require_existing_read_only_sources():
         "requirements/stewardship.txt",
         "requirements/stewardship-build.txt",
     }
+    recipe_inputs = {
+        ".dockerignore",
+        "deploy/stewardship/Dockerfile",
+        "deploy/stewardship/Dockerfile.dockerignore",
+    }
     targets = set()
     for mount in mounts:
         assert isinstance(mount, dict), "Test mounts must use explicit long syntax"
@@ -213,11 +218,18 @@ def test_test_fixture_mounts_require_existing_read_only_sources():
         source = (DEPLOY / mount["source"]).resolve()
         assert source.exists()
         relative = source.relative_to(ROOT).as_posix()
-        prefix = "/app/checkout-build-inputs/" if relative in build_inputs else "/app/"
+        reference = relative in build_inputs or (
+            relative in recipe_inputs
+            and mount["target"].startswith("/app/checkout-build-inputs/")
+        )
+        prefix = "/app/checkout-build-inputs/" if reference else "/app/"
         assert mount["target"] == prefix + relative
         assert mount["target"] not in targets
         targets.add(mount["target"])
-    assert {"/app/checkout-build-inputs/" + name for name in build_inputs} <= targets
+    assert {
+        "/app/checkout-build-inputs/" + name for name in build_inputs | recipe_inputs
+    } <= targets
+    assert not any(target.startswith("/app/baked-build-inputs") for target in targets)
     environment = definition("compose.development.yaml")["services"]["tests"][
         "environment"
     ]
@@ -348,6 +360,7 @@ def test_build_context_excludes_synthetic_private_files(tmp_path, ignore_kind):
         "src/parishkit/__pycache__/app.pyc",
         "requirements/local.txt",
         "new-unlisted-directory/private.py",
+        "deploy/stewardship/private.yaml",
     }
     for relative in allowed | denied:
         path = context / relative
@@ -375,7 +388,13 @@ def test_build_context_excludes_synthetic_private_files(tmp_path, ignore_kind):
         for path in output.rglob("*")
         if path.is_file()
     }
-    assert exported == allowed
+    recipe_files = {"deploy/stewardship/Dockerfile"}
+    recipe_files.add(
+        ".dockerignore"
+        if ignore_kind == "root"
+        else "deploy/stewardship/Dockerfile.dockerignore"
+    )
+    assert exported == allowed | recipe_files
 
 
 @pytest.mark.skipif(
@@ -461,10 +480,19 @@ def test_rendered_compose_contract(profile, tmp_path):
     os.environ.get("PARISHKIT_RUN_COMPOSE_TESTS") != "1",
     reason="explicit opt-in required for image freshness validation",
 )
-def test_image_build_inputs_detect_stale_checkout(tmp_path):
+@pytest.mark.parametrize(
+    "name",
+    [
+        "README.md",
+        "deploy/stewardship/Dockerfile",
+        ".dockerignore",
+        "deploy/stewardship/Dockerfile.dockerignore",
+    ],
+)
+def test_image_build_inputs_detect_stale_checkout(tmp_path, name):
     """Exercise matching and stale reference mounts without changing the checkout."""
-    reference = tmp_path / "README.md"
-    reference.write_bytes((ROOT / "README.md").read_bytes())
+    reference = tmp_path / "reference"
+    reference.write_bytes((ROOT / name).read_bytes())
     override = tmp_path / "freshness.yaml"
     override.write_text(
         yaml.safe_dump(
@@ -475,7 +503,7 @@ def test_image_build_inputs_detect_stale_checkout(tmp_path):
                             {
                                 "type": "bind",
                                 "source": str(reference),
-                                "target": "/app/checkout-build-inputs/README.md",
+                                "target": "/app/checkout-build-inputs/" + name,
                                 "read_only": True,
                                 "bind": {"create_host_path": False},
                             }
