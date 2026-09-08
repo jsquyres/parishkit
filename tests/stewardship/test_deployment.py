@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from parishkit import config as shared_config
 from parishkit.config import ConfigError
 from parishkit.stewardship.cli import main
 from parishkit.stewardship.deployment import (
@@ -21,6 +22,66 @@ def config_file(tmp_path, deployment):
     path = tmp_path / "deployment.yaml"
     path.write_text(yaml.safe_dump({"deployment": deployment}), encoding="utf-8")
     return path
+
+
+@pytest.mark.parametrize(
+    "example",
+    sorted(Path(__file__).resolve().parents[2].glob("scripts/*/example-config.yaml")),
+    ids=lambda path: path.parent.name,
+)
+@pytest.mark.parametrize("explicit_deployment", [False, True])
+def test_shared_example_sections_are_accepted(tmp_path, example, explicit_deployment):
+    """Every tool's documented sections coexist with optional deployment input."""
+    document = yaml.safe_load(example.read_text(encoding="utf-8"))
+    document.pop("deployment", None)
+    if explicit_deployment:
+        document["deployment"] = {"public_origin": "http://localhost:9005"}
+    path = tmp_path / "shared.yaml"
+    path.write_text(yaml.safe_dump(document), encoding="utf-8")
+    config = load_deployment(path, environ={})
+    assert config.profile is DeploymentProfile.DEVELOPMENT
+    assert config.public_origin == (
+        "http://localhost:9005" if explicit_deployment else "http://localhost:8000"
+    )
+    assert not config.secrets
+    assert config.postgres.password_file is None
+
+
+def test_other_section_contents_are_not_deployment_settings(tmp_path):
+    """Only the owning tool interprets fields beneath a recognized section."""
+    path = tmp_path / "shared.yaml"
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "google": {
+                    "profile": "production",
+                    "public_origin": "synthetic-secret",
+                },
+                "jobs": [{"command": "unused-command"}],
+                "deployment": {"public_origin": "http://localhost:9005"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    config = load_deployment(path, environ={})
+    assert config.profile is DeploymentProfile.DEVELOPMENT
+    assert config.public_origin == "http://localhost:9005"
+
+
+@pytest.mark.parametrize("typo", ["deploymnet", "gooogle", "unknown"])
+@pytest.mark.parametrize("explicit_deployment", [False, True])
+def test_unknown_top_level_sections_still_fail(tmp_path, typo, explicit_deployment):
+    """Expanded recognition must not silently accept misspelled section names."""
+    document = {typo: {"synthetic-secret": "synthetic-secret"}, "google": {}}
+    if explicit_deployment:
+        document["deployment"] = {"public_origin": "http://localhost:9005"}
+    path = tmp_path / "shared.yaml"
+    path.write_text(yaml.safe_dump(document), encoding="utf-8")
+    with pytest.raises(
+        ConfigError, match="invalid top-level configuration shape"
+    ) as exc:
+        load_deployment(path, environ={})
+    assert "synthetic-secret" not in str(exc.value)
 
 
 def test_development_defaults_do_not_touch_storage(tmp_path):
@@ -237,6 +298,37 @@ def test_yaml_errors_are_sanitized(tmp_path):
         with pytest.raises(ConfigError) as exc:
             load_deployment(path, environ={})
         assert "synthetic-secret" not in str(exc.value)
+
+
+@pytest.mark.parametrize("fault", ["depth", "nodes", "bytes", "recursion"])
+def test_yaml_resource_failures_are_sanitized_at_deployment_and_cli(
+    tmp_path, monkeypatch, capsys, fault
+):
+    """Strict read failures retain both deployment and CLI redaction contracts."""
+    path = tmp_path / "synthetic-sensitive-path.yaml"
+    text = "deployment: {public_origin: 'http://localhost:9005'}"
+    if fault == "depth":
+        text = "".join("  " * depth + "key:\n" for depth in range(550))
+    elif fault == "nodes":
+        monkeypatch.setattr(shared_config, "STRICT_YAML_MAX_NODES", 4)
+    elif fault == "bytes":
+        monkeypatch.setattr(shared_config, "STRICT_YAML_MAX_BYTES", 16)
+    else:
+
+        def fail(*args, **kwargs):
+            """Simulate an unexpected recursion failure inside the YAML library."""
+            raise RecursionError("synthetic-secret")
+
+        monkeypatch.setattr(shared_config.yaml, "load", fail)
+    path.write_text(text, encoding="utf-8")
+    with pytest.raises(ConfigError, match="^deployment YAML is unreadable or invalid$"):
+        load_deployment(path, environ={})
+    for command, error in (
+        ("validate-deployment", "ERROR: deployment configuration is invalid\n"),
+        ("config-check", "ERROR: configuration must be a readable YAML mapping\n"),
+    ):
+        assert main([command, "--config", str(path)]) == 2
+        assert capsys.readouterr() == ("", error)
 
 
 def test_cli_deployment_validation_is_not_readiness(capsys):

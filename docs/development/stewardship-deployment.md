@@ -9,8 +9,15 @@ runtime state, and credential files.
 ## Input and precedence
 
 The `deployment` mapping in a shared ParishKit YAML file accepts schema
-version 1. Existing `common`, `logging`, `slack`, and `parishsoft` sections are reserved
-for the shared helpers; this deployment parser does not reinterpret them.
+version 1. The other recognized top-level sections are `calendars`, `common`,
+`constant_contact`, `email`, `google`, `jobs`, `lock`, `logging`, `parishsoft`,
+`print_member`, `print_ministries`, `rosters`, `runner`, `slack`, and `sync`.
+Their contents belong to the other tools/shared helpers; this deployment parser
+does not reinterpret or validate their individual fields. Unknown top-level
+section names are rejected, including misspellings such as `deploymnet`.
+When a tool introduces a new section, update the recognized list in the
+[deployment loader](../../src/parishkit/stewardship/deployment.py); regression
+tests check compatibility with every tool's example configuration.
 An absent deployment document supplies only safe development defaults, not a
 configured parish. Unknown deployment fields and unknown environment variables
 in the `PARISHKIT_STEWARDSHIP_` namespace are rejected without echoing contents.
@@ -33,6 +40,28 @@ Successful output includes `"startup_validated": false`. This is a metadata
 diagnostic, not a statement that credentials, mounts, migrations, database/YAML
 agreement, or service availability were checked. Production remains disabled in
 the scaffold until those checks are implemented and connected.
+
+## Strict YAML loading
+
+Deployment validation, `config-check`, and authority-file reads opt into the
+shared strict YAML loader. It limits each input to 8,000,000 UTF-8 bytes, 100,000
+parsed node occurrences (including alias references), and 64 nesting levels
+(the root is level 1; mapping keys and scalar values also count as nodes).
+The reader requests at most the byte ceiling plus one, so file growth after
+a filesystem size check cannot cause an unbounded read.
+
+Before constructing values or flattening merged mappings, the loader also
+checks the alias-expanded graph against the same node/depth ceilings. Shared
+references are counted each time they occur; cycles and excessive expansion
+are rejected. Ordinary aliases and unambiguous merges within these limits
+remain supported. Limit violations and unexpected recursion failures raise
+sanitized `ConfigError` responses; no recursion traceback or input content is
+printed by stewardship's diagnostic commands.
+
+The [authority layer](stewardship-authority.md#version-envelope) retains its
+additional schema, canonical-size, and structural checks. Legacy non-strict
+ParishKit YAML loading keeps its existing behavior and does not inherit these
+new limits.
 
 ## Schema version 1
 

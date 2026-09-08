@@ -229,7 +229,27 @@ def load_deployment(
         raise ConfigError("deployment YAML is unreadable or invalid") from None
     _mapping(
         document,
-        {"deployment", "common", "logging", "slack", "parishsoft"},
+        # Recognize other tools' sections without interpreting their contents.
+        # Keep this list aligned with scripts/*/example-config.yaml; regression
+        # tests load every example so new shared sections require review here.
+        {
+            "calendars",
+            "common",
+            "constant_contact",
+            "deployment",
+            "email",
+            "google",
+            "jobs",
+            "lock",
+            "logging",
+            "parishsoft",
+            "print_member",
+            "print_ministries",
+            "rosters",
+            "runner",
+            "slack",
+            "sync",
+        },
         "top-level",
     )
     deployment = _mapping(
