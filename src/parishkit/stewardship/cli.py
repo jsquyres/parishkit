@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from importlib.metadata import version
 from pathlib import Path
 
-from parishkit.cli import add_common_arguments
+from parishkit.cli_arguments import add_common_arguments
 from parishkit.config import ConfigError, load_yaml_config
 
 from .arguments import StewardshipArgumentParser

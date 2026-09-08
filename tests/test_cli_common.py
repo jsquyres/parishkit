@@ -3,8 +3,19 @@ from pathlib import Path
 
 import pytest
 
-from parishkit import cli
+from parishkit import cli, cli_arguments
 from parishkit.config import ConfigError
+
+
+def test_common_argument_helper_remains_available_from_legacy_cli():
+    """Existing imports retain the same helper and single-source default values."""
+    assert cli.add_common_arguments is cli_arguments.add_common_arguments
+    assert cli.DEFAULT_PS_CACHE_LIMIT == cli_arguments.DEFAULT_PS_CACHE_LIMIT == "14m"
+    assert (
+        cli.DEFAULT_SLACK_LOG_LEVEL
+        == cli_arguments.DEFAULT_SLACK_LOG_LEVEL
+        == "CRITICAL"
+    )
 
 
 @pytest.mark.parametrize("selection", ["all", "config", "none"])

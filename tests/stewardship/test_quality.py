@@ -66,6 +66,7 @@ def test_real_manifest_requires_package_and_extended_shared_modules():
     assert scope.modules == (
         "parishkit.stewardship",
         "parishkit.cli",
+        "parishkit.cli_arguments",
         "parishkit.config",
         "parishkit.paths",
     )

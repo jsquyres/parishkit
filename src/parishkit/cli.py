@@ -1,4 +1,8 @@
-"""Shared command-line helpers for ParishKit tools."""
+"""Shared command-line helpers for ParishKit tools.
+
+Argument registration is re-exported from ``parishkit.cli_arguments``. Consumers
+that need only parser flags can import that module without loading providers.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +17,11 @@ from pathlib import Path
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from parishkit.cli_arguments import (
+    DEFAULT_PS_CACHE_LIMIT,
+    DEFAULT_SLACK_LOG_LEVEL,
+    add_common_arguments,
+)
 from parishkit.config import (
     ConfigData,
     ConfigError,
@@ -35,8 +44,6 @@ DEFAULT_REPORTS_DIR = OPT_ROOT / "reports"
 DEFAULT_RUN_DIR = OPT_ROOT / "run"
 DEFAULT_PS_API_KEY_FILE = DEFAULT_CREDENTIALS_DIR / "parishsoft-api-key.txt"
 DEFAULT_PS_CACHE_DIR = DEFAULT_CACHE_DIR / "parishsoft"
-DEFAULT_PS_CACHE_LIMIT = "14m"
-DEFAULT_SLACK_LOG_LEVEL = "CRITICAL"
 DEFAULT_TIMEZONE = "America/Kentucky/Louisville"
 _CACHE_LIMIT_PATTERN = re.compile(r"^[1-9][0-9]*[smhd]$")
 
@@ -184,74 +191,6 @@ def validate_timezone(value: str, *, name: str = "common.timezone") -> str:
     except ZoneInfoNotFoundError as exc:
         raise ConfigError(f"{name} is not a known IANA timezone: {value}") from exc
     return value
-
-
-def add_common_arguments(
-    parser: argparse.ArgumentParser,
-    *,
-    options: Literal["all", "config", "none"] = "all",
-) -> None:
-    """Register shared flags, optionally limiting them to config or none.
-
-    The tri-state flags default to ``None`` (via BooleanOptionalAction) so that
-    :func:`resolve_common_options` can tell "not specified on the command line"
-    apart from an explicit true/false and fall back to config in that case.
-    Existing tools retain all flags by default. Diagnostics that do not resolve
-    common runtime options can request a smaller set without advertising flags
-    they cannot honor.
-    """
-    if options not in {"all", "config", "none"}:
-        raise ValueError("unknown common option set")
-    if options == "none":
-        return
-    parser.add_argument("--config", type=Path, help="YAML configuration file")
-    if options == "config":
-        return
-    parser.add_argument(
-        "--dry-run",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="avoid external writes",
-    )
-    parser.add_argument(
-        "--verbose",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="enable verbose logging",
-    )
-    parser.add_argument(
-        "--debug",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="enable debug logging",
-    )
-    parser.add_argument("--log-file", type=Path, help="write logs to this file")
-    parser.add_argument(
-        "--log-dir",
-        type=Path,
-        help="write default logs under this dir",
-    )
-    parser.add_argument("--slack-token-file", type=Path, help="Slack token file")
-    parser.add_argument(
-        "--slack-channel",
-        help="Slack channel for critical notifications",
-    )
-    parser.add_argument(
-        "--slack-log-level",
-        default=None,
-        help=f"Slack logging threshold (default: {DEFAULT_SLACK_LOG_LEVEL})",
-    )
-    parser.add_argument(
-        "--ps-api-key-file",
-        type=Path,
-        help="ParishSoft API key file",
-    )
-    parser.add_argument("--ps-cache-dir", type=Path, help="ParishSoft cache directory")
-    parser.add_argument(
-        "--ps-cache-limit",
-        default=None,
-        help=f"ParishSoft cache age limit (default: {DEFAULT_PS_CACHE_LIMIT})",
-    )
 
 
 def parser_with_common_options(

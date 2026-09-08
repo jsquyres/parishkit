@@ -2,6 +2,7 @@
 schema_version = 1
 shared_modules = [
   "src/parishkit/cli.py",
+  "src/parishkit/cli_arguments.py",
   "src/parishkit/config.py",
   "src/parishkit/paths.py",
 ]

@@ -1,6 +1,9 @@
 """Selective syntax diagnostics never disclose untrusted tokens or values."""
 
 import argparse
+import subprocess
+import sys
+from textwrap import dedent
 from unittest.mock import Mock
 
 import pytest
@@ -10,6 +13,49 @@ from parishkit.stewardship import cli, quality
 from parishkit.stewardship.arguments import StewardshipArgumentParser
 
 PRIVATE = "synthetic-private-value"
+
+
+@pytest.mark.parametrize("scenario", ["all", "config", "none", "healthcheck", "help"])
+def test_argument_registration_and_health_cli_do_not_import_providers(scenario):
+    """Fresh isolated processes expose eager imports hidden by pytest's module cache."""
+    result = subprocess.run(
+        [sys.executable, "-I", "-", scenario],
+        input=dedent("""\
+            import argparse
+            import sys
+            from contextlib import nullcontext
+            from types import SimpleNamespace
+
+            scenario = sys.argv[1]
+            if scenario in {'all', 'config', 'none'}:
+                from parishkit.cli_arguments import add_common_arguments
+                parser = argparse.ArgumentParser()
+                add_common_arguments(parser, options=scenario)
+                parser.parse_args([])
+            else:
+                from parishkit.stewardship import cli, services
+                # Exercise the real healthcheck without making a network request.
+                response = SimpleNamespace(status=200, read=lambda count: b'ok\\n')
+                opener = SimpleNamespace(open=lambda *a, **k: nullcontext(response))
+                services.build_opener = lambda *handlers: opener
+                arguments = ['healthcheck'] if scenario == 'healthcheck' else []
+                assert cli.main(arguments) == (0 if scenario == 'healthcheck' else 2)
+
+            blocked = (
+                'parishkit.cli', 'parishkit.constant_contact', 'parishkit.google',
+                'parishkit.parishsoft', 'requests', 'urllib3',
+            )
+            loaded = sorted(name for name in sys.modules if any(
+                name == prefix or name.startswith(prefix + '.') for prefix in blocked
+            ))
+            assert not loaded, loaded
+            """),
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 @pytest.mark.parametrize(
