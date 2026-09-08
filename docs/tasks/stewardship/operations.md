@@ -58,11 +58,11 @@ Evidence: Not started.
 
 Scope and dependencies: [OPS-03 work package](../../plans/stewardship/operations.md#ops-03-production-ingress-tls-and-network-security).
 
-- [ ] OPS-03.01 — Configure persistent Caddy TLS and trusted forwarding.
+- [ ] OPS-03.01 — Configure persistent Caddy TLS, trusted forwarding, and ingress hardening prerequisites.
 - [ ] OPS-03.02 — Redact credentials from access logs.
 - [ ] OPS-03.03 — Deny internal health and metrics paths at public ingress.
 - [ ] OPS-03.04 — Document DNS, firewall, OAuth, and certificate recovery.
-- [ ] OPS-03.05 — Validate Caddy and test network and route boundaries.
+- [ ] OPS-03.05 — Validate Caddy hardening, writable-state limits, and network/route boundaries before enabling ingress.
 
 Evidence: Not started.
 

@@ -127,7 +127,12 @@ the generated development password. Combine only one overlay with the base;
 never combine development and production overlays.
 
 Only Caddy publishes production ports (`80`/`443`). It is disabled behind the
-`pending-ingress` profile until ingress/startup validation lands. The checked-in
+`pending-ingress` profile until ingress/startup validation lands. Its container
+hardening is also unfinished; the explicit implementation and validation
+prerequisites are in
+[OPS-03 items 1 and 5](../plans/stewardship/operations.md#ops-03-production-ingress-tls-and-network-security).
+Do not enable ingress merely because the template-validation test passes.
+The checked-in
 [Caddyfile](../../deploy/stewardship/Caddyfile) is a reference template, not an
 automatically installed configuration. It denies internal paths before proxying,
 with access logging off pending tested redaction. Operators must copy that

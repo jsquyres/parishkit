@@ -56,7 +56,9 @@ services:
           create_host_path: false
   caddy:
     image: caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
-    # Deliberately excluded from ordinary startup until OPS-03/04 validation.
+    # Hardening is unfinished: see OPS-03 items 1/5 in
+    # docs/plans/stewardship/operations.md. Keep excluded until those controls
+    # and runtime tests, plus OPS-04 startup validation, are complete.
     profiles: [pending-ingress]
     environment:
       STEWARDSHIP_HOSTNAME: ${STEWARDSHIP_HOSTNAME:?Set public DNS hostname}
