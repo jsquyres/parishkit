@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import stat
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
@@ -106,10 +107,14 @@ def _load_strict_yaml(path: str | Path, *, required: bool) -> ConfigData:
     """
     try:
         config_path = Path(path).expanduser()
-        if not config_path.exists():
+        try:
+            metadata = config_path.stat()
+        except (FileNotFoundError, NotADirectoryError):
             if required:
-                raise ConfigError("configuration file not found")
+                raise ConfigError("configuration file not found") from None
             return {}
+        if not stat.S_ISREG(metadata.st_mode):
+            raise ConfigError("configuration file must be a regular file")
         with config_path.open("rb") as stream:
             data = stream.read(STRICT_YAML_MAX_BYTES + 1)
         if len(data) > STRICT_YAML_MAX_BYTES:

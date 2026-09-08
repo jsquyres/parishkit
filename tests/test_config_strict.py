@@ -212,7 +212,7 @@ def test_strict_diagnostics_keep_hints_without_private_input(
     assert exc.value.__context__ is None or exc.value.__suppress_context__
 
 
-@pytest.mark.parametrize("operation", ["expanduser", "exists", "open"])
+@pytest.mark.parametrize("operation", ["expanduser", "stat", "open"])
 def test_strict_file_errors_are_private_but_legacy_errors_are_unchanged(
     tmp_path, monkeypatch, operation
 ):
@@ -244,6 +244,25 @@ def test_strict_missing_file_keeps_required_and_optional_behavior(tmp_path):
     with pytest.raises(ConfigError) as legacy:
         load_yaml_config(path, required=True)
     assert str(path) in str(legacy.value)
+
+
+@pytest.mark.parametrize("required", [False, True])
+def test_strict_inaccessible_file_is_not_missing(tmp_path, monkeypatch, required):
+    """Suppressed exists() errors cannot make strict consumers use defaults."""
+    path = tmp_path / "private.yaml"
+    monkeypatch.setattr(Path, "exists", lambda path: False)
+    monkeypatch.setattr(Path, "stat", Mock(side_effect=PermissionError("private")))
+    with pytest.raises(ConfigError, match="could not read configuration file"):
+        load_yaml_config(path, required=required, reject_duplicate_keys=True)
+
+
+def test_strict_nonregular_file_is_rejected_before_open(tmp_path, monkeypatch):
+    """Strict input types are checked before any potentially blocking read."""
+    opener = Mock(side_effect=AssertionError("unexpected read"))
+    monkeypatch.setattr(Path, "open", opener)
+    with pytest.raises(ConfigError, match="regular file"):
+        load_yaml_config(tmp_path, reject_duplicate_keys=True)
+    opener.assert_not_called()
 
 
 def test_strict_unmarked_parser_error_never_echoes_exception_text(

@@ -211,10 +211,13 @@ class AuthorityStore:
     def read_version(self, version_id: UUID) -> ConfigurationVersion:
         """Load a specific immutable document and validate its complete schema."""
         path = self.root / f"{version_id}.yaml"
-        if not isinstance(version_id, UUID) or path.is_symlink():
+        if not isinstance(version_id, UUID):
             raise ConfigError("invalid configuration version reference")
         try:
-            if path.stat().st_size > 8_000_000:
+            metadata = path.lstat()
+            if not stat.S_ISREG(metadata.st_mode):
+                raise ConfigError("invalid configuration version reference")
+            if metadata.st_size > 8_000_000:
                 raise ConfigError("configuration YAML exceeds input byte limit")
             data = load_yaml_config(path, required=True, reject_duplicate_keys=True)
             version = parse_version(data, validate_sections=self.validate_sections)

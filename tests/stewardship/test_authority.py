@@ -125,9 +125,19 @@ def test_inaccessible_manifest_is_not_absent(authority, monkeypatch):
     assert "private" not in str(exc.value)
 
 
-def test_nonregular_manifest_is_rejected_before_read(authority, monkeypatch):
-    """A directory or FIFO is not a manifest and must not reach a blocking read."""
-    (authority.root / "active.yaml").mkdir()
+@pytest.mark.parametrize("target", ["manifest", "version"])
+@pytest.mark.parametrize("kind", ["directory", "fifo"])
+def test_nonregular_authority_is_rejected_before_read(
+    authority, monkeypatch, target, kind
+):
+    """Neither authority boundary may block reading non-regular filesystem entries."""
+    version = candidate()
+    name = "active.yaml" if target == "manifest" else f"{version.version_id}.yaml"
+    path = authority.root / name
+    if kind == "directory":
+        path.mkdir()
+    else:
+        os.mkfifo(path)
 
     def unexpected_read(*args, **kwargs):
         """Assert that input type checking happens before any YAML read."""
@@ -136,8 +146,11 @@ def test_nonregular_manifest_is_rejected_before_read(authority, monkeypatch):
     monkeypatch.setattr(
         "parishkit.stewardship.accounts.authority.load_yaml_config", unexpected_read
     )
-    with pytest.raises(ConfigError, match="manifest is unreadable or invalid"):
-        authority.active()
+    with pytest.raises(ConfigError, match="is unreadable or invalid"):
+        if target == "manifest":
+            authority.active()
+        else:
+            authority.read_version(version.version_id)
 
 
 @pytest.mark.parametrize("target", ["version", "manifest"])
