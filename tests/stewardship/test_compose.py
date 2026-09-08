@@ -4,7 +4,9 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import time
+from collections import Counter
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import ProxyHandler, build_opener
@@ -18,6 +20,112 @@ from parishkit.stewardship.services import prepare_development
 
 ROOT = Path(__file__).resolve().parents[2]
 DEPLOY = ROOT / "deploy/stewardship"
+
+
+def collection_manifest(output):
+    """Require one nonempty, typed manifest rather than scraping pytest prose."""
+    prefix = "PARISHKIT_TEST_NODEIDS="
+    manifests = [
+        line[len(prefix) :] for line in output.splitlines() if line.startswith(prefix)
+    ]
+    assert len(manifests) == 1, "Expected exactly one test collection manifest"
+    nodes = json.loads(manifests[0])
+    assert isinstance(nodes, list) and nodes, "Expected a nonempty node-ID list"
+    assert all(isinstance(node, str) and node for node in nodes), "Invalid test node ID"
+    return Counter(nodes)
+
+
+def assert_collection_parity(host_output, image_output):
+    """Compare exact IDs and multiplicity, ignoring only collection order."""
+    host = collection_manifest(host_output)
+    image = collection_manifest(image_output)
+    missing = sorted((host - image).elements())
+    unexpected = sorted((image - host).elements())
+    assert not missing and not unexpected, (
+        f"Host/container collection differs. Missing in image: {missing}; "
+        f"unexpected in image: {unexpected}"
+    )
+
+
+@pytest.mark.parametrize(
+    "output",
+    [
+        "10 tests collected",
+        "PARISHKIT_TEST_NODEIDS=[]",
+        'PARISHKIT_TEST_NODEIDS={"test": 1}',
+        "PARISHKIT_TEST_NODEIDS=[1]",
+        'PARISHKIT_TEST_NODEIDS=[""]',
+        "PARISHKIT_TEST_NODEIDS=not-json",
+        'PARISHKIT_TEST_NODEIDS=["a"]\nPARISHKIT_TEST_NODEIDS=["a"]',
+    ],
+)
+def test_collection_manifest_rejects_missing_or_invalid_evidence(output):
+    """Empty, malformed, or ambiguous evidence must never look like parity."""
+    with pytest.raises((AssertionError, ValueError)):
+        collection_manifest(output)
+
+
+def test_collection_parity_ignores_order_and_unrelated_output():
+    """Terminal headings and order are irrelevant; parameterized IDs stay exact."""
+    assert_collection_parity(
+        'header\nPARISHKIT_TEST_NODEIDS=["test[a]", "test[b]"]\n2 tests collected',
+        'PARISHKIT_TEST_NODEIDS=["test[b]", "test[a]"]\n2 passed',
+    )
+
+
+@pytest.mark.parametrize("image", [["a"], ["a", "c"], ["a", "b", "b"]])
+def test_collection_parity_detects_missing_replaced_and_duplicate_tests(image):
+    """Equal counts cannot hide a replacement, and duplicates remain visible."""
+    with pytest.raises(AssertionError, match="Host/container collection differs"):
+        assert_collection_parity(
+            'PARISHKIT_TEST_NODEIDS=["a", "b"]',
+            "PARISHKIT_TEST_NODEIDS=" + json.dumps(image),
+        )
+
+
+def test_collection_manifest_hook_reports_parameterized_and_skipped_tests(tmp_path):
+    """Real collection emits portable node IDs without executing test bodies."""
+    shutil.copyfile(ROOT / "tests/conftest.py", tmp_path / "conftest.py")
+    (tmp_path / "pytest.ini").write_text("[pytest]\n")
+    (tmp_path / "test_sample.py").write_text(
+        "import pytest\n"
+        "@pytest.mark.parametrize('value', ['alpha', 'beta'])\n"
+        "def test_case(value):\n"
+        "    raise AssertionError('collection must not execute tests')\n"
+        "@pytest.mark.skip(reason='synthetic skip')\n"
+        "def test_skipped():\n"
+        "    pass\n"
+    )
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith("PYTEST_") and key != "DJANGO_SETTINGS_MODULE"
+    }
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "--collect-only",
+            "--collection-manifest",
+            "-q",
+            "-p",
+            "no:cacheprovider",
+        ],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=30,
+    )
+    assert collection_manifest(result.stdout) == Counter(
+        [
+            "test_sample.py::test_case[alpha]",
+            "test_sample.py::test_case[beta]",
+            "test_sample.py::test_skipped",
+        ]
+    )
 
 
 def definition(name):
@@ -234,10 +342,59 @@ def test_development_container_lifecycle(tmp_path):
         return result
 
     try:
-        baseline = compose(
-            "run", "--rm", "--no-deps", "tests", "-q", "-p", "no:cacheprovider"
+        # Collect independently on the host; never use the outer invocation's
+        # selection (-k, a single test file, etc.) as the complete baseline.
+        host_environment = {
+            key: value
+            for key, value in environment.items()
+            if not key.startswith("PYTEST_")
+        }
+        host_environment["DJANGO_SETTINGS_MODULE"] = (
+            "parishkit.stewardship.settings.test"
         )
-        print(baseline.stdout)
+        host_collection = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests",
+                "--collect-only",
+                "--collection-manifest",
+                "-q",
+                "-o",
+                "addopts=",
+                "-p",
+                "no:cacheprovider",
+            ],
+            cwd=ROOT,
+            env=host_environment,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=120,
+        )
+        baseline = compose(
+            "run",
+            "--rm",
+            "--no-deps",
+            "tests",
+            "tests",
+            "--collection-manifest",
+            "-q",
+            "-o",
+            "addopts=",
+            "-p",
+            "no:cacheprovider",
+        )
+        assert_collection_parity(host_collection.stdout, baseline.stdout)
+        # Keep human-readable test evidence without repeating hundreds of IDs.
+        print(
+            "\n".join(
+                line
+                for line in baseline.stdout.splitlines()
+                if not line.startswith("PARISHKIT_TEST_NODEIDS=")
+            )
+        )
         compose("up", "--wait", "--wait-timeout", "90", "web", "postgres", "valkey")
         assert compose("exec", "-T", "web", "id", "-u").stdout.strip() == "10001"
         origin = "http://" + compose("port", "web", "8000").stdout.strip()

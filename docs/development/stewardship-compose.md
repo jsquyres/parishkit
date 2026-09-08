@@ -141,6 +141,14 @@ The test-only profile mounts test/wrapper/tool fixtures read-only, not credentia
 or the Docker socket. It does not inherit host Compose-smoke flags, preventing
 recursive orchestration.
 
+The opt-in lifecycle check below compares the exact host and in-image collected
+test IDs, including parameterized cases and duplicate occurrences. It fails with
+missing/unexpected IDs if a new fixture was omitted from the narrow mounts, even
+if the two environments collect the same number of tests. Collection order does
+not matter. Host collection always covers the full baseline independently of
+the outer pytest selection; the image manifest comes from its actual baseline
+run. Collection errors, missing manifests, and empty collections fail closed.
+
 Opt-in host checks render both overlays and exercise a disposable development
 project (build the image first):
 
