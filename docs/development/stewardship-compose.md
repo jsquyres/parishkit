@@ -171,6 +171,22 @@ recursive orchestration. Every test bind explicitly disables host-path creation;
 a missing source fails mounting instead of leaving an empty directory in the
 checkout. Structural and all-profile rendering tests enforce this invariant.
 
+The test service also mounts read-only checkout reference copies of `README.md`,
+`pyproject.toml`, `requirements/stewardship.txt`, and
+`requirements/stewardship-build.txt` under `/app/checkout-build-inputs`.
+`PARISHKIT_TEST_CHECKOUT_ROOT` enables a freshness test comparing those copies
+byte-for-byte with the image-baked files. Missing, unreadable, or different inputs
+fail with a request to rebuild the development image; compared contents are not
+printed. The original image metadata and installed dependencies stay intact.
+Rebuild after changing any of these four inputs, including documentation-only
+README edits, before running the in-image baseline. Host-only runs have no image
+to compare; synthetic tests exercise both matching and stale/missing inputs.
+
+Fixture files in mixed-use `scripts/` and `tools/` directories are enumerated
+individually to exclude local operational artifacts. Dedicated specification,
+plan, and deployment fixture trees are mounted as directories; never store
+credentials or operational output in those trees.
+
 The opt-in lifecycle check below compares the exact host and in-image collected
 test IDs, including parameterized cases and duplicate occurrences. It fails with
 missing/unexpected IDs if a new fixture was omitted from the narrow mounts, even
@@ -193,6 +209,9 @@ They run `caddy adapt --validate` and assert that all three internal-path 404
 rules precede the catch-all proxy. The validation container has no network or
 published ports, receives the template through stdin, and uses temporary Caddy
 storage. This does not enable ingress or replace OPS-03's live boundary tests.
+An image-freshness check runs the test service with a temporary README reference,
+first matching and then deliberately stale, and verifies the rebuild diagnostic.
+It never changes the checkout or starts application/provider services.
 Two additional build checks exercise the root and Dockerfile-specific ignore
 files independently against synthetic allowed/private fixtures. They export a
 scratch filesystem under pytest's temporary directory, without using real

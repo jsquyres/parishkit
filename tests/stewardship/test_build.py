@@ -1,5 +1,6 @@
 """Credential-free contracts for matching host, CI, and image build tools."""
 
+import os
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,92 @@ INSTALL_COMMANDS = [
     "python -m pip install -r requirements/stewardship-build.txt",
     "python -m pip install --no-build-isolation -r requirements.txt",
 ]
+BUILD_INPUTS = (
+    "README.md",
+    "pyproject.toml",
+    "requirements/stewardship.txt",
+    "requirements/stewardship-build.txt",
+)
+
+
+def assert_build_inputs_match(image_root, checkout_root):
+    """Require baked build inputs to match read-only checkout reference copies.
+
+    Compare bytes, not timestamps, and report only known fixture names rather
+    than contents. Missing or unreadable inputs cannot masquerade as freshness.
+    The image's metadata and installed dependencies are never modified.
+    """
+    stale = []
+    for name in BUILD_INPUTS:
+        try:
+            matches = (image_root / name).read_bytes() == (
+                checkout_root / name
+            ).read_bytes()
+        except OSError:
+            matches = False
+        if not matches:
+            stale.append(name)
+    if stale:
+        pytest.fail(
+            "Build inputs differ or are unreadable: "
+            + ", ".join(stale)
+            + ". Rebuild the development image.",
+            pytrace=False,
+        )
+
+
+def test_image_build_inputs_match_checkout():
+    """Compose supplies separate reference mounts; a host run has no image."""
+    checkout = os.environ.get("PARISHKIT_TEST_CHECKOUT_ROOT")
+    if checkout is not None:
+        assert checkout, "PARISHKIT_TEST_CHECKOUT_ROOT must not be empty"
+        assert_build_inputs_match(ROOT, Path(checkout))
+
+
+@pytest.fixture
+def build_input_copies(tmp_path):
+    """Create two independent synthetic trees with the four required inputs."""
+    roots = (tmp_path / "image", tmp_path / "checkout")
+    for root in roots:
+        for name in BUILD_INPUTS:
+            path = root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"synthetic-original\n")
+    return roots
+
+
+def test_build_input_freshness_accepts_identical_copies(build_input_copies):
+    """Matching bytes pass without rewriting either input tree."""
+    assert_build_inputs_match(*build_input_copies)
+
+
+@pytest.mark.parametrize("name", BUILD_INPUTS)
+@pytest.mark.parametrize("fault", ["changed", "missing_checkout", "missing_image"])
+def test_build_input_freshness_rejects_stale_or_missing_copies(
+    build_input_copies, name, fault
+):
+    """Any missing or stale file fails without printing compared file contents."""
+    image, checkout = build_input_copies
+    if fault == "changed":
+        (checkout / name).write_bytes(b"synthetic-private-new-content\n")
+    else:
+        root = image if fault == "missing_image" else checkout
+        (root / name).unlink()
+    with pytest.raises(
+        pytest.fail.Exception, match="Rebuild the development image"
+    ) as exc:
+        assert_build_inputs_match(image, checkout)
+    assert name in str(exc.value)
+    assert "synthetic-private" not in str(exc.value)
+
+
+def test_build_input_freshness_wiring(monkeypatch, tmp_path):
+    """The real test activates only when Compose supplies reference inputs."""
+    monkeypatch.delenv("PARISHKIT_TEST_CHECKOUT_ROOT", raising=False)
+    test_image_build_inputs_match_checkout()
+    monkeypatch.setenv("PARISHKIT_TEST_CHECKOUT_ROOT", str(tmp_path))
+    with pytest.raises(pytest.fail.Exception, match="Rebuild the development image"):
+        test_image_build_inputs_match_checkout()
 
 
 def locked_requirements(name):

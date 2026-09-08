@@ -199,6 +199,12 @@ def test_development_and_production_overlays():
 def test_test_fixture_mounts_require_existing_read_only_sources():
     """A missing checkout fixture must fail mounting, never create a directory."""
     mounts = definition("compose.development.yaml")["services"]["tests"]["volumes"]
+    build_inputs = {
+        "README.md",
+        "pyproject.toml",
+        "requirements/stewardship.txt",
+        "requirements/stewardship-build.txt",
+    }
     targets = set()
     for mount in mounts:
         assert isinstance(mount, dict), "Test mounts must use explicit long syntax"
@@ -206,9 +212,16 @@ def test_test_fixture_mounts_require_existing_read_only_sources():
         assert mount["bind"]["create_host_path"] is False
         source = (DEPLOY / mount["source"]).resolve()
         assert source.exists()
-        assert mount["target"] == "/app/" + source.relative_to(ROOT).as_posix()
+        relative = source.relative_to(ROOT).as_posix()
+        prefix = "/app/checkout-build-inputs/" if relative in build_inputs else "/app/"
+        assert mount["target"] == prefix + relative
         assert mount["target"] not in targets
         targets.add(mount["target"])
+    assert {"/app/checkout-build-inputs/" + name for name in build_inputs} <= targets
+    environment = definition("compose.development.yaml")["services"]["tests"][
+        "environment"
+    ]
+    assert environment["PARISHKIT_TEST_CHECKOUT_ROOT"] == "/app/checkout-build-inputs"
 
 
 def compose_environment(root):
@@ -400,6 +413,10 @@ def test_rendered_compose_contract(profile, tmp_path):
     )
     assert set(config["services"]) == expected_services
     if profile == "development":
+        assert (
+            config["services"]["tests"]["environment"]["PARISHKIT_TEST_CHECKOUT_ROOT"]
+            == "/app/checkout-build-inputs"
+        )
         web = config["services"]["web"]
         assert "--bind-all-interfaces" in web["command"]
         assert len(web["ports"]) == 1
@@ -438,6 +455,77 @@ def test_rendered_compose_contract(profile, tmp_path):
             item for item in mounts if item["target"].startswith("/run/secrets")
         )
         assert password["source"] == str(tmp_path / "prod-db-password")
+
+
+@pytest.mark.skipif(
+    os.environ.get("PARISHKIT_RUN_COMPOSE_TESTS") != "1",
+    reason="explicit opt-in required for image freshness validation",
+)
+def test_image_build_inputs_detect_stale_checkout(tmp_path):
+    """Exercise matching and stale reference mounts without changing the checkout."""
+    reference = tmp_path / "README.md"
+    reference.write_bytes((ROOT / "README.md").read_bytes())
+    override = tmp_path / "freshness.yaml"
+    override.write_text(
+        yaml.safe_dump(
+            {
+                "services": {
+                    "tests": {
+                        "volumes": [
+                            {
+                                "type": "bind",
+                                "source": str(reference),
+                                "target": "/app/checkout-build-inputs/README.md",
+                                "read_only": True,
+                                "bind": {"create_host_path": False},
+                            }
+                        ]
+                    }
+                }
+            }
+        )
+        # Clear the inherited backend network using Compose's reset tag.
+        + "    networks: !reset []\n    network_mode: none\n"
+    )
+    project = "pk-stewardship-freshness-" + uuid4().hex[:12]
+    for stale in (False, True):
+        if stale:
+            reference.write_bytes(reference.read_bytes() + b"synthetic-stale-input\n")
+        result = subprocess.run(
+            [
+                "docker",
+                "compose",
+                "--env-file",
+                os.devnull,
+                "-p",
+                project,
+                "-f",
+                str(DEPLOY / "compose.yaml"),
+                "-f",
+                str(DEPLOY / "compose.development.yaml"),
+                "-f",
+                str(override),
+                "run",
+                "--rm",
+                "--no-deps",
+                # No application/provider services or project networks needed.
+                "tests",
+                "tests/stewardship/test_build.py::test_image_build_inputs_match_checkout",
+                "-q",
+                "--tb=short",
+                "-p",
+                "no:cacheprovider",
+            ],
+            env=compose_environment(tmp_path),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        assert result.returncode == int(stale), result.stdout + result.stderr
+        if stale:
+            assert "Rebuild the development image" in result.stdout
+            assert "synthetic-stale-input" not in result.stdout + result.stderr
 
 
 def wait_http(origin, path, status, body=None):

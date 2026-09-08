@@ -1,3 +1,6 @@
+# Enumerate files in mixed-use scripts/tools directories to exclude local
+# operational output. Dedicated spec/plan/deployment fixture trees are mounted
+# as directories. Build inputs use separate reference paths, never overlays.
 x-test-bind: &test-bind
   type: bind
   read_only: true
@@ -39,6 +42,18 @@ services:
       disable: true
     volumes:
       - *live-source
+      - <<: *test-bind
+        source: ../../README.md
+        target: /app/checkout-build-inputs/README.md
+      - <<: *test-bind
+        source: ../../pyproject.toml
+        target: /app/checkout-build-inputs/pyproject.toml
+      - <<: *test-bind
+        source: ../../requirements/stewardship.txt
+        target: /app/checkout-build-inputs/requirements/stewardship.txt
+      - <<: *test-bind
+        source: ../../requirements/stewardship-build.txt
+        target: /app/checkout-build-inputs/requirements/stewardship-build.txt
       - <<: *test-bind
         source: ../../tests
         target: /app/tests
@@ -149,6 +164,7 @@ services:
         target: /app/deploy/stewardship
     environment:
       DJANGO_SETTINGS_MODULE: parishkit.stewardship.settings.test
+      PARISHKIT_TEST_CHECKOUT_ROOT: /app/checkout-build-inputs
 
 networks:
   development: {}
