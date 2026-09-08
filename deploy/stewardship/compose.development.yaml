@@ -58,6 +58,9 @@ services:
       - ../../docs/specs/stewardship:/app/docs/specs/stewardship:ro
       - ../../docs/plans/stewardship:/app/docs/plans/stewardship:ro
       - ../../docs/development/stewardship-acceptance.yaml:/app/docs/development/stewardship-acceptance.yaml:ro
+      - ../../docs/development/stewardship.md:/app/docs/development/stewardship.md:ro
+      - ../../.github/workflows/ci.yml:/app/.github/workflows/ci.yml:ro
+      - ../../.github/workflows/release.yml:/app/.github/workflows/release.yml:ro
       - ../../deploy/stewardship:/app/deploy/stewardship:ro
     environment:
       DJANGO_SETTINGS_MODULE: parishkit.stewardship.settings.test

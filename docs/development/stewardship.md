@@ -71,17 +71,41 @@ Regenerate the universal dependency lock with uv 0.12.10:
 
 ```sh
 uv pip compile pyproject.toml --all-extras --universal --python-version 3.12 --output-file requirements/stewardship.txt
+uv pip compile requirements/stewardship-build.in --universal --python-version 3.12 --output-file requirements/stewardship-build.txt
 ```
 
-Install from the checkout:
+## Checkout installation
+
+In a Python 3.12 virtual environment, install from the checkout in this order:
 
 ```sh
-python -m pip install -r requirements.txt
+python -m pip install -r requirements/stewardship-build.txt
+python -m pip install --no-build-isolation -r requirements.txt
+python -m pip check
 ```
 
-The constraints pin dependency versions on supported platforms, not artifact
-hashes or the entire build toolchain. Image/build reproducibility belongs to
-OPS-01. Editable installation keeps local source changes immediately visible.
+The first command installs the exact build backend and editable-build helper
+versions used by Docker. The second uses those installed tools rather than
+creating an isolated build environment that independently resolves the open
+`pyproject.toml` build requirements. Runtime/test constraints still come from
+`requirements/stewardship.txt`. Repeat both install commands when either lock
+changes. CI follows the same sequence; the release workflow also builds with
+`python -m build --no-isolation` using the locked `build` frontend from the dev
+dependencies. Editing that workflow does not authorize a release.
+
+For an existing uv-managed environment without pip, the equivalent is:
+
+```sh
+uv pip install --python .venv/bin/python -r requirements/stewardship-build.txt
+uv pip install --python .venv/bin/python --no-build-isolation -r requirements.txt
+uv pip check --python .venv/bin/python
+```
+
+On Windows, replace `.venv/bin/python` with `.venv/Scripts/python.exe`.
+These locks pin Python dependency/build-tool versions, not artifact hashes,
+the installer itself, or the entire operating-system toolchain. Full artifact
+reproducibility remains an OPS-01/OPS-09 responsibility. Editable installation
+keeps local source changes immediately visible.
 
 ## Scaffold commands and limits
 

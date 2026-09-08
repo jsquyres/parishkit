@@ -757,7 +757,8 @@ Create a virtual environment and install the package with development tools:
 ```sh
 python3.12 -m venv .venv
 . .venv/bin/activate
-python -m pip install -r requirements.txt
+python -m pip install -r requirements/stewardship-build.txt
+python -m pip install --no-build-isolation -r requirements.txt
 ```
 
 To run a tool with in-tree edits under `src/` taking effect immediately —
@@ -773,7 +774,8 @@ If you change `pyproject.toml` entry points or dependency groups and want to use
 the installed `pk-*` console scripts, reinstall:
 
 ```sh
-python -m pip install -r requirements.txt
+python -m pip install -r requirements/stewardship-build.txt
+python -m pip install --no-build-isolation -r requirements.txt
 ```
 
 ### Local validation (matching CI)
