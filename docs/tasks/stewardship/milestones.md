@@ -419,6 +419,164 @@ of that commit handoff. M0.04 remains open pending a fresh independent review
 and human approval. Pika branch review reads committed HEAD, so the next review
 can now cover these corrections.
 
+### Fourth local review and initial triage
+
+Session `20260907-225359-7d63ab` reviewed clean committed HEAD `cf1c7b9`
+against `c810839`. Verdict: COMMENT, with 10 validated MEDIUM findings,
+all Claude-only; no agreed findings, failed reviewers, or finalization
+degradations. Of 55 raw findings, 45 fell below the reporting cutoff.
+The human authorized simpler Claude launch commands after lean-ctx rejected
+shell-array syntax, then parent-side validation of existing reviewer artifacts
+after reviewer-local permissions blocked their self-check command. All four
+Claude documents passed pika's unchanged validator; no reviewer was rerun,
+finding content edited, or review posted remotely. Recovery evidence remains
+in the session directory.
+
+Fourth-triage identifiers C1–C10 follow this session's finalized order and are
+independent of prior sessions' identifiers. Initial dispositions:
+
+- Auto-fixed C2: derive the pinned Caddy adapter test's expected internal paths
+  from Django's `internal_patterns`, retaining exact enclosing-route and proxy
+  ordering checks. Adding an internal route now requires updating the template.
+  This test-only change does not implement or enable production ingress.
+- Auto-fixed C4: require each application service's UID to contain only ASCII
+  decimal digits and have a nonzero numeric value. The topology assertion no
+  longer accepts `root`, `root:root`, or zero-padded UID zero as non-root.
+- Auto-skipped C1 (false-positive): the Dockerfile already sets both Python
+  environment variables in the common image. A service-specific Compose
+  environment mapping does not erase unrelated image ENV defaults, so the
+  claimed runtime loss does not follow from YAML's shallow anchor merge.
+- Auto-skipped C3 (false-positive/already handled): `select()` first reads and
+  validates the persisted version, so an absent authority root fails before
+  the atomic writer. Mount/ownership validation and concrete provisioning
+  remain explicitly assigned to OPS-02/ARC-06; the development scaffold
+  intentionally creates no parish authority. No new filesystem integration
+  or exception-contract change is justified by the repeated missing-root claim.
+- Auto-skipped C5 (false-positive): an authorized temporary-script diagnostic
+  using the installed pytest exception renderer retained both the original
+  AssertionError and the teardown failure, with exception chaining. The
+  claimed loss of the original diagnostic is not reproduced. Cleanup errors
+  still fail the test; no conversion to a warning was made.
+- Auto-skipped C7 (already handled): production startup is unconditionally
+  disabled, and ARC-03 explicitly owns secure production cookies, HSTS,
+  CSRF, and safe proxy settings before the Phase 1 gate. No operational
+  production configuration is claimed by the current development skeleton.
+- Auto-skipped C10 (already handled): the fixed development-only key belongs
+  to an explicitly non-persistent, unauthenticated scaffold with dummy storage.
+  Direct launches default to loopback; the human-approved explicit all-interface
+  opt-in remains documented. Production cannot load these settings. Real
+  signing keys and authenticated runtime settings remain later-phase work.
+
+Three findings await human decisions, in order: C6 (coverage-runner failure
+diagnostics), C8 (live versus image-baked build-contract fixtures), and C9
+(standalone dev-extra compatibility with global Django pytest configuration).
+C6's missing-pytest example is overstated: that subprocess reports its own
+nonzero exit status. Root resolution and process-launch OS failures do receive
+the misleading generic message; any correction must retain private-value
+redaction rather than echo arbitrary exception text.
+
+Validation after the two test-only fixes: 100 focused tests passed, including
+pinned Caddy validation, both all-profile Compose renders, and build-context
+checks; the separate lifecycle opt-in was not enabled. The full host baseline
+passed 865 tests with 6 opt-in Docker checks skipped. Ruff, formatting, tracked
+Markdown lint, and diff whitespace checks passed. No image rebuild, full
+lifecycle run, new coverage measurement, commit, push, or gate approval is
+claimed for this step. M0.04 remains open.
+
+Human-approved C6 is fixed: the coverage runner now identifies invalid repository
+directories, invalid manifests, process-launch failures, and invalid report
+paths/content separately, without echoing paths or exception details. Pytest's
+nonzero exit status still returns unchanged before reading any stale report.
+Report structure is explicitly validated so malformed JSON shapes raise
+validation errors; unexpected TypeError/KeyError exceptions are no longer
+silently relabeled as bad input by the runner.
+
+The 21 initially added/strengthened cases failed against the old implementation
+and passed after correction; an additional report-path failure regression also
+passes. All 61 quality-runner tests passed. The complete host scoped run passed
+886 tests (6 opt-in Docker checks skipped), with 97.37% lines and 95.99% branches.
+Ruff, formatting, migration drift, tracked Markdown, and diff whitespace checks
+passed. C8 and C9 remain for human decisions. Changes are uncommitted; no image
+rebuild, Compose lifecycle run, push, or gate approval is claimed for this step.
+
+Human-approved C8 is fixed: four narrow read-only checkout reference mounts
+provide README, project metadata, and both build/runtime locks at separate
+comparison paths. The test service enables a byte-for-byte freshness check;
+missing, unreadable, or changed inputs fail with an authored rebuild message
+without printing file contents. Image-baked metadata and installed dependencies
+remain untouched. The guide documents rebuild requirements and narrow versus
+directory fixture mounts; raw and rendered Compose tests enforce the paths,
+read-only/no-creation flags, and activation environment variable.
+
+Synthetic regressions cover matching inputs and each of the four changed or
+missing files. A new opt-in test uses temporary reference data with networking
+disabled: matching README bytes pass, then deliberately stale bytes produce
+the rebuild diagnostic. It changes no checkout file or application data.
+
+After C8, the full host scoped run passed 901 tests (7 opt-in Docker checks
+skipped), with 97.37% lines and 95.99% branches. Rebuilt local image
+`1a7ca5a8d9bf97dfc6495d6dca5a91fdef7d64a3f709cb4b0827e737be0f5ad8`
+passed the same baseline, matching all 908 host collection IDs. All 22 separately
+enabled Compose checks passed, including freshness, lifecycle, and persistence.
+Ruff, formatting, migration drift, tracked Markdown, and diff whitespace checks
+passed. Only C9 remains for a human decision. Nothing is committed or pushed,
+and M0.04 remains open.
+
+Human-approved C9 implementation now makes `dev` include the existing
+`stewardship` extra by package self-reference, without duplicating its dependency
+ranges or changing base-package requirements. Its regression first failed and
+then passed; all 29 build-contract tests passed. Regenerating the universal lock
+produced no changes. After lean-ctx rejected pip's requirements-file option, the
+human authorized the documented uv equivalent for fresh-environment validation.
+
+A new Python 3.12.13 environment installed only `.[dev]` with the existing locks
+as constraints and passed `uv pip check` (62 installed packages). Django startup
+is fixed: the full baseline collected 909 tests, with 900 passed, 7 opt-in skips,
+and 2 failures in unchanged Google Drive tests because the separately optional
+`googleapiclient` library is absent. The scoped runner therefore correctly failed;
+its generated report is not passing final validation evidence. Expanding `dev`
+to include the existing Google extra awaits human direction. No Google/provider
+request or credentials were used. C9 is not yet recorded as fully validated and
+triage remains open; nothing is committed or pushed.
+
+The human subsequently approved including the existing `google` extra in `dev`
+as well. C9 is now fixed and validated: one self-reference includes both owned
+extras, and the regression prevents duplicate dependency declarations. The
+expanded assertion first failed without Google and passed after the change.
+Regenerating the universal lock still produced no changes.
+
+A second fresh Python 3.12.13 environment installed only `.[dev]`, after the
+locked build tools and with the runtime lock as constraints. `uv pip check`
+passed for all 78 installed packages; the full scoped run passed 902 tests
+(7 opt-in Docker checks skipped), with 97.37% lines and 95.99% branches.
+No provider credentials or live calls were needed. The rebuilt local image
+`a16562bd0fbbdd46197253a34b380f5ae6f1425868679b1abe399b7f1c7ff9b9`
+passed the same baseline, matching all 909 host collection IDs. All 22 separately
+enabled Compose checks passed. Ruff, formatting, migration drift, tracked
+Markdown, and diff whitespace checks passed.
+
+Fourth triage is complete, with all 10 finalized findings accounted for:
+
+| Findings | Disposition |
+| --- | --- |
+| C2, C4 | Auto-fixed: internal-route parity and numeric non-root UID tests |
+| C1 | Auto-skipped: image ENV already supplies the supposedly lost settings |
+| C3 | Auto-skipped: persisted-version read precedes writes; integration already assigned |
+| C5 | Auto-skipped: pytest preserves both exceptions and their diagnostics |
+| C7, C10 | Auto-skipped: intentional scaffold boundaries and explicit later-phase ownership |
+| C6 | Fixed with human approval: stage-specific redacted coverage diagnostics |
+| C8 | Fixed with human approval: separate build-input reference mounts and freshness tests |
+| C9 | Fixed with human approval: standalone dev extra includes stewardship and Google dependencies |
+
+Totals: 2 auto-fixed, 5 auto-skipped, 3 interactively fixed, and 0 interactively
+skipped. No findings or decisions remain in this triage pass. During triage no
+commit, push, merge, deployment, release, or gate approval occurred. The human
+subsequently authorized signed-off commits and a push of the corrected PR branch.
+The corrections are recorded in separate logical commits with this final
+evidence handoff. M0.04 remains open pending fresh independent review and human
+approval; committing or pushing does not release the gate. Pika branch review
+reads committed HEAD, so the next review can now cover these corrections.
+
 ## Phase 1: Secure foundation
 
 Scope: [Phase 1](../../plans/stewardship/overall.md#phase-1-secure-foundation-and-durable-domain).
