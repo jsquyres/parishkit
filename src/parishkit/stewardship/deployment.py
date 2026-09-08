@@ -145,7 +145,11 @@ def _integer(value: object, label: str, low: int, high: int) -> int:
 
 def _path(value: object, base: Path, label: str) -> Path:
     """Resolve YAML paths relative to its directory; callers select CLI cwd."""
-    path = Path(_text(value, label)).expanduser()
+    value = _text(value, label)
+    try:
+        path = Path(value).expanduser()
+    except (OSError, ValueError, RuntimeError):
+        raise ConfigError(f"{label} path cannot be resolved") from None
     return path if path.is_absolute() else base / path
 
 

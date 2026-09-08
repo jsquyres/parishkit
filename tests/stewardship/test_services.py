@@ -3,6 +3,7 @@
 import os
 import stat
 import sys
+from pathlib import Path
 from unittest.mock import Mock
 from urllib.error import URLError
 
@@ -272,3 +273,31 @@ def test_development_tree_matches_resolved_standard_paths(tmp_path):
     }
     assert {path for path in root.rglob("*") if path.is_dir()} == expected
     assert not paths["authority"].exists()
+
+
+def test_development_provisioning_expands_user_path(tmp_path, monkeypatch):
+    """Quoted tilde paths must resolve before provisioning, like deployment paths."""
+    target = tmp_path / "expanded"
+    expand = Mock(return_value=target)
+    provision = Mock()
+    monkeypatch.setattr(Path, "expanduser", expand)
+    monkeypatch.setattr(cli, "prepare_development", provision)
+    assert main(["prepare-development", "--runtime-root", "~/expanded"]) == 0
+    expand.assert_called_once()
+    provision.assert_called_once_with(target.absolute())
+
+
+@pytest.mark.parametrize("error", [RuntimeError, ValueError, OSError])
+def test_development_path_expansion_failure_is_safe(error, monkeypatch, capsys):
+    """Resolution failures cannot provision a literal tilde path or leak details."""
+    monkeypatch.setattr(
+        Path, "expanduser", Mock(side_effect=error("synthetic-private-home"))
+    )
+    provision = Mock()
+    monkeypatch.setattr(cli, "prepare_development", provision)
+    assert main(["prepare-development", "--runtime-root", "~unknown/private"]) == 2
+    provision.assert_not_called()
+    output = capsys.readouterr()
+    assert not output.out
+    assert "no existing data was replaced" in output.err
+    assert "private" not in output.err

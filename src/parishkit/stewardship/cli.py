@@ -112,7 +112,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "prepare-development requires an explicit --runtime-root"
             )
         try:
-            prepare_development(Path(args.runtime_root).absolute())
+            root = Path(args.runtime_root).expanduser().absolute()
+        except (OSError, ValueError, RuntimeError):
+            print(
+                "ERROR: runtime path cannot be resolved; no existing data was replaced",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            prepare_development(root)
         except OSError:
             print(
                 "ERROR: use a new writable runtime directory with an existing parent; "

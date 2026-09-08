@@ -30,6 +30,37 @@ def config_file(tmp_path, deployment):
     sorted(Path(__file__).resolve().parents[2].glob("scripts/*/example-config.yaml")),
     ids=lambda path: path.parent.name,
 )
+def test_shipped_examples_validate_without_modification(example):
+    """Validate the actual copied deployment example, not only synthetic sections."""
+    config = load_deployment(example, environ={})
+    assert config.profile is DeploymentProfile.DEVELOPMENT
+    assert config.public_origin.startswith("http://localhost:")
+
+
+@pytest.mark.parametrize("error", [RuntimeError, ValueError, OSError])
+def test_deployment_path_expansion_failure_is_sanitized(error, monkeypatch, capsys):
+    """Path resolution failures become configuration errors at the owning boundary."""
+    original = Path.expanduser
+
+    def fail_private_path(path):
+        """Inject only into the runtime override, leaving config-file reads intact."""
+        if str(path).startswith("~unknown"):
+            raise error("synthetic-private-home")
+        return original(path)
+
+    monkeypatch.setattr(Path, "expanduser", fail_private_path)
+    with pytest.raises(ConfigError, match="path cannot be resolved") as exc:
+        load_deployment(environ={"PARISHKIT_ROOT": "~unknown/private"})
+    assert "private" not in str(exc.value)
+    assert main(["validate-deployment", "--runtime-root", "~unknown/private"]) == 2
+    assert capsys.readouterr() == ("", "ERROR: deployment configuration is invalid\n")
+
+
+@pytest.mark.parametrize(
+    "example",
+    sorted(Path(__file__).resolve().parents[2].glob("scripts/*/example-config.yaml")),
+    ids=lambda path: path.parent.name,
+)
 @pytest.mark.parametrize("explicit_deployment", [False, True])
 def test_shared_example_sections_are_accepted(tmp_path, example, explicit_deployment):
     """Every tool's documented sections coexist with optional deployment input."""
