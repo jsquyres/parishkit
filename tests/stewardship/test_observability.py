@@ -99,9 +99,13 @@ def test_invalid_event_inputs_are_rejected():
         pass
 
 
-def test_client_cannot_supply_correlation_id(client):
+@pytest.mark.parametrize(
+    "supplied", ["synthetic-secret", "3ac12758-abf8-41df-ae3a-9f3c0b43e30a"]
+)
+def test_client_cannot_supply_correlation_id(client, supplied):
     """Requests get fresh internal IDs, not untrusted tracing-header values."""
-    response = client.get("/", HTTP_X_CORRELATION_ID="synthetic-secret")
+    response = client.get("/", HTTP_X_CORRELATION_ID=supplied)
+    assert response["X-Correlation-ID"] != supplied
     identifier = UUID(response["X-Correlation-ID"])
     assert identifier != UUID(client.get("/")["X-Correlation-ID"])
 
