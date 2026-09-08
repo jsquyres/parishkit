@@ -1,6 +1,7 @@
 """Credential-free contracts for matching host, CI, and image build tools."""
 
 import os
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -110,6 +111,29 @@ def locked_requirements(name):
             requirement = Requirement(line)
             requirements[canonicalize_name(requirement.name)] = requirement
     return requirements
+
+
+def test_dev_extra_includes_runtime_extras_without_duplicating_dependencies():
+    """The dev extra supplies Django and Google libraries through owned extras."""
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
+    extras = project["optional-dependencies"]
+    dev = [Requirement(value) for value in extras["dev"]]
+    links = [
+        requirement
+        for requirement in dev
+        if canonicalize_name(requirement.name) == canonicalize_name(project["name"])
+    ]
+    assert len(links) == 1
+    link = links[0]
+    assert link.extras == {"stewardship", "google"}
+    assert not link.specifier and link.marker is None and link.url is None
+    runtime_names = {
+        canonicalize_name(Requirement(value).name)
+        for extra in link.extras
+        for value in extras[extra]
+    }
+    assert {"django", "google-api-python-client"} <= runtime_names
+    assert not runtime_names & {canonicalize_name(value.name) for value in dev}
 
 
 @pytest.mark.parametrize(

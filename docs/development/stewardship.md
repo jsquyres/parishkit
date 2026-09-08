@@ -34,7 +34,13 @@ The initial baseline was resolved on September 7, 2026. Python package ranges
 live in `pyproject.toml`; exact transitive development/test versions live in
 `requirements/stewardship.txt`. Stewardship remains an optional package extra
 for users of other ParishKit tools. The repository development install includes
-it so normal CI exercises the new code without provider credentials.
+it so normal CI exercises the new code without provider credentials. The `dev`
+extra includes the existing `google` and `stewardship` extras: installing `.[dev]`
+also installs Django, the stewardship runtime dependencies, and the Google client
+libraries used by credential-free tests. Their version ranges remain defined
+once, in the owning extras; the base package still does not require them. No
+credentials or live provider access are needed for the tests. Use the locked
+checkout installation below for reproducible local/CI validation.
 
 | Component | Selected line / initial pin | Upstream authority |
 | --- | --- | --- |
