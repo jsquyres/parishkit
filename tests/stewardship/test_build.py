@@ -87,3 +87,30 @@ def test_checkout_instructions_match_ci_installation(document):
     text = (ROOT / document).read_text()
     assert "\n".join(INSTALL_COMMANDS) in text
     assert "python -m pip install -r requirements.txt" not in text
+
+
+@pytest.mark.parametrize(
+    "step_name", ["Scoped line and branch coverage", "Migration drift"]
+)
+def test_readme_documents_ci_validation_commands(step_name):
+    """Local validation includes CI's coverage gates and test-settings drift check."""
+    definition = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())
+    step = next(
+        step
+        for step in definition["jobs"]["validate"]["steps"]
+        if step.get("name") == step_name
+    )
+    command = step["run"].replace(
+        '"$RUNNER_TEMP/stewardship-coverage.json"',
+        "/absolute/temporary/path/coverage.json",
+    )
+    if step.get("env"):
+        command = " ".join(f"{key}={value}" for key, value in step["env"].items()) + (
+            " " + command
+        )
+    readme = (ROOT / "README.md").read_text()
+    validation = readme.split("### Local validation (matching CI)\n", 1)[1].split(
+        "\n### ", 1
+    )[0]
+    assert command in validation
+    assert "docs/development/stewardship-compose.md#validation" in validation

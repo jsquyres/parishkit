@@ -784,8 +784,18 @@ python -m pip install --no-build-isolation -r requirements.txt
 python -m ruff check .
 python -m ruff format --check .
 python -m pymarkdown --config .pymarkdown.json scan $(git ls-files '*.md')
-python -m pytest
+python -m parishkit.stewardship.quality --report /absolute/temporary/path/coverage.json
+DJANGO_SETTINGS_MODULE=parishkit.stewardship.settings.test python -m django makemigrations --check --dry-run
 ```
+
+Choose a coverage-report path outside the checkout whose parent already exists.
+The coverage runner runs the full pytest baseline and enforces separate line
+and branch coverage floors; plain `python -m pytest` does not enforce those
+floors. See the [stewardship development guide](docs/development/stewardship.md).
+The environment assignment above uses POSIX shell syntax; in PowerShell, set
+`$env:DJANGO_SETTINGS_MODULE = 'parishkit.stewardship.settings.test'` before
+running the same Django command. CI additionally runs the Docker-dependent
+[Compose validation](docs/development/stewardship-compose.md#validation).
 
 Normal validation uses mocked tests for external systems and does not require
 real ParishSoft, Google, Constant Contact, Slack, or email-provider credentials.
