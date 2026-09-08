@@ -205,6 +205,80 @@ def compose_environment(root):
 
 @pytest.mark.skipif(
     os.environ.get("PARISHKIT_RUN_COMPOSE_TESTS") != "1",
+    reason="explicit opt-in required for Docker build-context checks",
+)
+@pytest.mark.parametrize("ignore_kind", ["root", "dockerfile"])
+def test_build_context_excludes_synthetic_private_files(tmp_path, ignore_kind):
+    """Exercise each ignore file alone using only a synthetic scratch context.
+
+    COPY of the entire filtered context makes missed exclusions observable.
+    Export locally without publishing or loading an image, pulling a base, or
+    submitting any real checkout configuration/credentials to the builder.
+    """
+    context = tmp_path / "context"
+    dockerfile = context / "deploy/stewardship/Dockerfile"
+    dockerfile.parent.mkdir(parents=True)
+    dockerfile.write_text("FROM scratch\nCOPY . /\n")
+    if ignore_kind == "root":
+        shutil.copyfile(ROOT / ".dockerignore", context / ".dockerignore")
+    else:
+        shutil.copyfile(
+            DEPLOY / "Dockerfile.dockerignore",
+            dockerfile.with_name("Dockerfile.dockerignore"),
+        )
+    allowed = {
+        "README.md",
+        "pyproject.toml",
+        "requirements/stewardship.txt",
+        "requirements/stewardship-build.txt",
+        "src/parishkit/app.py",
+        "src/parishkit/static/logo.svg",
+        "src/parishkit/templates/page.html",
+    }
+    denied = {
+        ".git/config",
+        ".venv/credentials",
+        ".coverage",
+        ".env",
+        "config/parish.yaml",
+        "credentials/token",
+        "opt/parishkit/credentials/key",
+        "src/parishkit/private.yaml",
+        "src/parishkit/__pycache__/app.pyc",
+        "requirements/local.txt",
+        "new-unlisted-directory/private.py",
+    }
+    for relative in allowed | denied:
+        path = context / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("synthetic fixture\n")
+    output = tmp_path / "export"
+    subprocess.run(
+        [
+            "docker",
+            "buildx",
+            "build",
+            "--file",
+            str(dockerfile),
+            "--output",
+            f"type=local,dest={output}",
+            str(context),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=60,
+    )
+    exported = {
+        path.relative_to(output).as_posix()
+        for path in output.rglob("*")
+        if path.is_file()
+    }
+    assert exported == allowed
+
+
+@pytest.mark.skipif(
+    os.environ.get("PARISHKIT_RUN_COMPOSE_TESTS") != "1",
     reason="explicit opt-in required for Docker Compose checks",
 )
 @pytest.mark.parametrize("profile", ["development", "production"])

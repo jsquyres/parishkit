@@ -28,6 +28,7 @@ services:
     volumes:
       - *live-source
       - ../../tests:/app/tests:ro
+      - ../../.dockerignore:/app/.dockerignore:ro
       - ../../scripts/pk-stewardship/pk-stewardship.py:/app/scripts/pk-stewardship/pk-stewardship.py:ro
       - ../../scripts/pk-stewardship/README.md:/app/scripts/pk-stewardship/README.md:ro
       - ../../scripts/pk-stewardship/example-config.yaml:/app/scripts/pk-stewardship/example-config.yaml:ro

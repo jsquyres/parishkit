@@ -10,10 +10,28 @@ database/broker integration follows in Phase 1.
 
 ## Local development
 
-Install Docker Engine/Desktop with Compose v2+, Python 3.12+, and the
+Install current maintained Docker Engine/Desktop with BuildKit enabled, the
+Buildx plugin, current Docker Compose, Python 3.12+, and the
 [development environment](stewardship.md). Run from the repository root. The same
 Linux image runs on Linux hosts and Docker Desktop for macOS/Windows. Docker
 must be allowed to share the checkout and runtime directory.
+
+BuildKit is the supported build path; do not set `DOCKER_BUILDKIT=0` or rely on
+the [deprecated legacy builder](https://docs.docker.com/engine/deprecated/#legacy-builder-for-linux-images).
+The checked baseline uses Docker 29.7.2, Buildx 0.36.0-desktop.1, and Compose
+5.3.1. Compatibility with older Docker/Compose versions is not a project
+requirement; no legacy JSON-output adapters are provided. Update tooling to
+the validated baseline when older tooling fails these checks. The root ignore
+policy below is defense in depth, not a promise of legacy-builder support.
+The repository-root `.dockerignore`
+provides a default-deny fallback when Dockerfile-specific exclusions are not
+recognized. Its contents must stay synchronized with
+`deploy/stewardship/Dockerfile.dockerignore`; normal tests enforce that equality.
+Dockerfile-specific exclusions take
+[precedence over root exclusions](https://docs.docker.com/build/concepts/context/#filename-and-location).
+The root policy also applies to future builds from this checkout unless they
+explicitly override it. Keep credentials out of allowlisted source/build inputs;
+filename exclusions cannot recognize secrets embedded in those files.
 
 Choose a new runtime directory outside the checkout whose parent already exists.
 On Linux/macOS:
@@ -157,6 +175,10 @@ PARISHKIT_RUN_COMPOSE_TESTS=1 PARISHKIT_RUN_COMPOSE_SMOKE=1 python -m pytest tes
 ```
 
 In PowerShell, set both variables through `$env:` before invoking pytest.
+Two additional build checks exercise the root and Dockerfile-specific ignore
+files independently against synthetic allowed/private fixtures. They export a
+scratch filesystem under pytest's temporary directory, without using real
+credentials, pulling a base image, or publishing/loading an image.
 The test uses a new UUID-named project and copied source tree, runs the in-image
 baseline, checks routes/log suppression, verifies reload without rebuilding,
 recreates PostgreSQL/Valkey with synthetic records, verifies persistence,

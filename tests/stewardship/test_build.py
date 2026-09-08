@@ -81,6 +81,21 @@ def test_docker_and_checkout_share_build_lock():
     assert dockerfile.index(backend) < dockerfile.index(editable)
 
 
+def test_root_and_stewardship_build_exclusions_stay_synchronized():
+    """Specialized ignore support cannot change the default-deny context policy."""
+    fallback = (ROOT / ".dockerignore").read_text()
+    specialized = (ROOT / "deploy/stewardship/Dockerfile.dockerignore").read_text()
+    assert fallback == specialized
+    rules = [
+        line for line in fallback.splitlines() if line and not line.startswith("#")
+    ]
+    assert rules[0] == "**"
+    assert all(line.startswith("!") for line in rules[1:])
+    # Re-including a directory implicitly admits unlisted descendants, too.
+    assert not any(line.endswith("/") for line in rules)
+    assert "!**" not in rules and "!src/**" not in rules
+
+
 @pytest.mark.parametrize("document", ["README.md", "docs/development/stewardship.md"])
 def test_checkout_instructions_match_ci_installation(document):
     """Documented pip installs use the same ordered commands as the CI baseline."""
