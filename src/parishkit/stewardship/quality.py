@@ -78,10 +78,18 @@ def coverage_percentages(
     Report-wide blended percentages and unrelated files never affect the gate.
     """
     data = json.loads(report.read_text(encoding="utf-8"))
-    if data.get("meta", {}).get("branch_coverage") is not True:
+    if (
+        not isinstance(data, dict)
+        or not isinstance(data.get("meta"), dict)
+        or data["meta"].get("branch_coverage") is not True
+    ):
         raise ValueError("coverage must measure branches")
+    if not isinstance(data.get("files"), dict):
+        raise ValueError("coverage files must be a mapping")
     files = {}
     for name, details in data["files"].items():
+        if not isinstance(name, str) or not isinstance(details, dict):
+            raise ValueError("coverage file entries must be named mappings")
         path = (root / name).resolve()
         if not path.is_relative_to(root):
             raise ValueError("coverage report references files outside the repository")
@@ -93,16 +101,11 @@ def coverage_percentages(
         raise ValueError("coverage report is missing scoped files")
     totals = [0, 0, 0, 0]
     for name in scope.files:
-        summary = files[name]["summary"]
-        values = [
-            summary[key]
-            for key in (
-                "covered_lines",
-                "num_statements",
-                "covered_branches",
-                "num_branches",
-            )
-        ]
+        summary = files[name].get("summary")
+        keys = ("covered_lines", "num_statements", "covered_branches", "num_branches")
+        if not isinstance(summary, dict) or not set(keys) <= summary.keys():
+            raise ValueError("coverage summaries must contain all required counts")
+        values = [summary[key] for key in keys]
         if any(type(value) is not int or value < 0 for value in values):
             raise ValueError("coverage counts must be nonnegative integers")
         if values[0] > values[1] or values[2] > values[3]:
@@ -131,8 +134,25 @@ def main(argv=None) -> int:
         parser.usage_error("--report is required")
     try:
         root = args.repository_root.resolve(strict=True)
+        if not root.is_dir():
+            raise ValueError("repository root must be a directory")
+    except (OSError, ValueError, RuntimeError):
+        print("ERROR: invalid repository directory", file=sys.stderr)
+        return 2
+    # Catch only expected validation/IO failures at their owning stage. Raw
+    # paths and exception text remain private; programming errors are not
+    # disguised as malformed input by a runner-wide TypeError/KeyError catch.
+    try:
         scope = load_scope(root)
+    except (OSError, ValueError):
+        print("ERROR: invalid coverage manifest", file=sys.stderr)
+        return 2
+    try:
         report = args.report.absolute()
+    except (OSError, ValueError):
+        print("ERROR: invalid coverage report", file=sys.stderr)
+        return 2
+    try:
         result = subprocess.run(
             [
                 sys.executable,
@@ -148,11 +168,15 @@ def main(argv=None) -> int:
             cwd=root,
             check=False,
         )
-        if result.returncode:
-            return result.returncode
+    except OSError:
+        print("ERROR: could not launch coverage tests", file=sys.stderr)
+        return 2
+    if result.returncode:
+        return result.returncode
+    try:
         lines, branches = coverage_percentages(root, scope, report)
-    except (OSError, ValueError, KeyError, TypeError):
-        print("ERROR: invalid coverage manifest or report", file=sys.stderr)
+    except (OSError, ValueError):
+        print("ERROR: invalid coverage report", file=sys.stderr)
         return 2
     print(f"Stewardship scope: lines {lines:.2f}%; branches {branches:.2f}%")
     return 0 if lines >= FLOOR and branches >= FLOOR else 1

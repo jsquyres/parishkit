@@ -242,4 +242,112 @@ def test_runner_manifest_failure_is_redacted(repository, monkeypatch, capsys):
         == 2
     )
     run.assert_not_called()
-    assert "sensitive" not in capsys.readouterr().err
+    assert capsys.readouterr().err == "ERROR: invalid coverage manifest\n"
+
+
+@pytest.mark.parametrize("kind", ["missing", "file"])
+def test_runner_rejects_invalid_repository_before_launch(
+    tmp_path, monkeypatch, capsys, kind
+):
+    """Missing and non-directory roots receive a path-free repository diagnostic."""
+    root = tmp_path / "synthetic-private-root"
+    if kind == "file":
+        root.write_text("synthetic-private-content")
+    run = Mock()
+    monkeypatch.setattr(quality.subprocess, "run", run)
+    assert quality.main(["--repository-root", str(root), "--report", "unused"]) == 2
+    run.assert_not_called()
+    assert capsys.readouterr().err == "ERROR: invalid repository directory\n"
+
+
+def test_runner_redacts_launch_failure(repository, monkeypatch, capsys):
+    """An OS launch failure cannot be mislabeled as bad coverage input."""
+    run = Mock(side_effect=OSError("synthetic-private-launch-details"))
+    monkeypatch.setattr(quality.subprocess, "run", run)
+    assert (
+        quality.main(["--repository-root", str(repository), "--report", "unused"]) == 2
+    )
+    run.assert_called_once()
+    assert capsys.readouterr().err == "ERROR: could not launch coverage tests\n"
+
+
+def test_runner_redacts_report_path_failure(repository, monkeypatch, capsys):
+    """Report path normalization failure is identified before launching tests."""
+    run = Mock()
+    monkeypatch.setattr(quality.subprocess, "run", run)
+    with monkeypatch.context() as patch:
+        patch.setattr(quality.Path, "cwd", Mock(return_value=repository))
+        patch.setattr(
+            quality.Path,
+            "absolute",
+            Mock(side_effect=OSError("synthetic-private-path-details")),
+        )
+        assert (
+            quality.main(["--repository-root", str(repository), "--report", "unused"])
+            == 2
+        )
+    run.assert_not_called()
+    assert capsys.readouterr().err == "ERROR: invalid coverage report\n"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        None,
+        "synthetic-private-invalid-json",
+        "[]",
+        '{"meta": [], "files": {}}',
+        '{"meta": {"branch_coverage": true}}',
+        '{"meta": {"branch_coverage": true}, "files": []}',
+        '{"meta": {"branch_coverage": true}, "files": {"synthetic-private": []}}',
+        '{"meta": {"branch_coverage": true}, "files": {}}',
+    ],
+)
+def test_runner_redacts_unreadable_or_malformed_report(
+    repository, monkeypatch, capsys, body
+):
+    """Report IO, JSON, and schema errors have one stage-specific safe message."""
+    report = repository / "synthetic-private-report.json"
+    if body is not None:
+        report.write_text(body)
+    run = Mock(return_value=subprocess.CompletedProcess([], 0))
+    monkeypatch.setattr(quality.subprocess, "run", run)
+    assert (
+        quality.main(["--repository-root", str(repository), "--report", str(report)])
+        == 2
+    )
+    run.assert_called_once()
+    assert capsys.readouterr().err == "ERROR: invalid coverage report\n"
+
+
+@pytest.mark.parametrize("stage", ["load_scope", "run", "coverage_percentages"])
+@pytest.mark.parametrize("error", [TypeError, KeyError])
+def test_runner_does_not_relabel_programming_errors(
+    repository, monkeypatch, stage, error
+):
+    """Unexpected implementation errors are not disguised as invalid user input."""
+    monkeypatch.setattr(
+        quality.subprocess, "run", Mock(return_value=subprocess.CompletedProcess([], 0))
+    )
+    target = quality.subprocess if stage == "run" else quality
+    monkeypatch.setattr(target, stage, Mock(side_effect=error("synthetic bug")))
+    with pytest.raises(error, match="synthetic bug"):
+        quality.main(["--repository-root", str(repository), "--report", "unused"])
+
+
+@pytest.mark.parametrize("kind", ["details", "summary", "counts"])
+def test_report_schema_errors_are_explicit(repository, kind):
+    """Malformed per-file data raises validation errors, not incidental exceptions."""
+    scope = quality.load_scope(repository)
+    data = report_data(scope)
+    name = next(iter(data["files"]))
+    if kind == "details":
+        data["files"][name] = []
+    elif kind == "summary":
+        data["files"][name]["summary"] = []
+    else:
+        del data["files"][name]["summary"]["num_branches"]
+    report = repository / "report.json"
+    report.write_text(json.dumps(data))
+    with pytest.raises(ValueError):
+        quality.coverage_percentages(repository, scope, report)
