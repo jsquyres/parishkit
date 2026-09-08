@@ -1,8 +1,10 @@
 """ARC-02 authority contract tests with a fake durable-materializer boundary."""
 
 import json
+import os
 from contextlib import contextmanager
 from datetime import date
+from pathlib import Path
 from uuid import UUID
 
 import pytest
@@ -100,7 +102,42 @@ class MemoryMaterializer:
 @pytest.fixture
 def authority(tmp_path):
     """Use an isolated, already provisioned directory, never runtime defaults."""
+    if os.name != "posix":
+        pytest.skip("POSIX authority durability tests require Linux Compose or WSL")
     return AuthorityStore(tmp_path, validate_synthetic_schema)
+
+
+def test_inaccessible_manifest_is_not_absent(authority, monkeypatch):
+    """Even when exists() suppresses access errors, recovery must fail closed."""
+    original = Path.lstat
+
+    def inaccessible(path):
+        """Model unreadable directory entries independently of the host Python."""
+        if path.name == "active.yaml":
+            raise PermissionError("synthetic-private-authority")
+        return original(path)
+
+    monkeypatch.setattr(Path, "lstat", inaccessible)
+    monkeypatch.setattr(Path, "is_symlink", lambda path: False)
+    monkeypatch.setattr(Path, "exists", lambda path: False)
+    with pytest.raises(ConfigError, match="manifest is unreadable or invalid") as exc:
+        recover_active(authority, MemoryMaterializer())
+    assert "private" not in str(exc.value)
+
+
+def test_nonregular_manifest_is_rejected_before_read(authority, monkeypatch):
+    """A directory or FIFO is not a manifest and must not reach a blocking read."""
+    (authority.root / "active.yaml").mkdir()
+
+    def unexpected_read(*args, **kwargs):
+        """Assert that input type checking happens before any YAML read."""
+        pytest.fail("non-regular manifest reached the YAML reader")
+
+    monkeypatch.setattr(
+        "parishkit.stewardship.accounts.authority.load_yaml_config", unexpected_read
+    )
+    with pytest.raises(ConfigError, match="manifest is unreadable or invalid"):
+        authority.active()
 
 
 @pytest.mark.parametrize("target", ["version", "manifest"])

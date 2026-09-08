@@ -108,6 +108,11 @@ uv pip check --python .venv/bin/python
 ```
 
 On Windows, replace `.venv/bin/python` with `.venv/Scripts/python.exe`.
+Native Windows can run portable host tests, but authority filesystem durability
+tests are explicitly skipped there: those service primitives require POSIX
+directory fsync and hard-link semantics. Run the full suite in Linux Compose
+or WSL for authority validation; macOS and Linux hosts run it natively. Do not
+weaken the production durability guarantees with a no-op fsync on Windows.
 These locks pin Python dependency/build-tool versions, not artifact hashes,
 the installer itself, or the entire operating-system toolchain. Full artifact
 reproducibility remains an OPS-01/OPS-09 responsibility. Editable installation
@@ -124,7 +129,7 @@ python -m pytest
 ```
 
 These shell environment-assignment examples are for POSIX hosts; use the same
-environment variables through PowerShell or the forthcoming development Compose
+environment variables through PowerShell or the development Compose
 configuration on Windows.
 
 Both stewardship CLI entry points use selective syntax-error redaction. Known

@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 import tempfile
 from collections.abc import Callable
 from contextlib import AbstractContextManager
@@ -228,12 +229,14 @@ class AuthorityStore:
     def active(self) -> ConfigurationVersion | None:
         """Read the atomic manifest once, then verify its immutable document hash."""
         path = self.root / "active.yaml"
-        if path.is_symlink():
-            raise ConfigError("invalid active configuration manifest")
-        if not path.exists():
-            return None
         try:
-            if path.stat().st_size > 4_096:
+            try:
+                metadata = path.lstat()
+            except FileNotFoundError:
+                return None
+            if not stat.S_ISREG(metadata.st_mode):
+                raise ConfigError("invalid active configuration manifest")
+            if metadata.st_size > 4_096:
                 raise ConfigError("configuration manifest exceeds input byte limit")
             manifest = load_yaml_config(path, required=True, reject_duplicate_keys=True)
             if (
