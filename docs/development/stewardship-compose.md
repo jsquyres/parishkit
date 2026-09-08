@@ -109,10 +109,16 @@ the generated development password. Combine only one overlay with the base;
 never combine development and production overlays.
 
 Only Caddy publishes production ports (`80`/`443`). It is disabled behind the
-`pending-ingress` profile until ingress/startup validation lands. Its checked-in
-config denies internal paths before proxying, with access logging off pending
-tested redaction. Production services still refuse startup. TLS, static serving,
-and release artifacts are not yet operational or approved.
+`pending-ingress` profile until ingress/startup validation lands. The checked-in
+[Caddyfile](../../deploy/stewardship/Caddyfile) is a reference template, not an
+automatically installed configuration. It denies internal paths before proxying,
+with access logging off pending tested redaction. Operators must copy that
+template to their managed configuration location and set
+`STEWARDSHIP_CADDY_CONFIG_FILE` to that file; Compose mounts only the supplied
+file and does not enforce the template's contents. Installation and ingress
+validation remain pending work, not a reason to enable this profile now.
+Production services still refuse startup. TLS, static serving, and release
+artifacts are not yet operational or approved.
 
 Python, PostgreSQL, Valkey, and Caddy use multi-architecture image digests.
 PostgreSQL 18 persists at `/var/lib/postgresql`, following its
