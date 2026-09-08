@@ -148,8 +148,14 @@ def main(argv=None) -> int:
         print("ERROR: invalid coverage manifest", file=sys.stderr)
         return 2
     try:
-        report = args.report.absolute()
-    except (OSError, ValueError):
+        report = args.report.absolute().resolve()
+        if report.is_relative_to(root):
+            raise ValueError("coverage report must be outside the repository")
+        # Reserve a new output exclusively: never overwrite a user file or
+        # accept a previous passing report when pytest emits no new coverage.
+        with report.open("x", encoding="utf-8"):
+            pass
+    except (OSError, ValueError, RuntimeError):
         print("ERROR: invalid coverage report", file=sys.stderr)
         return 2
     try:

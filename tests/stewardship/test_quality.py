@@ -47,7 +47,7 @@ def test_runner_help_only_advertises_implemented_flags(capsys):
 @pytest.fixture
 def repository(tmp_path):
     """Build a tiny repository with one package file and one shared module."""
-    root = tmp_path.resolve()
+    root = tmp_path.resolve() / "repository"
     package = root / quality.PACKAGE
     package.mkdir(parents=True)
     (package / "__init__.py").write_text("value = 1\n")
@@ -163,10 +163,15 @@ def test_quality_runner_independent_floors(
     repository, monkeypatch, lines, branches, expected
 ):
     """Either floor can fail despite excellent coverage in the other dimension."""
-    report = repository / "report.json"
+    report = repository.parent / "report.json"
     scope = quality.load_scope(repository)
-    report.write_text(json.dumps(report_data(scope, lines, branches)))
-    run = Mock(return_value=subprocess.CompletedProcess([], 0))
+
+    def emit_report(*args, **kwargs):
+        """Produce fresh measurement only when the simulated pytest is launched."""
+        report.write_text(json.dumps(report_data(scope, lines, branches)))
+        return subprocess.CompletedProcess([], 0)
+
+    run = Mock(side_effect=emit_report)
     monkeypatch.setattr(quality.subprocess, "run", run)
     assert (
         quality.main(["--repository-root", str(repository), "--report", str(report)])
@@ -179,10 +184,9 @@ def test_quality_runner_independent_floors(
     assert run.call_args.kwargs["cwd"] == repository
 
 
-def test_failed_pytest_cannot_reuse_old_report(repository, monkeypatch):
-    """Test failure returns immediately, even if a prior report passed."""
-    report = repository / "report.json"
-    report.write_text(json.dumps(report_data(quality.load_scope(repository))))
+def test_failed_pytest_returns_status_without_reading_report(repository, monkeypatch):
+    """Test failure returns immediately instead of evaluating incomplete output."""
+    report = repository.parent / "report.json"
     monkeypatch.setattr(
         quality.subprocess, "run", Mock(return_value=subprocess.CompletedProcess([], 5))
     )
@@ -265,7 +269,15 @@ def test_runner_redacts_launch_failure(repository, monkeypatch, capsys):
     run = Mock(side_effect=OSError("synthetic-private-launch-details"))
     monkeypatch.setattr(quality.subprocess, "run", run)
     assert (
-        quality.main(["--repository-root", str(repository), "--report", "unused"]) == 2
+        quality.main(
+            [
+                "--repository-root",
+                str(repository),
+                "--report",
+                str(repository.parent / "unused.json"),
+            ]
+        )
+        == 2
     )
     run.assert_called_once()
     assert capsys.readouterr().err == "ERROR: could not launch coverage tests\n"
@@ -307,10 +319,15 @@ def test_runner_redacts_unreadable_or_malformed_report(
     repository, monkeypatch, capsys, body
 ):
     """Report IO, JSON, and schema errors have one stage-specific safe message."""
-    report = repository / "synthetic-private-report.json"
-    if body is not None:
-        report.write_text(body)
-    run = Mock(return_value=subprocess.CompletedProcess([], 0))
+    report = repository.parent / "synthetic-private-report.json"
+
+    def emit_report(*args, **kwargs):
+        """Simulate a successful pytest that emits malformed or no measurement."""
+        if body is not None:
+            report.write_text(body)
+        return subprocess.CompletedProcess([], 0)
+
+    run = Mock(side_effect=emit_report)
     monkeypatch.setattr(quality.subprocess, "run", run)
     assert (
         quality.main(["--repository-root", str(repository), "--report", str(report)])
@@ -332,7 +349,42 @@ def test_runner_does_not_relabel_programming_errors(
     target = quality.subprocess if stage == "run" else quality
     monkeypatch.setattr(target, stage, Mock(side_effect=error("synthetic bug")))
     with pytest.raises(error, match="synthetic bug"):
-        quality.main(["--repository-root", str(repository), "--report", "unused"])
+        quality.main(
+            [
+                "--repository-root",
+                str(repository),
+                "--report",
+                str(repository.parent / "unused.json"),
+            ]
+        )
+
+
+@pytest.mark.parametrize("kind", ["inside", "existing", "symlink_inside"])
+def test_report_destination_cannot_overwrite_existing_data(
+    repository, monkeypatch, capsys, kind
+):
+    """Reject repository paths and existing output before launching pytest."""
+    original = repository / "important.toml"
+    original.write_text("synthetic-original")
+    if kind == "inside":
+        report = original
+    elif kind == "existing":
+        report = repository.parent / "old-coverage.json"
+        report.write_text(json.dumps(report_data(quality.load_scope(repository))))
+    else:
+        report = repository.parent / "alias.json"
+        report.symlink_to(original)
+    before = report.read_bytes()
+    run = Mock()
+    monkeypatch.setattr(quality.subprocess, "run", run)
+    assert (
+        quality.main(["--repository-root", str(repository), "--report", str(report)])
+        == 2
+    )
+    run.assert_not_called()
+    assert report.read_bytes() == before
+    assert original.read_text() == "synthetic-original"
+    assert capsys.readouterr().err == "ERROR: invalid coverage report\n"
 
 
 @pytest.mark.parametrize("kind", ["details", "summary", "counts"])

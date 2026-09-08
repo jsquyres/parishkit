@@ -11,7 +11,11 @@ Run the complete baseline with the same independent line/branch gates as CI:
 python -m parishkit.stewardship.quality --report /absolute/temporary/path/coverage.json
 ```
 
-The report's parent must exist; keep this generated artifact outside the checkout.
+The report's parent must exist, and its path must be new and outside the checkout.
+The runner rejects existing files and paths resolving into the checkout before
+launching tests. Use a new report filename for each run; even a failed run may
+leave an empty or partial report for diagnostics. A prior passing report cannot
+stand in for missing new measurement, and existing files are never overwritten.
 The runner always measures the complete stewardship package plus the exact
 shared modules in `coverage-stewardship.toml`, derives pytest-cov targets from
 that manifest, and independently requires at least 80% lines and 80% branches.
