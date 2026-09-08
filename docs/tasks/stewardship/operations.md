@@ -23,6 +23,9 @@ Evidence: Phase 0 Compose scaffold commit `72f31f3` on
 [`deploy/stewardship`](../../../deploy/stewardship/),
 [`test_services.py`](../../../tests/stewardship/test_services.py), and
 [`test_compose.py`](../../../tests/stewardship/test_compose.py).
+The counts below describe that historical implementation run. Subsequent
+corrections and current host/image/Compose validation are recorded in the
+[M0 review evidence](milestones.md#phase-0-skeleton).
 September 7, 2026: application image built on macOS/arm64 with Docker 29.7.2 and
 Compose 5.3.1. Host and in-image baseline each passed 570 tests (3 explicitly
 opt-in Docker checks skipped). The separately enabled Compose suite passed
@@ -139,13 +142,15 @@ Scope and dependencies: [OPS-09 work package](../../plans/stewardship/operations
 - [ ] OPS-09.05 — Complete required suites, saturated-download load tests, and acceptance traceability.
 - [ ] OPS-09.06 — Publish release artifacts only after the authorized final gate.
 
-Evidence: Phase 0 coverage/CI commit `8557a78` on
+Evidence: Initial Phase 0 coverage/CI commit `8557a78` on
 `pr/stewardship-implementation`. The mandatory package plus exact shared CLI/config/path modules
 are declared in [`coverage-stewardship.toml`](../../../coverage-stewardship.toml).
 The [coverage runner](../../../src/parishkit/stewardship/quality.py) derives its
 pytest-cov source arguments from the validated manifest and rejects incomplete
-or non-branch reports before evaluating independent floors. Its 33 regression
-tests include each invalid-manifest category and either-floor-only failures.
+or non-branch reports before evaluating independent floors. The initial 33
+regression tests included invalid-manifest categories and either-floor failures;
+subsequent corrections, expanded coverage, and current validation are recorded
+in the [M0 review evidence](milestones.md#phase-0-skeleton).
 September 7, 2026: the complete host runner passed 603 tests (3 opt-in Docker
 checks skipped), with 96.91% lines and 95.22% branches. Migration drift reported
 no changes. Ruff and Markdown checks passed.

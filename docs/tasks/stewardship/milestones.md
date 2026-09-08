@@ -581,7 +581,9 @@ Fifth M0 review and triage: finalized September 8, 2026, reviewed SHA `fa55500`,
 base `c810839`, session `20260907-234727-dfcba6`. All five Claude shards and the
 Codex reviewer completed their reviews. Four Claude drafts could not run the
 child-session validator; the parent subsequently validated all five artifacts
-with `pika review check-findings` and promoted only the four passing drafts.
+with `pika review check-findings`: all five passed. Four needed draft-to-final
+promotion; the fifth had already been delivered by its reviewer. All five
+artifacts were included in finalization; no shard's findings were excluded.
 No findings were rewritten or reviewers rerun during delivery recovery. Finalize
 reported COMMENT, 9 retained Medium findings from 49 raw (1 agreed, 7
 Claude-only, 1 Codex-only), 39 below-cutoff findings, no High/Critical findings,
@@ -617,6 +619,36 @@ No provider calls, deployment, release, merge, or gate approval occurred.
 Five review/triage rounds are now complete. M0.04 remains open: material fixes
 will receive a fresh independent review before PR/CI handoff and human merge
 approval. Phase 1 has not started.
+
+Sixth M0 review and triage: September 8, 2026, reviewed SHA `ca19f99`, base
+`c810839`, session `20260908-110155-8cbc6a`. The permission preflight passed;
+all five Claude shards delivered validated final artifacts without parent-side
+permission recovery. Codex also completed successfully. Finalize reported
+COMMENT, 11 retained Medium findings from 47 raw (1 agreed, 9 Claude-only,
+1 Codex-only), 35 below-cutoff findings, no High/Critical findings, and no failed
+reviewers, verdict mismatches, or degradations. Routine triage used the delegated
+phase workflow, with A1/C1–C9/X1 identifiers in finalized bucket order.
+
+| Finding | Disposition and evidence |
+| --- | --- |
+| A1 | Fixed: version reads now use the same guarded lstat/regular-file boundary as active manifests. Both boundaries have directory and real POSIX FIFO tests proving no YAML open occurs. |
+| C1 | Clarified: OPS-01/OPS-09 counts are explicitly historical, with links to the current M0 correction/validation evidence; historical successful runs were not misrepresented as current runs. |
+| C2 | Discarded: the normative operations specification explicitly names ghcr.io/\<repository\>/parishkit. The repeated parishkit segment is intentional when the GitHub repository is named parishkit. Added guide clarification and a rendered-image assertion; no image naming contract changed. |
+| C3 | Fixed: the shared example set is collected once and a separate assertion requires at least the eight shipped examples, preventing empty parametrizations from silently removing coverage. |
+| C4 | Discarded: the claim depends on an unimplemented ARC-03 consumer. The current public_origin contract validates a bare origin, not canonical spelling; _host strips a trailing dot only during label validation, not in its return value. No runtime consumer currently maps this value into ALLOWED_HOSTS/CSRF settings. Browser-origin integration remains owned by ARC-03 before Gate 1. |
+| C5, C7 | Discarded as duplicates of A1; the version-file guard and both-boundary regressions cover them. |
+| C6 | Fixed: strict YAML presence uses guarded stat, distinguishing missing/not-a-directory from access errors, and rejects non-regular inputs before open. Legacy non-strict behavior is unchanged. |
+| C8 | Clarified: all five fifth-round Claude artifacts passed; four needed promotion and the fifth was already delivered. None was excluded from finalization. |
+| C9, X1 | Fixed together: the coverage runner resolves and rejects checkout-local destinations, exclusively reserves a new output, and refuses existing reports without modifying them. Zero-exit pytest with no new measurement fails; tests emit reports during simulated execution rather than pre-seeding stale output. |
+
+Post-correction host validation passed 938 tests with 10 opt-in Docker skips;
+scoped coverage is 97.42% lines / 96.01% branches. The in-image baseline passed
+the same 938 tests/10 skips with exact parity across 948 collected IDs. All 25
+opt-in Compose checks passed. Ruff, formatting, all tracked Markdown, migration
+drift, and whitespace checks passed. Coverage evidence is `triage-coverage.json`
+in this session. Six rounds are complete; material input/output guard fixes
+will receive independent re-review before PR/CI handoff. No merge, deployment,
+release, real-provider operation, or human gate approval occurred.
 
 ## Phase 1: Secure foundation
 
