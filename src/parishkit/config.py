@@ -82,28 +82,62 @@ class _UniqueKeySafeLoader(yaml.SafeLoader):
                 duplicate = key in seen
                 seen.add(key)
             except TypeError:
-                raise yaml.constructor.ConstructorError(
-                    None, None, "unhashable mapping key", key_node.start_mark
+                raise ConfigError(
+                    "configuration YAML has an unhashable mapping key"
+                    f" at line {key_node.start_mark.line + 1},"
+                    f" column {key_node.start_mark.column + 1}"
                 ) from None
             if duplicate:
-                raise yaml.constructor.ConstructorError(
-                    None, None, "duplicate mapping key", key_node.start_mark
+                raise ConfigError(
+                    "configuration YAML has a duplicate mapping key"
+                    f" at line {key_node.start_mark.line + 1},"
+                    f" column {key_node.start_mark.column + 1}"
                 )
         return super().construct_mapping(node, deep=deep)
 
 
-def _load_strict_yaml(path: Path) -> Any:
-    """Bound actual bytes read, including growing files, and normalize recursion."""
+def _load_strict_yaml(path: str | Path, *, required: bool) -> ConfigData:
+    """Bound strict reads and expose only authored diagnostics and numeric locations.
+
+    Keep path resolution, filesystem access, and scalar construction inside the
+    private-error boundary. Chained parser/OS exceptions can contain filenames
+    and YAML snippets, so suppress their normal traceback rendering as well.
+    Legacy consumers retain the separate, detailed diagnostics below.
+    """
     try:
-        with path.open("rb") as stream:
+        config_path = Path(path).expanduser()
+        if not config_path.exists():
+            if required:
+                raise ConfigError("configuration file not found")
+            return {}
+        with config_path.open("rb") as stream:
             data = stream.read(STRICT_YAML_MAX_BYTES + 1)
         if len(data) > STRICT_YAML_MAX_BYTES:
             raise ConfigError("configuration YAML exceeds input byte limit")
-        return yaml.load(data.decode("utf-8"), Loader=_UniqueKeySafeLoader)
-    except (RecursionError, UnicodeError):
-        # A lowered interpreter recursion limit or decoder failure must not
-        # leak input, filenames, or implementation tracebacks to strict callers.
+        raw_data = yaml.load(data.decode("utf-8"), Loader=_UniqueKeySafeLoader)
+    except ConfigError:
+        # Only our own loader emits ConfigError, with authored public messages.
+        raise
+    except yaml.YAMLError as exc:
+        raise ConfigError(
+            f"could not parse configuration YAML{_yaml_error_location(exc)}. "
+            "Check indentation, ':' after keys, and '-' before list items."
+        ) from None
+    except OSError:
+        raise ConfigError(
+            "could not read configuration file; check access and file permissions"
+        ) from None
+    except (ValueError, RuntimeError):
+        # Covers invalid UTF-8/scalar values, path expansion, and recursion.
         raise ConfigError("configuration YAML cannot be safely parsed") from None
+    if raw_data is None:
+        return {}
+    if not isinstance(raw_data, dict):
+        raise ConfigError(
+            "configuration YAML must contain a top-level mapping "
+            "of key/value sections, not a list or scalar value."
+        )
+    return raw_data
 
 
 def load_yaml_config(
@@ -117,14 +151,19 @@ def load_yaml_config(
     Empty files are treated as empty dictionaries. Invalid YAML and non-
     mapping top-level values fail fast with a user-facing ``ConfigError``.
     ``reject_duplicate_keys`` opts into strict nested mappings and bounded
-    byte/node/depth consumption (including alias expansion). The default
-    preserves existing tools' YAML merge/last-value behavior and read limits.
+    byte/node/depth consumption (including alias expansion). Strict diagnostics
+    omit paths, source contents, and chained parser/OS error details, retaining
+    authored hints and numeric source locations. The default preserves existing
+    tools' YAML merge/last-value behavior, read limits, and detailed diagnostics.
     """
 
     if path is None:
         if required:
             raise ConfigError("configuration file path is required")
         return {}
+
+    if reject_duplicate_keys:
+        return _load_strict_yaml(path, required=required)
 
     config_path = Path(path).expanduser()
     if not config_path.exists():
@@ -133,11 +172,7 @@ def load_yaml_config(
         return {}
 
     try:
-        raw_data = (
-            _load_strict_yaml(config_path)
-            if reject_duplicate_keys
-            else yaml.safe_load(config_path.read_text(encoding="utf-8"))
-        )
+        raw_data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     except yaml.YAMLError as exc:
         location = _yaml_error_location(exc)
         raise ConfigError(

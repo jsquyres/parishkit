@@ -1,5 +1,6 @@
 """Opt-in strict YAML parsing without changing existing CLI configuration."""
 
+import traceback
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import Mock
@@ -166,3 +167,101 @@ def test_strict_invalid_utf8_is_normalized(tmp_path):
         ConfigError, match="^configuration YAML cannot be safely parsed$"
     ):
         load_yaml_config(path, reject_duplicate_keys=True)
+
+
+@pytest.mark.parametrize(
+    ("document", "hint", "location"),
+    [
+        (
+            "token: synthetic-private-value\ntoken: synthetic-private-value\n",
+            "duplicate mapping key",
+            "line 2, column 1",
+        ),
+        ("token: [synthetic-private-value", "Check indentation", "line 1, column 32"),
+        (
+            "token: !synthetic-private-value secret\n",
+            "Check indentation",
+            "line 1, column 8",
+        ),
+        (
+            "? [synthetic-private-value]\n: secret\n",
+            "unhashable mapping key",
+            "line 1, column 3",
+        ),
+        ("- synthetic-private-value\n", "top-level mapping", None),
+        ("synthetic-private-value\n", "top-level mapping", None),
+        ("token: !!timestamp 2026-99-99\n", "cannot be safely parsed", None),
+    ],
+)
+def test_strict_diagnostics_keep_hints_without_private_input(
+    tmp_path, document, hint, location
+):
+    """Direct exception logging retains public hints, never file/source details."""
+    path = tmp_path / "synthetic-private-path.yaml"
+    path.write_text(document, encoding="utf-8")
+    with pytest.raises(ConfigError) as exc:
+        load_yaml_config(path, reject_duplicate_keys=True)
+    message = str(exc.value)
+    assert hint in message
+    if location:
+        assert location in message
+    rendered = "".join(traceback.format_exception(exc.value))
+    assert "synthetic-private" not in rendered
+    assert str(tmp_path) not in rendered
+    assert exc.value.__cause__ is None
+    assert exc.value.__context__ is None or exc.value.__suppress_context__
+
+
+@pytest.mark.parametrize("operation", ["expanduser", "exists", "open"])
+def test_strict_file_errors_are_private_but_legacy_errors_are_unchanged(
+    tmp_path, monkeypatch, operation
+):
+    """Normalize path expansion, stat, and read errors without changing defaults."""
+    path = tmp_path / "synthetic-private-path.yaml"
+    path.touch()
+    error = (
+        RuntimeError("synthetic-private-value")
+        if operation == "expanduser"
+        else PermissionError(13, "synthetic-private-value", str(path))
+    )
+    monkeypatch.setattr(Path, operation, Mock(side_effect=error))
+    with pytest.raises(ConfigError) as exc:
+        load_yaml_config(path, reject_duplicate_keys=True)
+    assert "synthetic-private" not in "".join(traceback.format_exception(exc.value))
+    assert exc.value.__cause__ is None and exc.value.__suppress_context__
+    with pytest.raises((ConfigError, OSError, RuntimeError)) as legacy:
+        load_yaml_config(path)
+    assert "synthetic-private-value" in str(legacy.value)
+
+
+def test_strict_missing_file_keeps_required_and_optional_behavior(tmp_path):
+    """Missing required paths are private; optional files still yield defaults."""
+    path = tmp_path / "synthetic-private-path.yaml"
+    assert load_yaml_config(path, reject_duplicate_keys=True) == {}
+    with pytest.raises(ConfigError) as exc:
+        load_yaml_config(path, required=True, reject_duplicate_keys=True)
+    assert str(exc.value) == "configuration file not found"
+    with pytest.raises(ConfigError) as legacy:
+        load_yaml_config(path, required=True)
+    assert str(path) in str(legacy.value)
+
+
+def test_strict_unmarked_parser_error_never_echoes_exception_text(
+    tmp_path, monkeypatch
+):
+    """Parser failures without a source mark have the same redaction boundary."""
+    path = tmp_path / "synthetic-private-path.yaml"
+    path.touch()
+    monkeypatch.setattr(
+        config.yaml,
+        "load",
+        Mock(side_effect=config.yaml.YAMLError("synthetic-private")),
+    )
+    with pytest.raises(ConfigError) as exc:
+        load_yaml_config(path, reject_duplicate_keys=True)
+    assert "Check indentation" in str(exc.value)
+    assert "synthetic-private" not in "".join(traceback.format_exception(exc.value))
+    with pytest.raises(ConfigError) as legacy:
+        load_yaml_config(path)
+    assert "synthetic-private" in str(legacy.value)
+    assert isinstance(legacy.value.__cause__, config.yaml.YAMLError)
