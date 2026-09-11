@@ -95,8 +95,10 @@ and scoped exact-decimal giving now pass 92 selected client/loading/giving cases
 and two PostgreSQL core/financial round trips. Scoped household delta replacement,
 pre-read watermark metadata and fenced old-staging rejection now pass 26 selected
 household/delta tests, 21 cursor cases and 35 combined PostgreSQL
-delta/rejection/corpus/snapshot cases. No item is complete: durable attempt and
-credential binding, task outcomes/stale-request recovery, full/delta producers,
+delta/rejection/corpus/snapshot cases. Immutable concrete attempt/credential
+bindings and SQL completion-cursor guards now pass twelve pure credential tests
+and the combined 89-case PostgreSQL source regression. No item is complete:
+task outcomes/stale-request recovery, full/delta producers,
 runtime integration and source-driven Family/chair reconciliation remain.
 
 ## BG-06: Family invitations and reminders

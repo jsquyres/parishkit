@@ -19,6 +19,7 @@ START = datetime(2026, 9, 11, 12, tzinfo=UTC)
 
 
 def indication(identifier=1):
+    """Use one typed same-parish event inside the overlapping query interval."""
     return {
         "family_DUID": identifier,
         "logDate": START.isoformat(),
@@ -67,6 +68,7 @@ def client(tmp_path, rows):
 
 
 def test_unchanged_household_round_trip_does_not_copy_any_source_payload(tmp_path):
+    """Full and scoped DTO conversions produce identical canonical data."""
     options = arguments()
     connection = client(
         tmp_path,
@@ -80,6 +82,7 @@ def test_unchanged_household_round_trip_does_not_copy_any_source_payload(tmp_pat
 
 
 def test_one_contact_changes_without_reloading_ministry_fund_or_giving(tmp_path):
+    """A contact edit neither copies other entities nor expands provider reads."""
     options = arguments()
     connection = client(
         tmp_path,
@@ -103,6 +106,7 @@ def test_one_contact_changes_without_reloading_ministry_fund_or_giving(tmp_path)
 
 
 def test_family_inactivation_updates_eligibility_without_erasing_identity(tmp_path):
+    """The whole household remains retained when its last active head inactivates."""
     connection = client(
         tmp_path,
         [
@@ -117,6 +121,7 @@ def test_family_inactivation_updates_eligibility_without_erasing_identity(tmp_pa
 
 
 def test_empty_indications_preserve_giving_age_but_reevaluate_roster_dates(tmp_path):
+    """Date-derived currentness advances without inventing a newer giving read."""
     options = arguments()
     row = next(iter(options["base"]["roster"].values()))
     row["endDate"] = TODAY.isoformat()
@@ -131,6 +136,7 @@ def test_empty_indications_preserve_giving_age_but_reevaluate_roster_dates(tmp_p
 
 @pytest.mark.parametrize("member_rows", [[], [{"memberDUID": 4, "familyDUID": 1}]])
 def test_removed_or_replaced_member_requires_full_refresh(tmp_path, member_rows):
+    """Changed composition cannot silently leave dangling outside relationships."""
     rows = [household()[0], member_rows]
     if member_rows:
         rows.append({"memberDUID": 4, "familyDUID": 1})
@@ -140,6 +146,7 @@ def test_removed_or_replaced_member_requires_full_refresh(tmp_path, member_rows)
 
 
 def test_changed_global_family_group_definition_requires_full_refresh(tmp_path):
+    """A global eligibility lookup change may affect unqueried households."""
     connection = client(
         tmp_path,
         [[indication()], *household(), [{"famGroupID": 7, "famGroup": "Inactive"}]],
@@ -149,6 +156,7 @@ def test_changed_global_family_group_definition_requires_full_refresh(tmp_path):
 
 
 def test_unavailable_family_requires_full_without_a_partial_corpus(tmp_path):
+    """Missing source identity is not permission to delete a Family via delta."""
     connection = client(tmp_path, [[indication()], {}])
     connection.session.responses[2].status_code = 404
     with pytest.raises(ChangeFeedIncomplete):
@@ -158,6 +166,7 @@ def test_unavailable_family_requires_full_without_a_partial_corpus(tmp_path):
 def test_new_family_with_new_members_can_be_added_without_erasing_existing_data(
     tmp_path,
 ):
+    """A wholly new household has no pre-existing outside Member relationships."""
     rows = [
         {
             "familyDUID": 4,
@@ -184,6 +193,7 @@ def test_new_family_with_new_members_can_be_added_without_erasing_existing_data(
 
 
 def test_member_move_into_new_household_requires_full(tmp_path):
+    """A retained Member's old household must not remain inconsistent."""
     rows = [
         {"familyDUID": 4},
         [{"memberDUID": 3, "familyDUID": 4}],
@@ -195,6 +205,7 @@ def test_member_move_into_new_household_requires_full(tmp_path):
 
 
 def test_changed_window_or_missing_giving_coverage_falls_back_before_network(tmp_path):
+    """An incompatible base cannot issue any provider reads as a valid delta."""
     for changes in ({"window": RefreshWindow(uuid4(), ())}, {"load": {}}):
         options = arguments()
         if "load" in changes:

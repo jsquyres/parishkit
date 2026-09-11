@@ -433,21 +433,28 @@ def test_populated_history_refuses_schema_downgrade_before_removing_guards(tmp_p
     initialized(tmp_path)
     command()
     executor = MigrationExecutor(connection)
-    with pytest.raises(IntegrityError, match="Refresh history prevents"):
-        executor.migrate(
-            [
-                (
-                    "stewardship_source",
-                    "0008_sourcerefreshrequest_sourcerefreshcommand_and_more",
-                )
-            ]
-        )
-    assert ("stewardship_source", "0009_refresh_request_guards") in MigrationExecutor(
-        connection
-    ).loader.applied_migrations
-    with (
-        pytest.raises(IntegrityError),
-        transaction.atomic(),
-        connection.cursor() as sql,
-    ):
-        sql.execute("DELETE FROM stewardship_source_refresh_command")
+    targets = executor.loader.graph.leaf_nodes()
+    try:
+        with pytest.raises(IntegrityError, match="Refresh history prevents"):
+            executor.migrate(
+                [
+                    (
+                        "stewardship_source",
+                        "0008_sourcerefreshrequest_sourcerefreshcommand_and_more",
+                    )
+                ]
+            )
+        assert (
+            "stewardship_source",
+            "0009_refresh_request_guards",
+        ) in MigrationExecutor(connection).loader.applied_migrations
+        with (
+            pytest.raises(IntegrityError),
+            transaction.atomic(),
+            connection.cursor() as sql,
+        ):
+            sql.execute("DELETE FROM stewardship_source_refresh_command")
+    finally:
+        # Later empty migrations may have reversed successfully before the
+        # populated-history refusal. Restore every leaf with a fresh executor.
+        MigrationExecutor(connection).migrate(targets)

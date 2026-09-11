@@ -313,6 +313,26 @@ remain open. A source-semantics question about Ministry catalog presence versus
 an explicit active-Ministry policy is awaiting the owner; unrelated source
 worker work continues.
 
+The attempt-binding checkpoint adds immutable request/manifest/Task-fence/
+configuration/loaded-credential receipts. A loaded API key uses the installer's
+exact-byte fingerprint, has a private representation and accepts only bounded
+single-line key material. Same-claim replay returns one manifest. Fresh service
+and SQL checks reject a different key, task, actor, campaign or current giving
+window; harmless display-only configuration edits preserve the attempt's
+historical configuration identity. Concrete refresh tasks cannot finish generic
+unbound staging. Their ready/promoted cursors must describe the exact pre-read
+manifest time and coherent full baseline. Attempt history is immutable and
+prevents downgrade that would discard its guards.
+
+Twelve pure credential tests and the combined 89-case PostgreSQL
+attempt/request/rejection/delta/corpus/snapshot run pass. The combined run exposed
+an older downgrade test leaving later reversible migrations unapplied after an
+expected refusal; its cleanup now restores every leaf with a fresh executor.
+The baseline passes 3,217 tests, with 1,369 explicitly opt-in cases skipped;
+lint, formatting and migration drift checks pass. These are not yet enabled
+runtime handlers: verified task outcomes, recovery/full-fallback scheduling,
+Family/chair reconciliation, worker grants/mounts and setup/UI integration remain.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later
