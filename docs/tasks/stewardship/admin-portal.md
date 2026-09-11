@@ -45,10 +45,10 @@ Scope and dependencies: [ADM-03 work package](../../plans/stewardship/admin-port
 - [ ] ADM-03.01 — Build role-filtered navigation and dashboard.
 - [ ] ADM-03.02 — Build persistent operational-state banners.
 - [ ] ADM-03.03 — Build presence and background-task indicators.
-- [ ] ADM-03.04 — Build durable configuration and credential editors.
+- [ ] ADM-03.04 — Build durable configuration, Ministry activity, and credential editors.
 - [ ] ADM-03.05 — Keep Parish-timezone edits prospective.
 - [ ] ADM-03.06 — Build branding previews and variant handling.
-- [ ] ADM-03.07 — Test configuration UI, concurrency, and timezone isolation.
+- [ ] ADM-03.07 — Test configuration UI, Ministry activity, concurrency, and timezone isolation.
 
 Evidence: Not started.
 

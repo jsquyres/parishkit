@@ -108,6 +108,22 @@ constraint permits only one nonterminal request per credential target; only the
 matching installer identity may claim it. Expiry/failure cleanup removes the
 sealed payload while preserving non-secret audit metadata.
 
+### Ministry activity policy
+
+Parish-wide Ministry activity overrides are non-secret authoritative YAML
+configuration, materialized with their exact applied configuration version.
+Each record has a stable record UUID, ParishSoft organization ID, Ministry DUID
+and explicit active flag; the organization/Ministry pair is unique within an
+applied version. Missing overrides mean locally active, not missing source
+membership. Retain overrides when a Ministry disappears from the source catalog.
+Source payloads remain unmodified and cannot overwrite local activity policy.
+
+The [Admin activity workflow](../admin-portal/spec.md#ministry-activity-management)
+owns defaults, visibility, live-campaign edits and authorization-overlay effects.
+Submission baseline/fingerprint inputs include the applicable activity policy
+so concurrent changes cannot silently accept stale Ministry choices. Retained
+submissions and audit refer to the applied policy that governed their acceptance.
+
 ### Campaign
 
 A `Campaign` includes:

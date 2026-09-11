@@ -99,7 +99,9 @@ now pass the 237-case source/scheduler PostgreSQL regression. Drained-staging
 cleanup then passes the 32-case executor/producer/process rerun. Eleven pure
 cadence cases cover restart identity, bounded catch-up and DST. Required chair
 effects, the Admin-editable nightly-time schema and isolated runtime enablement
-remain; see the linked checkpoint for the outstanding Ministry-policy question.
+remain; the owner resolved Ministry activity as persistent Admin-managed
+inactivation in the linked checkpoint and
+[normative workflow](../../specs/stewardship/admin-portal/spec.md#ministry-activity-management).
 Earlier checkpoints
 record the public contract verification, uncached Family indication parser and
 66 passing shared ParishSoft tests. Immutable task-root/tenant/window requests

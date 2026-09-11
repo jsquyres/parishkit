@@ -218,7 +218,7 @@ Scope and dependencies: [DAT-05 work package](../../plans/stewardship/data.md#da
 - [ ] DAT-05.01 — Implement portal users, login rules, and assignments.
 - [x] DAT-05.02 — Materialize policy from applied YAML versions.
 - [x] DAT-05.03 — Enforce rule precedence and last-Administrator guards.
-- [ ] DAT-05.04 — Implement provenance-aware chair seeds and runtime suspension overlays.
+- [ ] DAT-05.04 — Implement Ministry activity policy, provenance-aware chair seeds, and runtime suspension overlays.
 - [x] DAT-05.05 — Index login and Ministry authorization queries.
 - [ ] DAT-05.06 — Test policy activation, source transitions, and idempotent autosave races.
 

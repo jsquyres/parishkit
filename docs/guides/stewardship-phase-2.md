@@ -309,9 +309,8 @@ promotion/rejection watermark behavior. The full baseline passes 3,205 tests,
 with 1,350 explicitly opt-in cases skipped; Ruff, formatting and migration drift
 checks pass. Durable attempt/credential binding, task outcome/recovery handlers,
 scheduled/manual producers, source Family/chair effects and runtime/UI setup
-remain open. A source-semantics question about Ministry catalog presence versus
-an explicit active-Ministry policy is awaiting the owner; unrelated source
-worker work continues.
+remain open. At this checkpoint, Ministry activity policy awaited the owner;
+the resolution below adds persistent Admin-managed inactivation.
 
 The attempt-binding checkpoint adds immutable request/manifest/Task-fence/
 configuration/loaded-credential receipts. A loaded API key uses the installer's
@@ -473,10 +472,21 @@ passes 237 PostgreSQL cases with no skips; after adding drained-staging cleanup,
 the 32-case executor/producer/process rerun passes. The baseline passes 3,273
 tests with 1,468 explicitly opt-in cases skipped before those final two cleanup
 cases. Ruff, formatting, migration drift and whitespace checks pass. No Phase 2
-review round has run yet. The next source-authorization integration needs the
-outstanding owner decision about Ministry catalog presence versus an explicit
-active-Ministry policy; no policy choice has been silently applied. Runtime
-wiring, complete setup, configuration/editor UI and their tests remain open.
+review round has run yet. Runtime wiring, complete setup, configuration/editor
+UI and their tests remain open.
+
+Ministry activity decision (September 11, 2026): the owner requires an Admin
+web workflow to mark Ministries inactive so they are not shown to parishioners.
+The [normative workflow](../specs/stewardship/admin-portal/spec.md#ministry-activity-management)
+now defines persistent parish-wide tenant/DUID overrides, defaults, import and
+rename stability, visibility of existing memberships as well as choices, and
+preservation of source/history/earlier requests. It also defines live-campaign
+edits separately from structural selection and the existing seeded-assignment
+suspension/reactivation effects. Linked data, Family and implementation/task
+documents carry the same requirements without marking their implementation done.
+This resolves the policy question; the YAML schema/projections, Admin UI,
+authorization integration and Family-form enforcement still need implementation
+under their owning Phase 2/later-phase tasks.
 
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
