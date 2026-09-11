@@ -376,6 +376,28 @@ baseline passes 3,240 tests with 1,388 explicitly opt-in cases skipped. Final
 promotion orchestration, durable outcomes/recovery/fallback dependencies,
 producers, runtime isolation and setup/editor UI remain in this Phase 2 batch.
 
+The recovery/supersession checkpoint proves completion only from a promoted
+manifest concretely bound to the immutable request/retry root. Ready/rejected
+staging and another request's successful refresh are not completion proof.
+Historical completion survives a newer current snapshot or campaign change.
+Interrupted reads wait for the old source lease/read-drain deadline or evidence
+of a safely acquired newer fence. A pre-manifest source reservation also delays
+retry, avoiding repeated claims against its own unexpired lease. Internal crash
+recovery uses five automatic attempts with bounded exponential delays; it does
+not change historical Task rows or enable a real provider handler by itself.
+
+Current-scope denial alone remains a hold. Concrete changed tenant/window
+evidence allows waiting or safely abandoned work to be cancelled without
+rebinding its request; live running workers are never impersonated. Cancellation
+records only original/replacement scope fingerprints in its audit, and audit
+failure rolls back the transition. Concurrent sweepers produce one outcome.
+The actual generic hint/recovery dispatcher now exercises the source metadata
+owner, including expiry after a campaign change and post-promotion completion.
+The combined source/Family run passes 58 PostgreSQL cases; the final focused
+outcome/supersession rerun passes 21. Baseline validation passes 3,240 tests with
+1,409 explicitly opt-in cases skipped. Full-fallback dependencies, worker
+execution/producer wiring and the remaining Phase 2 runtime/UI work stay open.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later
