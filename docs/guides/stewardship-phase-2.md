@@ -15,7 +15,8 @@ refreshed `origin/main` tip.
 
 ## Active checkpoint
 
-DAT-03 is in progress. The first internal checkpoint implements normalized
+DAT-03 storage is complete; BG-01 is the next dependency-ready package. The
+first internal checkpoint implements normalized
 content-addressed payload tables and snapshot membership maps, server-clock
 task/source fencing, bounded staging, database-verified completeness and
 relationship evidence, atomic promotion/reconciliation, immutable manifests and
@@ -36,6 +37,32 @@ repeat passes 34 PostgreSQL cases. The updated baseline passes 2,754 tests.
 DAT-03.01-.05 are complete for their storage scope. Daily-fact storage,
 fact-specific tests and concrete runtime consumers remain open, so DAT-03 as a
 whole is not yet marked complete.
+
+The third checkpoint completes daily-fact storage: immutable exact-input graph
+generations, SQL completeness and provenance checks, non-regressing interactive
+pointers, explicit retained-parent/source pins and shared locks through lazy
+reads. The input key includes the campaign-local through-date required by the
+graph's today bound: midnight cannot reuse yesterday's dates merely because
+source and submission versions did not change. Historical facts use permanent
+source metadata; current-scope generations pin their reconstructable source.
+
+Durable rebuild demand implements the five-second debounce and thirty-second
+cap. Claims freeze their own revision; concurrent events retain an independent
+pending window through completion and abandoned-work recovery. Exact exports
+use the generation API without consuming interactive demand. Bounded fact
+compaction preserves current/building/failed/claimed/pinned/actively read
+generations, deletes whole disposable generations atomically, releases only
+their source pins and keeps immutable generation-key/count evidence and audit.
+Shared task ownership now takes the retry-root lock before its execution row.
+
+All 38 fact PostgreSQL tests pass, including migration reversal/reapplication,
+raw-SQL tampering, failed-build recovery, interrupted cleanup, active lazy
+readers and both late-pin race orders. The final combined source/fact/TaskRun
+regression passes 165 cases; pure fact/lease validation passes 47 cases. The
+baseline passes 2,788 tests. These are internal storage APIs, not enabled report
+workers: BG-01/BG-05 own concrete runtime admission, source producer wiring and
+queue consumers; RPT-02/RPT-03 retain calculation/materializer/UI ownership.
+Runtime database grants remain closed until their owning service is admitted.
 
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge

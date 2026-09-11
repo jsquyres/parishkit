@@ -42,3 +42,10 @@ def test_promotion_requires_an_outer_transaction():
     """Returning an unlocked fence cannot authorize a later promotion."""
     with pytest.raises(StorageInvariantError, match="outer transaction"):
         verify_source(SourceClaim(uuid4(), 1, uuid4(), 1, "full"))
+
+
+@pytest.mark.parametrize("fence", [True, False, 0, -1, "1", 1.0, 2**63])
+def test_source_fence_never_coerces_invalid_credentials(fence):
+    """Task validation also requires a separately strict source mutation fence."""
+    with pytest.raises(SourceFenceLost):
+        SourceClaim(uuid4(), 1, uuid4(), fence, "full")

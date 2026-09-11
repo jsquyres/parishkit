@@ -13,7 +13,12 @@ from uuid import UUID
 
 from django.db import connection, transaction
 
-from parishkit.stewardship.jobs.models import TaskRun
+from parishkit.stewardship.jobs.ownership import (
+    TaskClaim,
+    TaskOwnershipLost,
+    database_now,
+    lock_task_claim,
+)
 from parishkit.stewardship.storage import StorageInvariantError
 
 from .models import SourceMutationLease
@@ -37,6 +42,19 @@ class SourceClaim:
     fence: int
     phase: str
 
+    def __post_init__(self):
+        """Do not let boolean/coerced source fences masquerade as exact ownership."""
+        try:
+            TaskClaim(self.task_id, self.task_fence, self.worker_id)
+        except TaskOwnershipLost:
+            raise SourceFenceLost("An exact source claim is required.") from None
+        if (
+            type(self.fence) is not int
+            or not 1 <= self.fence < 2**63
+            or self.phase not in {"full", "delta", "publication", "compaction"}
+        ):
+            raise SourceFenceLost("An exact source claim is required.")
+
 
 def _duration(value, *, maximum=3600):
     """Bound configuration errors without coercing booleans or fractional values."""
@@ -47,34 +65,15 @@ def _duration(value, *, maximum=3600):
 
 def _now():
     """Use the database wall clock, including after lock acquisition waits."""
-    if connection.vendor != "postgresql" or not connection.in_atomic_block:
-        raise StorageInvariantError("Source ownership requires PostgreSQL locks.")
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT clock_timestamp()")
-        return cursor.fetchone()[0]
+    return database_now()
 
 
 def _task(task_id, task_fence, worker_id):
     """Acquire the common task-before-source lock order and validate live ownership."""
-    if (
-        not isinstance(task_id, UUID)
-        or not isinstance(worker_id, UUID)
-        or type(task_fence) is not int
-        or task_fence < 1
-    ):
-        raise SourceFenceLost("Source work requires an exact live task claim.")
     try:
-        task = TaskRun.objects.select_for_update().get(pk=task_id)
-    except TaskRun.DoesNotExist:
-        raise SourceFenceLost("Source task no longer exists.") from None
-    if (
-        task.state != "running"
-        or task.fence != task_fence
-        or task.worker_id != worker_id
-        or task.lease_expires_at <= _now()
-    ):
-        raise SourceFenceLost("Source task ownership is no longer current.")
-    return task
+        return lock_task_claim(TaskClaim(task_id, task_fence, worker_id))
+    except TaskOwnershipLost:
+        raise SourceFenceLost("Source task ownership is no longer current.") from None
 
 
 def _lease():
