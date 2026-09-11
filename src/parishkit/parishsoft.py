@@ -89,7 +89,8 @@ class ParishSoftConfig:
 
     Bundles the API key, on-disk cache location, request timeout, and the
     optional expected organization name used to guard against pointing at the
-    wrong ParishSoft tenant.
+    wrong ParishSoft tenant. Set cache_enabled=False for coherent reads that
+    must neither reuse cached responses nor leave private response files.
     """
 
     api_key: str
@@ -98,6 +99,7 @@ class ParishSoftConfig:
     cache_limit: float | None = None
     api_base_url: str = DEFAULT_API_BASE_URL
     timeout: float = 30.0
+    cache_enabled: bool = True
 
     def __post_init__(self) -> None:
         """Validate field types and value ranges, raising ConfigError on bad input."""
@@ -115,6 +117,8 @@ class ParishSoftConfig:
             raise ConfigError("ParishSoft timeout must be a number")
         if self.timeout <= 0:
             raise ConfigError("ParishSoft timeout must be positive")
+        if type(self.cache_enabled) is not bool:
+            raise ConfigError("ParishSoft cache_enabled must be boolean")
 
 
 class ParishSoftClient:
@@ -136,16 +140,17 @@ class ParishSoftClient:
 
         A caller-supplied session or retry policy may be injected (useful for
         testing); otherwise sensible defaults are created. The cache directory
-        is created if needed and locked down to owner-only (0o700) because
-        cached responses can contain personal contact information.
+        is created if caching is enabled and locked down to owner-only (0o700)
+        because cached responses can contain personal contact information.
         """
         self.config = config
         self.session = session or requests.Session()
         self.session.headers.update({"x-api-key": config.api_key})
         self.retry_policy = retry_policy or RetryPolicy(attempts=3, initial_delay=0.2)
         self._organization_id: int | None = None
-        self.config.cache_dir.mkdir(parents=True, exist_ok=True)
-        self.config.cache_dir.chmod(0o700)
+        if self.config.cache_enabled:
+            self.config.cache_dir.mkdir(parents=True, exist_ok=True)
+            self.config.cache_dir.chmod(0o700)
 
     def validate_organization(self) -> int:
         """Confirm the API key maps to exactly one organization and return its ID.
@@ -441,6 +446,8 @@ class ParishSoftClient:
         When ``cache_limit`` is set, a file whose modification time predates
         the limit window is treated as a miss so callers re-fetch fresh data.
         """
+        if not self.config.cache_enabled:
+            return None
         cache_path = self._cache_path(endpoint, params)
         if not cache_path.exists():
             LOGGER.debug("ParishSoft cache miss for %s", endpoint)
@@ -469,6 +476,8 @@ class ParishSoftClient:
         Uses an atomic write so a partial file is never left behind, and sorts
         keys so cached files are stable and diff-friendly.
         """
+        if not self.config.cache_enabled:
+            return
         cache_path = self._cache_path(endpoint, params)
         LOGGER.debug("Writing ParishSoft cache for %s", endpoint)
         atomic_write_text(

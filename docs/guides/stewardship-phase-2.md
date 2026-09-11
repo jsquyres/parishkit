@@ -205,6 +205,29 @@ tests. Lint, formatting and migration-drift checks pass. These remain internal
 services: Admin endpoints, stale-request recovery, durable poll watermarks,
 bounded provider transport and concrete promotion/reconciliation are still open.
 
+The read-transport checkpoint adds an opt-in shared Session adapter with a
+separate, finite one-request helper process. Keys travel only over private stdin;
+the helper uses closed read/search endpoints, no redirects, no inherited proxy
+or netrc authority, and an 8 MiB decoded-response ceiling. Error bodies are not
+read or returned. The parent polls ownership during the read, kills/reaps only
+its helper on timeout or lost ownership, and stops the consumer if drainage is
+unconfirmed. JSON decoding preserves decimal values and rejects duplicate keys.
+Ordinary shared clients retain existing behavior; coherent clients can disable
+cache reads, directory creation and writes altogether.
+
+This process boundary addresses the distinction between Requests' socket-idle
+[timeout](https://requests.readthedocs.io/en/latest/user/quickstart/#timeouts)
+and the parent-owned bounded
+[process exchange](https://docs.python.org/3.12/library/subprocess.html#subprocess.Popen.communicate).
+The source adapter requires an attached live renewer, rechecks admission before
+each attempt, reserves read plus forced-drain plus safety-margin time, and closes
+thread-local SQL connections before provider I/O. All 133 shared ParishSoft
+tests and four PostgreSQL transport/fencing tests pass, including actual local
+helper startup/timeout/reaping without provider credentials. The full baseline
+passes 2,984 tests, with 1,332 explicitly opt-in cases skipped; lint and formatting
+also pass. Runtime enabling,
+strict collection pagination and full/delta promotion remain in progress.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later
