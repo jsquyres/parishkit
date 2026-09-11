@@ -448,6 +448,36 @@ disabled until required chair effects, actual startup dependencies and isolated
 SQL/mount admission are complete. Scheduled producers and the remaining setup/
 configuration UI work continue in this same Phase 2 batch.
 
+The scheduling checkpoint adds immutable, SQL-guarded refresh ticks containing
+the exact due instant, cadence, timezone, applied configuration and command.
+The session-owned scheduler creates at most the latest nightly and quarter-hour
+slot per pass, with full first so compatible delta work coalesces. Downtime
+does not replay an unbounded backlog of read-only polls. Repeated scans/restarts
+reuse ticks even if insertion hints were lost; failed terminal work is not
+silently retried by replaying its tick. Current campaign timezone governs its
+slots, and otherwise the Parish timezone applies. The shared resolver handles
+DST gaps and folds. The configurable-time input exists in the slot calculator;
+the applied configuration currently uses the documented 2:00 a.m. default until
+ADM-03 adds the versioned time editor/schema.
+
+The compiled scheduler producer also performs a bounded fair supersession sweep
+before creating current-scope work. Known source ownership or a retained external
+deadline holds hints/claims without consuming attempts; a claim/acquire race
+still enters explicit contention wait. A newer validated read retires older
+drained staging in bounded transactions without rewriting old manifest/Task
+provenance or reusing its payload. Production startup remains disabled pending
+complete owning effects and isolated runtime admission.
+
+Eleven pure cadence tests pass. The source plus scheduler-process regression
+passes 237 PostgreSQL cases with no skips; after adding drained-staging cleanup,
+the 32-case executor/producer/process rerun passes. The baseline passes 3,273
+tests with 1,468 explicitly opt-in cases skipped before those final two cleanup
+cases. Ruff, formatting, migration drift and whitespace checks pass. No Phase 2
+review round has run yet. The next source-authorization integration needs the
+outstanding owner decision about Ministry catalog presence versus an explicit
+active-Ministry policy; no policy choice has been silently applied. Runtime
+wiring, complete setup, configuration/editor UI and their tests remain open.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later

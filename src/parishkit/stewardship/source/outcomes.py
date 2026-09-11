@@ -18,7 +18,7 @@ from parishkit.stewardship.jobs.storage import TaskStatus
 from parishkit.stewardship.storage import StaleRecordError, StorageInvariantError
 
 from .canonical import canonical_payload
-from .models import SourceMutationLease
+from .models import SourceCurrent, SourceMutationLease
 from .refresh_models import (
     SourceRefreshAttempt,
     SourceRefreshFallback,
@@ -282,5 +282,24 @@ def admit_refresh_metadata(action, status):
         # Its ordinary effect and HTTP paths still require current admission.
         return True
     elif action in {"hint", "claim", "heartbeat", "progress", "effect"}:
-        return admit_refresh_request(action, status)
+        admit_refresh_request(action, status)
+        if action in {"hint", "claim"}:
+            request = _request(status)
+            if (
+                request.kind == "delta"
+                and SourceCurrent.objects.get(singleton=True).snapshot_id is None
+            ):
+                # No-base fallback only queues a full dependency; it needs no
+                # source reservation, credential or external observation.
+                return True
+            lease = SourceMutationLease.objects.select_for_update().get(singleton=True)
+            now = database_now()
+            # Do not burn attempts while another owner or its drain window is
+            # known to prevent acquisition. A later claim/acquire race still
+            # uses the executor's explicit contention-wait settlement.
+            return not any(
+                deadline is not None and deadline > now
+                for deadline in (lease.expires_at, lease.external_deadline)
+            )
+        return True
     raise PermissionError("Source metadata transition lacks owning outcome proof.")

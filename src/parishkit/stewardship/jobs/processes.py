@@ -136,7 +136,7 @@ def serve_scheduler(runtime, *, handlers, lease, stop, heartbeat, produce):
                 lease.check()
                 guard.check()
                 try:
-                    produce()
+                    produce(guard)
                     if stop.is_set():
                         break
 

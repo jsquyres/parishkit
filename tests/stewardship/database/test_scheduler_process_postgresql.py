@@ -35,9 +35,10 @@ def test_loop_produces_then_publishes_without_transactions(monkeypatch):
     """A completed scan does not drop singleton ownership by closing the session."""
     stop, seen, generated = Event(), [], []
 
-    def produce():
+    def produce(guard):
         """Durably create a synthetic operation before scanning the same pass."""
         assert not connection.in_atomic_block
+        guard.check()
         generated.append(queued().run_id)
 
     def publish(runtime, hint):
@@ -68,8 +69,9 @@ def test_scheduler_loss_is_fatal_even_if_a_producer_reconnects():
     """The next owning boundary cannot interpret a new connection as still owned."""
     stop = Event()
 
-    def reconnect():
+    def reconnect(guard):
         """Simulate an outage followed by an ordinary query's automatic reconnect."""
+        guard.check()
         connection.close()
         connection.ensure_connection()
 

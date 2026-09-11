@@ -9,6 +9,7 @@ from .refresh_models import (  # noqa: F401
     SourceRefreshCommand,
     SourceRefreshFallback,
     SourceRefreshRequest,
+    SourceRefreshTick,
 )
 from .snapshot_models import (  # noqa: F401
     SourceCompactionBatch,

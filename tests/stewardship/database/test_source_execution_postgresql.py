@@ -13,10 +13,17 @@ from parishkit.stewardship.jobs.dispatch import claim_hint, execute_hint
 from parishkit.stewardship.jobs.lifetime import maintain_execution
 from parishkit.stewardship.jobs.models import TaskRun
 from parishkit.stewardship.jobs.queues import WorkQueue
+from parishkit.stewardship.jobs.scanning import collect_hints
 from parishkit.stewardship.source import execution as worker
+from parishkit.stewardship.source.attempts import begin_refresh_attempt
 from parishkit.stewardship.source.execution import refresh_handler
 from parishkit.stewardship.source.fallback import request_full_fallback
 from parishkit.stewardship.source.families import reconcile_source_families
+from parishkit.stewardship.source.leases import (
+    acquire_source,
+    release_source,
+    reserve_source_request,
+)
 from parishkit.stewardship.source.models import (
     SourceCurrent,
     SourceMutationLease,
@@ -28,7 +35,9 @@ from parishkit.stewardship.storage import StorageInvariantError
 
 from .campaign_builders import add_draft
 from .credential_builders import keys
-from .test_source_attempts_postgresql import configured, setup
+from .source_builders import running_source_task
+from .test_source_attempts_postgresql import configured, setup, stage
+from .test_source_leases_postgresql import delay
 from .test_source_refreshing_postgresql import fake_provider, pages, seed_full
 from .test_source_requests_postgresql import command
 from .test_source_snapshots_postgresql import permit
@@ -266,11 +275,21 @@ def test_competing_owner_causes_safe_wait_without_another_observation(
     tmp_path, monkeypatch
 ):
     """A claim/acquire race neither steals source ownership nor calls the provider."""
-    credential, _, lease, *_ = setup(tmp_path)
+    credential, *_ = configured(tmp_path)
     receipt = command()
     compiled = handler(tmp_path, credential, reconcile=permit)
+    execution = claim_hint(
+        receipt.task_root_id,
+        queue=WorkQueue.GENERAL,
+        worker_id=uuid4(),
+        handlers={TASK_TYPE: compiled},
+    )
+    # The real race is after Task claim but before acquisition, not a claim
+    # already known to be blocked by an existing source reservation.
+    lease = acquire_source(**running_source_task(), phase="publication")
     _, calls = fake_provider(monkeypatch, [])
-    assert run(receipt, compiled)
+    with maintain_execution(execution):
+        compiled.execute(execution)
     assert not calls and not SourceSnapshot.objects.exists()
     assert TaskRun.objects.get(pk=receipt.task_root_id).state == "retry_wait"
     assert SourceMutationLease.objects.get().owner_id == lease.task_id
@@ -310,3 +329,53 @@ def test_full_dependency_result_is_acknowledged_without_parent_observation(
     assert TaskRun.objects.get(pk=parent.task_root_id).state == (
         "succeeded" if succeed else "failed"
     )
+
+
+@pytest.mark.parametrize("external", [False, True])
+def test_known_source_contention_holds_hints_without_consuming_claims(
+    tmp_path, external
+):
+    """Known lease/drain contention is held before counting another worker attempt."""
+    credential, *_ = configured(tmp_path)
+    lease = acquire_source(**running_source_task(), phase="publication")
+    if external:
+        reserve_source_request(lease, timeout_seconds=1, safety_seconds=1)
+        release_source(lease)
+    receipt = command()
+    compiled = handler(tmp_path, credential, reconcile=permit)
+    registry = {TASK_TYPE: compiled}
+    assert collect_hints(handlers=registry)[0] == ()
+    with pytest.raises(PermissionError, match="not admitted"):
+        run(receipt, compiled)
+    task = TaskRun.objects.get(pk=receipt.task_root_id)
+    assert task.state == "queued" and task.attempt == 0
+    if external:
+        delay(2.05)
+    else:
+        release_source(lease)
+    assert collect_hints(handlers=registry)[0][0].run_id == receipt.task_root_id
+
+
+@pytest.mark.parametrize("ready", [False, True])
+def test_successful_new_owner_retires_but_never_reuses_old_staging(
+    tmp_path, monkeypatch, ready
+):
+    """A later source fence rejects old observations without rewriting their history."""
+    credential, execution, lease, *_ = setup(tmp_path)
+    old = begin_refresh_attempt(execution, lease, credential)
+    if ready:
+        stage(old, execution, lease)
+    # This synthetic older read never invoked HTTP. Releasing its live source
+    # ownership therefore leaves no external deadline to wait out.
+    release_source(lease)
+    receipt = command()
+    compiled = handler(tmp_path, credential, reconcile=permit)
+    fake_provider(monkeypatch, pages())
+    assert run(receipt, compiled)
+    prior = SourceSnapshot.objects.get(pk=old.snapshot_id)
+    assert prior.state == "rejected" and prior.task_id == execution.claim.run_id
+    assert prior.source_fence == lease.fence and prior.generation is None
+    assert TaskRun.objects.get(pk=execution.claim.run_id).state == "running"
+    current = SourceCurrent.objects.get().snapshot
+    assert current.pk != prior.pk and current.source_fence > prior.source_fence
+    assert TaskRun.objects.get(pk=receipt.task_root_id).state == "succeeded"

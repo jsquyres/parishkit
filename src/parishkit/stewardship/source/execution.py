@@ -36,7 +36,7 @@ from .outcomes import (
 from .refresh_models import SourceRefreshAttempt
 from .refreshing import load_and_stage_attempt
 from .rejection import reject_snapshot
-from .snapshot_models import SourceCurrent
+from .snapshot_models import SourceCurrent, SourceSnapshot
 from .snapshots import promote_snapshot
 
 
@@ -157,6 +157,7 @@ def _prepare(execution):
 def _observe(execution, claim, credential, reconcile):
     """Promote only a validated exact attempt and its required atomic effects."""
     snapshot = load_and_stage_attempt(execution, claim, credential)
+    _retire_drained_staging(execution, claim, snapshot)
     total = sum(snapshot.counts.values())
     execution.progress(total, total, phase=TaskPhase.PROMOTING)
     with execution.effect():
@@ -173,6 +174,37 @@ def _observe(execution, claim, credential, reconcile):
             admit=admit,
             reconcile=lambda current: reconcile(current, execution, claim),
         )
+
+
+def _retire_drained_staging(execution, claim, snapshot):
+    """Reject older unpromoted observations in bounded fenced cleanup batches.
+
+    Successful acquisition proves every lower source fence has drained. Retain
+    each old manifest and its original provenance; never reuse its payload or
+    mark the old Task complete. Current attempt/key admission is still required.
+    """
+    with execution.effect():
+        attempt = SourceRefreshAttempt.objects.get(snapshot=snapshot)
+    while True:
+        with execution.effect():
+            verify_refresh_attempt(attempt.pk, execution, claim)
+            candidates = list(
+                SourceSnapshot.objects.filter(
+                    state__in=("staging", "ready"), source_fence__lt=claim.fence
+                )
+                .order_by("source_fence", "id")
+                .values_list("pk", flat=True)[:100]
+            )
+            for identifier in candidates:
+
+                def admit(action, previous):
+                    """A later live bound read may retire only older drained staging."""
+                    verify_refresh_attempt(attempt.pk, execution, claim)
+                    return action == "reject" and previous.source_fence < claim.fence
+
+                reject_snapshot(identifier, claim, admit=admit)
+        if len(candidates) < 100:
+            return
 
 
 def _execute(execution, *, credential_path, reconcile):

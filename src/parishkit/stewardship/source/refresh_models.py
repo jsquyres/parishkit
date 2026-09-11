@@ -2,7 +2,7 @@
 
 from django.db import models
 
-from parishkit.stewardship.storage import ImmutableRecord
+from parishkit.stewardship.storage import ImmutableRecord, UTCDateTimeField
 
 REFRESH_KINDS = ("full", "delta")
 REFRESH_CAUSES = ("manual", "nightly", "initial", "delta", "fallback")
@@ -89,6 +89,34 @@ class SourceRefreshCommand(ImmutableRecord):
             models.CheckConstraint(
                 condition=~models.Q(cause="manual") | models.Q(actor_id__isnull=False),
                 name="source_refresh_manual_actor",
+            ),
+        ]
+
+
+class SourceRefreshTick(ImmutableRecord):
+    """Retain scheduled command identity and the exact applied cadence inputs."""
+
+    command = models.OneToOneField(SourceRefreshCommand, on_delete=models.PROTECT)
+    configuration = models.ForeignKey(
+        "stewardship_accounts.AppliedConfigurationVersion", on_delete=models.PROTECT
+    )
+    due_at = UTCDateTimeField()
+    timezone = models.CharField(max_length=128)
+    nightly_time = models.CharField(max_length=5)
+    slot_key = models.CharField(max_length=64, unique=True)
+
+    class Meta:
+        db_table = "stewardship_source_refresh_tick"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(slot_key__regex=r"^[0-9a-f]{64}$"),
+                name="source_tick_key",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    nightly_time__regex=r"^([01][0-9]|2[0-3]):[0-5][0-9]$"
+                ),
+                name="source_tick_time",
             ),
         ]
 

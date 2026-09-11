@@ -93,9 +93,13 @@ cases, with 21 outcome/supersession cases passing again after final hint wiring.
 Immutable full-fallback dependencies and parent wait/completion/failure semantics
 now pass 14 cases; the entire source PostgreSQL regression passes 193 tests.
 The compiled executor now connects actual hint/renewal, observation, promotion,
-required reconciliation and verified outcomes. Fourteen end-to-end executor
-cases and the full 221-case source PostgreSQL suite pass. Scheduled producers,
-required chair effects and isolated runtime enablement remain.
+required reconciliation and verified outcomes. Immutable scheduled ticks,
+session-owned bounded production/supersession and pre-claim contention holds
+now pass the 237-case source/scheduler PostgreSQL regression. Drained-staging
+cleanup then passes the 32-case executor/producer/process rerun. Eleven pure
+cadence cases cover restart identity, bounded catch-up and DST. Required chair
+effects, the Admin-editable nightly-time schema and isolated runtime enablement
+remain; see the linked checkpoint for the outstanding Ministry-policy question.
 Earlier checkpoints
 record the public contract verification, uncached Family indication parser and
 66 passing shared ParishSoft tests. Immutable task-root/tenant/window requests
@@ -111,8 +115,9 @@ household/delta tests, 21 cursor cases and 35 combined PostgreSQL
 delta/rejection/corpus/snapshot cases. Immutable concrete attempt/credential
 bindings and SQL completion-cursor guards now pass twelve pure credential tests
 and the combined 89-case PostgreSQL source regression. No item is complete:
-full/delta producers, runtime integration and required source-driven chair
-reconciliation remain; Family integration is exercised by the compiled executor.
+runtime integration, configurable nightly-time UI/schema and required
+source-driven chair reconciliation remain; Family integration is exercised
+by the compiled executor.
 
 ## BG-06: Family invitations and reminders
 
