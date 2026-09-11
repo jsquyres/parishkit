@@ -178,7 +178,11 @@ def record_request(
         identifier = (
             existing.pk if existing else policy_operation_id(actor_id, request_key)
         )
-        if schema in {POLICY_REQUEST_SCHEMA, "campaign-foundation-patch-v3"}:
+        if schema in {
+            POLICY_REQUEST_SCHEMA,
+            "campaign-foundation-patch-v3",
+            "ministry-activity-patch-v4",
+        }:
             from .policy_schema import validate_manual_operation
 
             validate_manual_operation(

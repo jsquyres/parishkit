@@ -16,6 +16,10 @@ from parishkit.config import ConfigError
 
 from .authority import ConfigurationVersion, parse_version
 from .configuration_schema import validator_for
+from .ministry_activity import RECOVERY_SCHEMA as MINISTRY_RECOVERY_SCHEMA
+from .ministry_activity import REQUEST_SCHEMA as MINISTRY_REQUEST_SCHEMA
+from .ministry_activity import SCHEMA as MINISTRY_SCHEMA
+from .ministry_activity import remember_records
 
 REQUEST_SCHEMA = "parish-integrations-patch-v1"
 POLICY_REQUEST_SCHEMA = "foundation-policy-patch-v2"
@@ -92,6 +96,38 @@ def _build_v3_candidate(base, patch, *, candidate_id):
         result.candidate.document()["sections"].get("login_rules", []),
     )
     validate_campaign_change(base.document(), result.candidate.document())
+    return result
+
+
+def _build_v4_candidate(base, patch, *, candidate_id):
+    """Add local activity without weakening campaign or policy change validation."""
+    from parishkit.stewardship.campaigns.configuration import validate_campaign_change
+
+    from .policy_schema import validate_policy_change
+
+    result = _build_records(
+        base,
+        patch,
+        candidate_id=candidate_id,
+        schema=MINISTRY_SCHEMA,
+        sections={
+            "parish",
+            "integrations",
+            "login_rules",
+            "campaigns",
+            "schedules",
+            "ministries",
+        },
+    )
+    old, new = base.document(), result.candidate.document()
+    validate_policy_change(
+        old["sections"].get("login_rules", []),
+        new["sections"].get("login_rules", []),
+    )
+    validate_campaign_change(old, new)
+    by_id, by_identity = {}, {}
+    remember_records(old, by_id, by_identity)
+    remember_records(new, by_id, by_identity)
     return result
 
 
@@ -246,11 +282,20 @@ def _build_recovery_bootstrap_candidate(base, patch, *, candidate_id):
     )
 
 
+def _build_recovery_ministry_candidate(base, patch, *, candidate_id):
+    """Retain local activity during additive-only offline Admin recovery."""
+    return _build_recovery_candidate(
+        base, patch, candidate_id=candidate_id, schema=MINISTRY_SCHEMA
+    )
+
+
 BUILDERS = MappingProxyType(
     {
         "parish-integrations-patch-v1": _build_v1_candidate,
         POLICY_REQUEST_SCHEMA: _build_v2_candidate,
         CAMPAIGN_REQUEST_SCHEMA: _build_v3_candidate,
+        MINISTRY_REQUEST_SCHEMA: _build_v4_candidate,
+        MINISTRY_RECOVERY_SCHEMA: _build_recovery_ministry_candidate,
         "operator-recovery-patch-v1": _build_recovery_candidate,
         "operator-recovery-patch-v2": _build_recovery_v2_candidate,
         "operator-recovery-bootstrap-v1": _build_recovery_bootstrap_candidate,
@@ -271,6 +316,16 @@ def build_candidate(base, patch, *, candidate_id, request_schema=None):
 
 def default_schema(base, patch):
     """Choose a new intent schema while keeping every stored retry discriminator."""
+    if (
+        isinstance(base, ConfigurationVersion)
+        and base.document()["sections"].get("ministries")
+    ) or (
+        type(patch) is list
+        and any(
+            type(item) is dict and item.get("section") == "ministries" for item in patch
+        )
+    ):
+        return MINISTRY_REQUEST_SCHEMA
     if (
         isinstance(base, ConfigurationVersion)
         and any(

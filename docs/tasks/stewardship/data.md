@@ -222,6 +222,16 @@ Scope and dependencies: [DAT-05 work package](../../plans/stewardship/data.md#da
 - [x] DAT-05.05 — Index login and Ministry authorization queries.
 - [ ] DAT-05.06 — Test policy activation, source transitions, and idempotent autosave races.
 
+Phase 2 Ministry activity storage is implemented: v4 YAML/patch and recovery
+formats, exact immutable PostgreSQL projections, retained tenant/DUID/record-ID
+bindings, current-catalog activity selection and narrow runtime grants. The
+source suggestion calculator groups exact Member relationships and flags shared
+email ambiguity without granting access. The Admin screen, confirmed seeding,
+runtime suspension/review-task effects and Family submission enforcement remain
+open with their owning packages. Until the seeded-effects owner is integrated,
+preflight and SQL explicitly hold activity changes containing seeded assignments.
+See the [Phase 2 checkpoint](../../guides/stewardship-phase-2.md).
+
 Evidence: The Phase 1A policy batch adds immutable normalized rule/grant/
 assignment projections, explicit provenance, verified identity metadata, runtime
 overlays, lookup indexes, strict v2 schema/patch dispatch, last-Admin protection

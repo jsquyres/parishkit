@@ -15,6 +15,7 @@ from .auth_models import (  # noqa: F401
 from .configuration_models import (  # noqa: F401
     AppliedConfigurationVersion,
     AppliedIntegration,
+    MinistryActivity,
     Parish,
 )
 from .policy_models import (  # noqa: F401

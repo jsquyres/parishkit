@@ -488,6 +488,48 @@ This resolves the policy question; the YAML schema/projections, Admin UI,
 authorization integration and Family-form enforcement still need implementation
 under their owning Phase 2/later-phase tasks.
 
+The local-activity storage checkpoint adds a new immutable v4 configuration
+schema, normal request and additive-only recovery formats. Existing schemas and
+retry parsers retain their old behavior. Exact YAML/projection parity, unique
+tenant/Ministry identities, retained record bindings and append-only history are
+checked in Python and PostgreSQL. Removing an override restores default activity
+without permitting its historical record or tenant/Ministry pair to be reused.
+The ordinary configuration installer preserves campaign/schedule projections;
+runtime grants explicitly include only the new projection's required access.
+
+The pure source Chairperson calculator uses current dated roster relationships,
+active Members, valid Member contacts and the applied local activity policy.
+It retains distinct Member and roster evidence, groups duplicate relationships,
+marks shared addresses ambiguous even when another active owner is not a chair,
+and retains the contact publication indicator. Suggestions never create grants
+or choose a Member merely because an email matches. Twenty-eight source suggestion
+cases and 40 activity cases pass. The suggestion module has 100% focused line
+coverage; the activity module's pure run has 86%, with its database preflight
+covered separately by PostgreSQL tests. Baseline validation passes 3,341 tests
+with 1,488 opt-in cases skipped.
+
+The complete PostgreSQL run passes 1,368 cases and identifies one outdated
+shared guard-inventory assumption. Source payloads, snapshot memberships and
+daily fact rows use explicit compaction guards rather than permanent append-only
+guards. The inventory now checks their exact enabled triggers, update refusal
+and guarded retention, without exempting those tables. Ministry policy records
+retain the ordinary permanent append-only contract.
+
+After correcting that inventory, the 169-case PostgreSQL rerun passes with no
+skips: storage and migration round trips, Ministry activity, restricted installer,
+activation, policy and offline recovery. It includes SQL-only rebinding refusal,
+locked campaign-selection preservation, and both preflight and SQL barriers
+against missing seeded effects. Ruff, formatting, Markdown, migration drift and
+whitespace checks pass. Integrated Phase 2 container/browser coverage and the
+formal review rounds remain for the completed batch.
+
+This remains an internal checkpoint, not the completed Admin activity feature.
+Preflight and SQL hold activity changes with seeded assignments until the
+source-effects owner can reconcile overlays and review tasks in the same
+activation transaction. This prevents storage support from leaving stale
+authorization active. Admin UI, source-effect integration and later Family
+submission enforcement remain open; no Phase 2 review round has started.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later

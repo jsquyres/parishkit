@@ -135,6 +135,9 @@ class DatabaseMaterializer:
         """Commit the snapshot before its checkpoint; retry an intervening crash."""
         self._check()
         self._candidate(version)
+        from .ministry_activity import validate_installation as validate_activity
+
+        validate_activity(version.document())
         from parishkit.stewardship.campaigns.admission import validate_installation
 
         validate_installation(
@@ -381,6 +384,7 @@ def _install_request(store, *, request, correlation_id, admit_campaign=None):
                 if request.request_schema in {
                     "foundation-policy-patch-v2",
                     "campaign-foundation-patch-v3",
+                    "ministry-activity-patch-v4",
                 }:
                     from .policy_schema import validate_manual_operation
 
@@ -392,6 +396,11 @@ def _install_request(store, *, request, correlation_id, admit_campaign=None):
                 from .request_admission import check_historical_additions
 
                 check_historical_additions(request.base_id, request.patch)
+                from .ministry_activity import (
+                    validate_installation as validate_activity,
+                )
+
+                validate_activity(intent.candidate.document())
                 from parishkit.stewardship.campaigns.admission import (
                     validate_installation,
                 )
