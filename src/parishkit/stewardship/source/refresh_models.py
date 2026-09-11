@@ -121,3 +121,39 @@ class SourceRefreshAttempt(ImmutableRecord):
                 name="source_attempt_credential",
             ),
         ]
+
+
+class SourceRefreshFallback(ImmutableRecord):
+    """A delta depends on one requested full refresh, not an invented success.
+
+    The linked command retains normal full-request coalescing and outcome
+    provenance. Waiting for this dependency must not consume provider attempts
+    or repeat the incomplete delta. The creating worker claim remains auditable.
+    """
+
+    request = models.OneToOneField(
+        SourceRefreshRequest, on_delete=models.PROTECT, related_name="full_fallback"
+    )
+    command = models.OneToOneField(SourceRefreshCommand, on_delete=models.PROTECT)
+    task = models.ForeignKey("stewardship_jobs.TaskRun", on_delete=models.PROTECT)
+    task_fence = models.PositiveBigIntegerField()
+    attempt = models.ForeignKey(
+        SourceRefreshAttempt,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+    )
+    reason = models.CharField(max_length=24)
+
+    class Meta:
+        db_table = "stewardship_source_refresh_fallback"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(task_fence__gt=0), name="source_fallback_fence"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(reason="no_base", attempt__isnull=True)
+                | models.Q(reason="incomplete_delta", attempt__isnull=False),
+                name="source_fallback_reason",
+            ),
+        ]

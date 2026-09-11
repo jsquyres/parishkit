@@ -398,6 +398,26 @@ outcome/supersession rerun passes 21. Baseline validation passes 3,240 tests wit
 1,409 explicitly opt-in cases skipped. Full-fallback dependencies, worker
 execution/producer wiring and the remaining Phase 2 runtime/UI work stay open.
 
+The full-fallback checkpoint adds an immutable, SQL-guarded delta-to-full
+dependency with creating Task/fence, original request, full command and either
+an absent baseline or the exact rejected delta attempt. Normal full-request
+coalescing retains every initiating command. Replays cannot create another
+dependency, cycles are prohibited, and audit failure rolls back newly queued
+full work as well as the link. Retained history prevents destructive downgrade.
+
+The parent can enter durable retry-wait after releasing its source reservation.
+Pending dependencies suppress new execution hints/claims without consuming
+additional attempts. Only the linked full request's promoted observation can
+satisfy the delta, including after configuration changes; ordinary new-work
+admission still rejects stale provider reads. Definitive full failure or
+cancellation propagates, and generic Task success without promoted proof is an
+invariant violation rather than fabricated completion. Fourteen fallback cases
+pass, and the full source PostgreSQL regression passes 193 tests with no skips.
+The baseline passes 3,240 tests with 1,423 opt-in cases skipped; Ruff, formatting,
+whitespace and migration-drift checks pass. Catching load failures and invoking
+these services from the compiled worker, scheduled/manual producers, isolated
+runtime wiring, chair effects and setup/editor UI remain open in this same batch.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later

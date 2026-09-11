@@ -12,14 +12,18 @@ from parishkit.stewardship.accounts.runtime_models import SystemConfiguration
 from parishkit.stewardship.campaigns.work_locks import require_work_order
 from parishkit.stewardship.jobs.admission import _scope
 from parishkit.stewardship.jobs.dispatch import RecoveryPlan
-from parishkit.stewardship.jobs.models import TaskRun
+from parishkit.stewardship.jobs.models import NONTERMINAL_STATES, TaskRun
 from parishkit.stewardship.jobs.ownership import database_now
 from parishkit.stewardship.jobs.storage import TaskStatus
 from parishkit.stewardship.storage import StaleRecordError, StorageInvariantError
 
 from .canonical import canonical_payload
 from .models import SourceMutationLease
-from .refresh_models import SourceRefreshAttempt, SourceRefreshRequest
+from .refresh_models import (
+    SourceRefreshAttempt,
+    SourceRefreshFallback,
+    SourceRefreshRequest,
+)
 from .requests import TASK_TYPE, _organization, _window, admit_refresh_request
 
 MAX_AUTOMATIC_ATTEMPTS = 5
@@ -73,14 +77,8 @@ def _attempts(request):
     )
 
 
-def completed_snapshot(status):
-    """Return durable promoted evidence, never ready/rejected or another root's work.
-
-    Historical manifests remain proof after corpus compaction or a newer current
-    pointer. A harmless delay before Task completion must not trigger another
-    provider scan or lose acknowledgement when campaign configuration changes.
-    """
-    request = _request(status)
+def _direct_completion(request):
+    """A full observation or completed delta must belong to this exact request."""
     return (
         _attempts(request)
         .filter(
@@ -91,6 +89,51 @@ def completed_snapshot(status):
         .values_list("snapshot_id", flat=True)
         .first()
     )
+
+
+def _fallback(request):
+    """SQL admits only delta-to-full, same-scope edges, so traversal is one level."""
+    return (
+        SourceRefreshFallback.objects.select_related("command__request")
+        .filter(request=request)
+        .first()
+    )
+
+
+def completed_snapshot(status):
+    """Return own or explicitly linked full-fallback promoted evidence.
+
+    Historical manifests remain proof after corpus compaction or a newer current
+    pointer. A harmless delay before Task completion must not trigger another
+    provider scan or lose acknowledgement when campaign configuration changes.
+    """
+    request = _request(status)
+    result = _direct_completion(request)
+    if result is not None:
+        return result
+    fallback = _fallback(request)
+    return None if fallback is None else _direct_completion(fallback.command.request)
+
+
+def fallback_state(status):
+    """Resolve real dependency proof before consulting the target's latest retry run."""
+    fallback = _fallback(_request(status))
+    if fallback is None:
+        return None
+    target = fallback.command.request
+    if _direct_completion(target) is not None:
+        return "complete"
+    state = (
+        TaskRun.objects.filter(root_id=target.task_root_id)
+        .order_by("-retry_sequence")
+        .values_list("state", flat=True)
+        .first()
+    )
+    if state in NONTERMINAL_STATES:
+        return "pending"
+    if state in {"failed", "cancelled"}:
+        return state
+    raise StorageInvariantError("Full fallback lacks a verified dependency outcome.")
 
 
 def read_attempts_drained(status):
@@ -135,8 +178,8 @@ def recovery_plan(status):
     """Recover abandoned read-only work, with bounded retries and fresh admission.
 
     Superseded-window cancellation requires a different actual immutable window,
-    not merely denied admission. Full-fallback dependencies remain owning
-    handler operations. Denied admission alone remains a hold.
+    not merely denied admission. A pending fallback remains held without burning
+    attempts; only the full dependency's real outcome can satisfy it.
     No provider access is enabled by this internal recovery decision alone.
     """
     if not isinstance(status, TaskStatus) or status.state != "abandoned":
@@ -147,6 +190,13 @@ def recovery_plan(status):
         return None
     if superseding_digest(status) is not None:
         return RecoveryPlan("recovery_cancel")
+    dependency = fallback_state(status)
+    if dependency == "pending":
+        return None
+    if dependency in {"failed", "cancelled"}:
+        return RecoveryPlan(
+            "recovery_fail" if dependency == "failed" else "recovery_cancel"
+        )
     try:
         admit_refresh_request("recovery", status)
     except PermissionError:
@@ -188,6 +238,16 @@ def superseding_digest(status):
 def admit_refresh_metadata(action, status):
     """Compiled recovery/completion admission, never a generic terminal-state permit."""
     _request(status)
+    if action in {"hint", "claim", "recovery_hint"}:
+        dependency = fallback_state(status)
+        if dependency == "pending" and not (
+            action == "recovery_hint" and status.state == "running"
+        ):
+            if action != "claim":
+                return False
+            raise PermissionError("Source request is waiting for its full fallback.")
+        if action in {"hint", "claim"} and dependency in {"failed", "cancelled"}:
+            return read_attempts_drained(status)
     if action in {"lease_expired", "recovery_hint"}:
         # SQL proves actual expiry. Fencing an expired claim is bookkeeping,
         # so a changed campaign cannot indefinitely prevent abandonment.
@@ -200,7 +260,22 @@ def admit_refresh_metadata(action, status):
         if plan is not None and plan.action == action:
             return True
     elif action == "safe_cancel":
-        if superseding_digest(status) is not None and read_attempts_drained(status):
+        if (
+            superseding_digest(status) is not None
+            or fallback_state(status) == "cancelled"
+        ) and read_attempts_drained(status):
+            return True
+    elif action == "permanent_failure":
+        if fallback_state(status) == "failed" and read_attempts_drained(status):
+            return True
+    elif action == "retryable_failure" and fallback_state(status) == "pending":
+        lease = SourceMutationLease.objects.select_for_update().get(singleton=True)
+        if (
+            lease.owner_id is None
+            or not TaskRun.objects.filter(
+                pk=lease.owner_id, root_id=status.root_id
+            ).exists()
+        ):
             return True
     elif action in {"claim", "hint"} and completed_snapshot(status) is not None:
         # A consumer may claim only to acknowledge completed historical work.

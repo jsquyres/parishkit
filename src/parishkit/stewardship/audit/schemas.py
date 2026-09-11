@@ -52,6 +52,7 @@ class Action(StrEnum):
     SOURCE_PROMOTED = "source_promoted"
     SOURCE_REJECTED = "source_rejected"
     SOURCE_SUPERSEDED = "source_superseded"
+    SOURCE_FALLBACK = "source_fallback_requested"
     BACKGROUND_VIEWED = "background_viewed"
 
 

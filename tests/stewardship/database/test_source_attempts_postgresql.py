@@ -51,7 +51,7 @@ def source_singletons():
     SourceCurrent.objects.get_or_create(singleton=True)
 
 
-def setup(tmp_path):
+def configured(tmp_path):
     """Install a real nonsecret document matching the synthetic private file bytes."""
     credential = SourceCredential(b"SYNTHETIC-PRIVATE-KEY")
     document = configuration_document()
@@ -68,6 +68,12 @@ def setup(tmp_path):
         actor_id=actor,
         correlation_id=uuid4(),
     )
+    return credential, store, version, actor
+
+
+def setup(tmp_path):
+    """Claim one real configured full request with its initial source ownership."""
+    credential, store, version, actor = configured(tmp_path)
     execution = claim(command())
     with execution.effect():
         source_claim = acquire_source(

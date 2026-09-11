@@ -90,8 +90,9 @@ pipeline/transport/Family integration run passes 37 PostgreSQL cases; owning
 metadata now proves historical completion, drained crash recovery and safe
 superseded-window cancellation. The expanded combined run passes 58 PostgreSQL
 cases, with 21 outcome/supersession cases passing again after final hint wiring.
-Full-fallback dependencies, worker execution/producer wiring and runtime
-enablement remain.
+Immutable full-fallback dependencies and parent wait/completion/failure semantics
+now pass 14 cases; the entire source PostgreSQL regression passes 193 tests.
+Worker execution/producer wiring and runtime enablement remain.
 Earlier checkpoints
 record the public contract verification, uncached Family indication parser and
 66 passing shared ParishSoft tests. Immutable task-root/tenant/window requests
