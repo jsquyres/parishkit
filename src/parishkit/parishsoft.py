@@ -1037,6 +1037,7 @@ def load_families_and_members(
     parishioners_only: bool = True,
     include_deceased: bool = False,
     load_contributions: bool | str = False,
+    retain_empty_families: bool = False,
 ) -> ParishSoftData:
     """Load, cross-link, and filter a full ParishSoft dataset for one org.
 
@@ -1049,6 +1050,9 @@ def load_families_and_members(
       - ``active_only``: drop inactive families and members.
       - ``parishioners_only``: keep only families registered at this org.
       - ``include_deceased``: retain deceased members when True.
+      - ``retain_empty_families``: retain Families without remaining Members;
+        source reconciliation needs these inactive identities, while ordinary
+        recipient-oriented tools keep the historical default of dropping them.
       - ``load_contributions``: when truthy, also load funds, pledges, and
         contributions; a string value is used as the contribution start date,
         otherwise giving from one year ago is loaded.
@@ -1057,6 +1061,8 @@ def load_families_and_members(
     individual load and link steps explicit for easier operational
     troubleshooting.
     """
+    if type(retain_empty_families) is not bool:
+        raise ConfigError("ParishSoft retain_empty_families must be boolean")
     LOGGER.info("Loading full ParishSoft family/member dataset")
     org_id = client.validate_organization()
     funds: dict[int, dict[str, Any]] = {}
@@ -1110,6 +1116,7 @@ def load_families_and_members(
         active_only=active_only,
         parishioners_only=parishioners_only,
         include_deceased=include_deceased,
+        retain_empty_families=retain_empty_families,
     )
     LOGGER.info(
         "Loaded full ParishSoft dataset: %s families, %s members",
@@ -1290,6 +1297,7 @@ def _filter_families_and_members(
     active_only: bool,
     parishioners_only: bool,
     include_deceased: bool,
+    retain_empty_families: bool,
 ) -> None:
     """Prune out-of-scope members and families and their dangling memberships.
 
@@ -1330,7 +1338,7 @@ def _filter_families_and_members(
             member.get("py active") for member in family.get("py members", [])
         )
         remove_family = (
-            not retained_members
+            (not retained_members and not retain_empty_families)
             or (active_only and not family_is_active(family))
             or (parishioners_only and not family_is_parishioner(family, org_id))
         )

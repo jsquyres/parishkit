@@ -87,9 +87,12 @@ integration. The [Phase 2 checkpoints](../../guides/stewardship-phase-2.md)
 record the public contract verification, uncached Family indication parser and
 66 passing shared ParishSoft tests. Immutable task-root/tenant/window requests
 and append-only coalesced command evidence now pass 47 selected PostgreSQL
-request/admission cases. No item is complete: durable watermark, stale-request
-recovery, full/delta producers, bounded source transport, atomic promotion
-and source-driven Family/chair reconciliation remain.
+request/admission cases. Bounded isolated HTTP transport and strict coherent
+pagination are implemented internally. Typed core normalization now preserves
+empty/inactive Families and source-field availability; 31 pure cases and an
+actual PostgreSQL round-trip/deduplication case pass. No item is complete:
+durable watermark, stale-request recovery, scoped giving, full/delta producers,
+runtime integration and source-driven Family/chair reconciliation remain.
 
 ## BG-06: Family invitations and reminders
 

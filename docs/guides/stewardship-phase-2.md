@@ -242,6 +242,26 @@ fixtures do not replace credential-dependent operational smoke validation. The
 full baseline passes 3,063 tests with the same 1,332 opt-in cases skipped; lint,
 formatting and changed-document Markdown checks also pass.
 
+The core normalization checkpoint retains inactive and empty Families through
+an opt-in shared loader flag; ordinary recipient tools keep their old default.
+Closed, typed field mappings exclude SSNs, unrelated provider PII, pagination
+counters and cyclic shared links. Independent contacts/addresses preserve known
+blank versus unavailable fields. Email aliases deduplicate after normalization;
+eligibility uses active shared Family heads, independently of publication flags.
+Malformed identities, types and roster references reject the corpus before
+staging. Ministry catalog presence remains distinct from an upstream activity
+flag that the type-list response does not supply.
+
+The published v1/v2 Family read models expose a primary address, not separate
+home/mailing addresses, country or registration date. The adapter does not
+invent those values; later census mapping must preserve their unavailability.
+The write-only v1 contact model is not evidence that those fields can be read.
+Thirty-one pure normalization tests and the actual PostgreSQL canonical
+round-trip/contact-only deduplication test pass. The full baseline passes 3,095
+tests, with 1,333 explicitly opt-in cases skipped. Ruff and formatting pass.
+Scoped giving, source worker/recovery, watermark advancement, promotion effects
+and setup/configuration integration remain open.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later

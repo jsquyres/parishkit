@@ -289,3 +289,41 @@ def test_shared_full_loader_uses_coherent_contracts_and_retains_inactive_source(
     assert corpus.members[1]["py family"] is corpus.families[1]
     assert not corpus.funds and not corpus.pledges and not corpus.contributions
     assert not client.session.responses
+
+
+@pytest.mark.parametrize("retain_empty", [False, True])
+def test_source_load_can_retain_empty_families_without_changing_tool_defaults(
+    tmp_path, retain_empty
+):
+    """An inactive empty household must remain observable to source reconciliation."""
+    family_rows = [
+        family(identifier, total=2, row=identifier) | {"lastName": "Example"}
+        for identifier in (1, 2)
+    ]
+    member_row = member() | {"familyDUID": 1, "firstName": "Example"}
+    client = source(
+        tmp_path,
+        [
+            [{"organizationID": 5}],
+            family_rows,
+            [],
+            [],
+            [member_row],
+            [],
+            [],
+            [],
+            [],
+            page([]),
+            page([]),
+        ],
+    )
+    corpus = load_families_and_members(
+        client,
+        active_only=False,
+        parishioners_only=False,
+        include_deceased=True,
+        retain_empty_families=retain_empty,
+    )
+    assert set(corpus.families) == ({1, 2} if retain_empty else {1})
+    if retain_empty:
+        assert corpus.families[2]["py members"] == []
