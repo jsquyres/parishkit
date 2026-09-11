@@ -84,6 +84,11 @@ Scope and dependencies: [BG-05 work package](../../plans/stewardship/background-
 
 Evidence: Shared v2 feed adapter in progress alongside final BG-01 runtime
 integration. The [Phase 2 checkpoints](../../guides/stewardship-phase-2.md)
+now include concrete attempt-bound HTTP and full/delta observation through
+bounded staging, plus source-owned atomic Family reconciliation. The combined
+pipeline/transport/Family integration run passes 37 PostgreSQL cases; owning
+Task outcomes, recovery/fallback dependencies and runtime enablement remain.
+Earlier checkpoints
 record the public contract verification, uncached Family indication parser and
 66 passing shared ParishSoft tests. Immutable task-root/tenant/window requests
 and append-only coalesced command evidence now pass 47 selected PostgreSQL

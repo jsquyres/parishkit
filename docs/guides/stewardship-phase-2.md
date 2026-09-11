@@ -358,6 +358,24 @@ cannot resume observation. Seven PostgreSQL transport cases pass, including
 changed campaign/key inputs, same HTTP key with different installed file bytes,
 maintained renewal and no SQL connection during the provider wait.
 
+The observation/staging checkpoint now composes the real attempt receipt,
+coherent shared full/delta loaders and finite transport. It reads only the
+actual promoted base and permanent last-successful-full count evidence, uses
+the campaign's frozen timezone (or parish timezone without a campaign), and
+records the manifest's pre-read observation instant. Complete normalized
+collections enter staging in at most 500-row batches with fresh attempt
+validation at each batch. Provider failures or scope changes preserve prior
+truth; a validated result remains `ready`, never a claimed Task success.
+
+Seven PostgreSQL pipeline cases replace only the private provider exchange;
+all real admission, leases, transport preflights, staging and cursor guards run.
+They cover full/delta loads, bad data, changed keys/campaigns, required renewal
+and full fallback on an incompatible delta window. The combined pipeline,
+transport, source-Family and existing Family-identity run passes 37 cases. The
+baseline passes 3,240 tests with 1,388 explicitly opt-in cases skipped. Final
+promotion orchestration, durable outcomes/recovery/fallback dependencies,
+producers, runtime isolation and setup/editor UI remain in this Phase 2 batch.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later
