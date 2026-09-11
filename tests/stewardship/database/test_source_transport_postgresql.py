@@ -8,13 +8,15 @@ from django.db import connection, transaction
 from parishkit import parishsoft_transport
 from parishkit.parishsoft import DEFAULT_API_BASE_URL
 from parishkit.stewardship.jobs.lifetime import maintain_execution
-from parishkit.stewardship.source.leases import acquire_source, release_source
+from parishkit.stewardship.source.attempts import begin_refresh_attempt
+from parishkit.stewardship.source.credentials import SourceCredential
+from parishkit.stewardship.source.leases import release_source
 from parishkit.stewardship.source.models import SourceCurrent, SourceMutationLease
 from parishkit.stewardship.source.transport import source_session
 from parishkit.stewardship.storage import StorageInvariantError
 
-from .campaign_builders import add_draft, initialized
-from .test_source_requests_postgresql import claim, command
+from .campaign_builders import add_draft
+from .test_source_attempts_postgresql import setup, stage
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -22,19 +24,16 @@ pytestmark = pytest.mark.django_db(transaction=True)
 @pytest.fixture
 def owner(tmp_path):
     """Create real configured request/task/source ownership without any provider."""
-    store, version, actor = initialized(tmp_path)
     SourceMutationLease.objects.get_or_create(singleton=True)
     SourceCurrent.objects.get_or_create(singleton=True)
-    execution = claim(command())
-    with execution.effect():
-        lease = acquire_source(
-            task_id=execution.claim.run_id,
-            task_fence=execution.claim.fence,
-            worker_id=execution.claim.worker_id,
-            phase="full",
-        )
-    session = source_session(execution, lease)
-    session.headers["x-api-key"] = "SYNTHETIC"
+    credential, execution, lease, store, version, actor = setup(tmp_path)
+    attempt = begin_refresh_attempt(execution, lease, credential)
+    session = source_session(
+        execution,
+        lease,
+        attempt_id=attempt.pk,
+        credential=credential,
+    )
     return execution, lease, session, store, version, actor
 
 
@@ -130,3 +129,62 @@ def test_changed_campaign_denies_the_next_read_before_reserving_or_http(
         assert connection.connection is None
     assert len(calls) == 1
     assert SourceMutationLease.objects.get().external_deadline == before
+
+
+def test_changed_session_key_cannot_use_another_keys_attempt(owner, monkeypatch):
+    """A reused Session may not drift from the exact loaded-credential receipt."""
+    execution, lease, session, *_ = owner
+    calls = []
+    monkeypatch.setattr(
+        parishsoft_transport, "_exchange", lambda *a, **kw: calls.append(1)
+    )
+    session.headers["x-api-key"] = "DIFFERENT-SYNTHETIC-KEY"
+    with maintain_execution(execution), execution.maintain_source(lease):
+        with pytest.raises(PermissionError, match="credential"):
+            session.get(DEFAULT_API_BASE_URL + "/families/change/list", timeout=30)
+        assert connection.connection is None
+    assert not calls and SourceMutationLease.objects.get().external_deadline is None
+
+
+def test_validated_attempt_cannot_resume_reading_provider(owner, monkeypatch):
+    """Validation closes an observation; a later read needs a fresh claim/manifest."""
+    from parishkit.stewardship.source.refresh_models import SourceRefreshAttempt
+
+    execution, lease, session, *_ = owner
+    stage(SourceRefreshAttempt.objects.get(), execution, lease)
+    calls = []
+    monkeypatch.setattr(
+        parishsoft_transport, "_exchange", lambda *a, **kw: calls.append(1)
+    )
+    with (
+        maintain_execution(execution),
+        execution.maintain_source(lease),
+        pytest.raises(PermissionError, match="stale"),
+    ):
+        session.get(DEFAULT_API_BASE_URL + "/families/change/list", timeout=30)
+    assert not calls and SourceMutationLease.objects.get().external_deadline is None
+
+
+def test_different_loaded_bytes_cannot_borrow_an_attempt(owner, monkeypatch):
+    """Header text alone cannot replace the installed exact-byte key receipt."""
+    from parishkit.stewardship.source.refresh_models import SourceRefreshAttempt
+
+    execution, lease, _, *_ = owner
+    # Same HTTP key, different installed file bytes and therefore receipt.
+    session = source_session(
+        execution,
+        lease,
+        attempt_id=SourceRefreshAttempt.objects.get().pk,
+        credential=SourceCredential(b"SYNTHETIC-PRIVATE-KEY\n"),
+    )
+    calls = []
+    monkeypatch.setattr(
+        parishsoft_transport, "_exchange", lambda *a, **kw: calls.append(1)
+    )
+    with (
+        maintain_execution(execution),
+        execution.maintain_source(lease),
+        pytest.raises(PermissionError, match="credential"),
+    ):
+        session.get(DEFAULT_API_BASE_URL + "/families/change/list", timeout=30)
+    assert not calls and SourceMutationLease.objects.get().external_deadline is None

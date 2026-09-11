@@ -350,6 +350,14 @@ Twenty-three pure eligibility cases and 23 PostgreSQL source/Family cases pass.
 The compiled runtime handler, chair effects and later invitation/suppression
 storage owners still need integration; this effect does not dispatch mail.
 
+The HTTP attempt-integration checkpoint requires the immutable attempt UUID
+and exact loaded credential when constructing a source Session. Every private
+helper request verifies staging state, current configuration/key receipt and
+Session key before reserving the source read/drain deadline. Validated attempts
+cannot resume observation. Seven PostgreSQL transport cases pass, including
+changed campaign/key inputs, same HTTP key with different installed file bytes,
+maintained renewal and no SQL connection during the provider wait.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later
