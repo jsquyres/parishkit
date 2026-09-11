@@ -24,8 +24,12 @@ from parishkit.parishsoft_http_worker import (
 )
 
 
-class SourceTransportError(requests.RequestException):
-    """A constant diagnostic for a failed read, containing no provider values."""
+class SourceTransportError(requests.ConnectionError):
+    """A drained transport failure participates in shared bounded connection retries.
+
+    Diagnostics contain no provider values. Lost admission and unconfirmed helper
+    drainage use separate exception types and must never enter this retry path.
+    """
 
 
 class SourceTransportDrainFailure(BaseException):

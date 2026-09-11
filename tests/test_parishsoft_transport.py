@@ -23,6 +23,7 @@ from parishkit.parishsoft_transport import (
     SourceTransportDrainFailure,
     SourceTransportError,
 )
+from parishkit.retry import RetryError, RetryPolicy
 
 
 def request(**overrides):
@@ -356,6 +357,60 @@ def test_unknown_process_drain_is_fatal_not_a_retryable_read_failure():
     process.wait.side_effect = subprocess.TimeoutExpired("safe-command", 5)
     with pytest.raises(SourceTransportDrainFailure):
         transport._stop(process)
+
+
+def test_shared_client_retries_drained_transport_with_fresh_preflight(
+    tmp_path, monkeypatch
+):
+    """The retry helper must reserve/fence each attempt, not only the initial call."""
+    reservations = []
+    exchange = Mock(
+        side_effect=[
+            SourceTransportError("Source transport unavailable."),
+            SourceTransportError("Source transport unavailable."),
+            b"200\n[]",
+        ]
+    )
+    monkeypatch.setattr(transport, "_exchange", exchange)
+    source = ParishSoftClient(
+        ParishSoftConfig("SYNTHETIC", tmp_path / "unused", cache_enabled=False),
+        session=session(before_request=reservations.append),
+        retry_policy=RetryPolicy(attempts=3, initial_delay=0),
+    )
+    assert source.get("families/change/list") == []
+    assert reservations == [35, 35, 35] and exchange.call_count == 3
+
+
+def test_shared_transport_retries_have_a_finite_exhaustion_bound(tmp_path, monkeypatch):
+    """Exhaustion returns the shared typed error for the owning Task retry policy."""
+    exchange = Mock(side_effect=SourceTransportError("Source transport unavailable."))
+    monkeypatch.setattr(transport, "_exchange", exchange)
+    source = ParishSoftClient(
+        ParishSoftConfig("SYNTHETIC", tmp_path / "unused", cache_enabled=False),
+        session=session(),
+        retry_policy=RetryPolicy(attempts=3, initial_delay=0),
+    )
+    with pytest.raises(RetryError) as caught:
+        source.get("families/change/list")
+    assert isinstance(caught.value.last_exception, SourceTransportError)
+    assert exchange.call_count == 3
+
+
+@pytest.mark.parametrize("error", [PermissionError, SourceTransportDrainFailure])
+def test_shared_retry_never_retries_admission_loss_or_unknown_drain(
+    tmp_path, monkeypatch, error
+):
+    """Neither fenced access loss nor an undrained process is a connection retry."""
+    exchange = Mock(side_effect=error("Source ownership is unavailable."))
+    monkeypatch.setattr(transport, "_exchange", exchange)
+    source = ParishSoftClient(
+        ParishSoftConfig("SYNTHETIC", tmp_path / "unused", cache_enabled=False),
+        session=session(),
+        retry_policy=RetryPolicy(attempts=3, initial_delay=0),
+    )
+    with pytest.raises(error):
+        source.get("families/change/list")
+    assert exchange.call_count == 1
 
 
 def test_uncached_client_never_creates_or_uses_private_cache_files(
