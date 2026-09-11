@@ -16,7 +16,7 @@ TREND_COLLECTIONS = ("family", "member", "ministry", "roster", "fund")
 
 
 @dataclass(frozen=True)
-class FullSourceLoad:
+class SourceLoad:
     """Validated collections and nonprivate completeness evidence for one attempt."""
 
     corpus: dict
@@ -103,7 +103,7 @@ def load_full_source(
         previous_full_counts=previous_full_counts,
         maximum_drop_percent=maximum_drop_percent,
     )
-    return FullSourceLoad(
+    return SourceLoad(
         corpus,
         counts,
         {
@@ -115,5 +115,6 @@ def load_full_source(
             "requests": client.request_count,
             "response_bytes": client.response_bytes,
             "as_of_date": as_of.isoformat(),
+            "giving_as_of_date": as_of.isoformat(),
         },
     )

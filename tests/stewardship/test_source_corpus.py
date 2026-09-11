@@ -315,3 +315,11 @@ def test_invalid_group_and_fallback_types_do_not_affect_eligibility():
     data.member_contactinfos[3]["middleName"] = False
     with pytest.raises(InvalidSourcePayload, match="type"):
         normalize_core(data, as_of=TODAY)
+
+
+def test_missing_family_group_lookup_is_not_treated_as_an_active_group():
+    """A dropped lookup cannot silently make an inactive Family eligible."""
+    data = source()
+    data.family_groups.clear()
+    with pytest.raises(InvalidSourcePayload, match="group reference"):
+        normalize_core(data, as_of=TODAY)

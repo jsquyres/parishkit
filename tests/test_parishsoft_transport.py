@@ -59,6 +59,7 @@ def session(**overrides):
         "families/workgroup/5/list",
         "members/workgroup/lookup/list",
         "members/workgroup/5/list",
+        "members/5",
         "ministry/type/list",
         "ministry/5/minister/list",
         "offering/5/funds",

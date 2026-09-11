@@ -50,6 +50,7 @@ class Action(StrEnum):
     SOURCE_COMPACTED = "source_compacted"
     FACTS_COMPACTED = "facts_compacted"
     SOURCE_PROMOTED = "source_promoted"
+    SOURCE_REJECTED = "source_rejected"
     BACKGROUND_VIEWED = "background_viewed"
 
 

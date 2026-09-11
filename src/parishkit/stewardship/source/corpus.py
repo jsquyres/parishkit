@@ -328,7 +328,10 @@ def normalize_core(source, *, as_of):
                 raise InvalidSourcePayload(
                     "Source Family reference metadata is invalid."
                 )
-        group = source.family_groups.get(raw.get("famGroupID"))
+        group_id = raw.get("famGroupID")
+        if group_id and group_id not in source.family_groups:
+            raise InvalidSourcePayload("Source Family group reference is unavailable.")
+        group = source.family_groups.get(group_id)
         if group is not None and type(group) is not str:
             raise InvalidSourcePayload("Source Family group is not text.")
         group = _scalar(group)

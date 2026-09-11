@@ -256,7 +256,7 @@ The published v1/v2 Family read models expose a primary address, not separate
 home/mailing addresses, country or registration date. The adapter does not
 invent those values; later census mapping must preserve their unavailability.
 The write-only v1 contact model is not evidence that those fields can be read.
-Thirty-one pure normalization tests and the actual PostgreSQL canonical
+Thirty pure normalization tests and the actual PostgreSQL canonical
 round-trip/contact-only deduplication test pass. The full baseline passes 3,095
 tests, with 1,333 explicitly opt-in cases skipped. Ruff and formatting pass.
 Scoped giving, source worker/recovery, watermark advancement, promotion effects
@@ -283,6 +283,35 @@ two actual PostgreSQL core/financial round-trip cases pass. The full baseline
 passes 3,156 tests, with 1,334 explicitly opt-in cases skipped; Ruff and formatting
 pass. Worker attempt ownership, recovery, durable watermarks and runtime/UI
 integration remain open; these adapters alone do not complete BG-05.
+
+The delta/recovery checkpoint adds bounded shared household enumeration and
+Member search-equivalent reads, with whitelisted contact fallbacks. A complete
+delta replaces only affected Family/Member/contact/address data. New households
+with new Members are admitted; moved/removed/changed household composition,
+changed global Family group definitions and ambiguous scoped endpoints require
+full refresh. A missing Family group reference cannot imply active eligibility.
+Ministry/fund/giving inputs retain coherent prior full values. Dated roster
+currentness is reevaluated without fetching a partial roster; retained giving
+keeps its actual older data-as-of date.
+
+Cursor metadata records the manifest's pre-network start instant. Delta windows
+overlap one UTC civil day on either side; invalid bindings or a gap exceeding
+seven days require full refresh. The last full identity/time survives deltas.
+Only the current promoted manifest supplies the next watermark: ready/rejected
+cursors do not advance it. A newer safely acquired read-owner fence can reject
+old staging without rebinding or deleting its task/fence/payload/cursor evidence.
+SQL preserves those fields and prohibits promotion after rejection. Rejection
+is audited atomically, including under races and migration round trips.
+
+All 26 selected household/delta tests and 21 pure cursor tests pass. The combined
+PostgreSQL delta/rejection/corpus/snapshot run passes 35 tests, including actual
+promotion/rejection watermark behavior. The full baseline passes 3,205 tests,
+with 1,350 explicitly opt-in cases skipped; Ruff, formatting and migration drift
+checks pass. Durable attempt/credential binding, task outcome/recovery handlers,
+scheduled/manual producers, source Family/chair effects and runtime/UI setup
+remain open. A source-semantics question about Ministry catalog presence versus
+an explicit active-Ministry policy is awaiting the owner; unrelated source
+worker work continues.
 
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
