@@ -7,13 +7,15 @@ its actual domain gates and completion/recovery evidence under TaskRun locks.
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from threading import Event
 from uuid import UUID
 
 from django.db import transaction
 
 from parishkit.stewardship.storage import StorageInvariantError
 
+from .lifetime import ExecutionControl, maintain_execution, maintain_source
 from .models import TaskRun
 from .ownership import TaskClaim, database_now, lock_task_claim
 from .queues import WorkQueue
@@ -72,21 +74,37 @@ class Execution:
     claim: TaskClaim
     handler: Handler
     correlation_id: UUID
+    control: ExecutionControl = field(
+        default_factory=ExecutionControl, repr=False, compare=False
+    )
+
+    def check(self):
+        """Call before each new external unit; SQL effects also recheck their fences."""
+        self.control.check()
+
+    def maintain_source(self, claim):
+        """Attach this execution's live source lease through one external-work scope."""
+        return maintain_source(self, claim)
 
     def transition(self, action, **options):
         """Recheck ownership and owning evidence before any execution transition."""
-        with transaction.atomic():
-            row = lock_task_claim(self.claim)
-            return change_run(
-                run_id=row.pk,
-                expected_version=row.version,
-                action=action,
-                actor_id=self.claim.worker_id,
-                correlation_id=self.correlation_id,
-                fence=self.claim.fence,
-                admit=self.handler.admit,
-                **options,
-            )
+        with self.control.lock:
+            self.control.check(allow_drain=True)
+            with transaction.atomic():
+                row = lock_task_claim(self.claim)
+                result = change_run(
+                    run_id=row.pk,
+                    expected_version=row.version,
+                    action=action,
+                    actor_id=self.claim.worker_id,
+                    correlation_id=self.correlation_id,
+                    fence=self.claim.fence,
+                    admit=self.handler.admit,
+                    **options,
+                )
+            if result.state != "running":
+                self.control.finished.set()
+            return result
 
     def heartbeat(self, *, seconds=60):
         """Only a still-current owner can extend its lease between bounded steps."""
@@ -134,7 +152,7 @@ def claim_hint(run_id, *, queue, worker_id, handlers):
         )
 
 
-def execute_hint(run_id, *, queue, worker_id, handlers):
+def execute_hint(run_id, *, queue, worker_id, handlers, stop=None):
     """Run outside a transaction; returning alone never proves task completion.
 
     The owning handler explicitly records a verified completion/retry/failure or
@@ -142,14 +160,19 @@ def execute_hint(run_id, *, queue, worker_id, handlers):
     claim and its checkpoints intact for ordinary expiry/reconciliation. Never
     translate an exception into a false success or a blind external-action retry.
     """
+    if stop is not None and not isinstance(stop, Event):
+        raise ValueError("Worker drainage requires a process-owned stop event.")
     if transaction.get_connection().in_atomic_block:
         raise StorageInvariantError(
             "Worker execution must not hold a database transaction."
         )
+    if stop is not None and stop.is_set():
+        return False
     execution = claim_hint(run_id, queue=queue, worker_id=worker_id, handlers=handlers)
     if execution is None:
         return False
-    execution.handler.execute(execution)
+    with maintain_execution(execution, stop=stop):
+        execution.handler.execute(execution)
     return True
 
 

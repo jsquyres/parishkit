@@ -22,10 +22,12 @@ Evidence: In progress after DAT-03 storage. The
 UUID-only hint dispatch, queue/type isolation, repeated owning admission,
 explicit verified outcomes, abandoned-work fencing/recovery and bounded fair
 lost-hint scanning, plus session-pinned singleton ownership and a closed
-Celery/Valkey transport factory. Twenty PostgreSQL tests and twenty-five pure
-input/transport tests pass. No item is complete yet: enabling the runtime with
+Celery/Valkey transport factory, exact broker ACLs, finite task/source heartbeat
+renewal and closed worker/scheduler process loops. Thirty PostgreSQL tests and
+nine real disposable-Valkey transport/controller tests pass, including SIGTERM
+shutdown. No item is complete yet: enabling the runtime with
 isolated mounts/grants/ACLs, concrete campaign/restore/purge admission,
-worker heartbeat/shutdown, authorized progress endpoints and
+authorized progress endpoints and
 their integration/fault tests remain. Source-specific handlers arrive with BG-05;
 the generic dispatcher does not enable unimplemented provider operations.
 

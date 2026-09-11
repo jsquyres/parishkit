@@ -7,6 +7,7 @@ the isolated runtime must first validate mounts, database grants and secrets.
 
 import os
 from dataclasses import dataclass, field
+from threading import Event
 from types import MappingProxyType
 from uuid import UUID, uuid4
 
@@ -40,12 +41,15 @@ class BrokerRuntime:
 
     app: Celery = field(repr=False)
     service: ServiceRole
+    stop: Event | None = field(default=None, repr=False, compare=False)
 
 
-def build_broker(*, endpoint, password, service, handlers):
+def build_broker(*, endpoint, password, service, handlers, stop=None):
     """Construct a lazy authenticated broker client without a password-bearing URL."""
     if not isinstance(service, ServiceRole) or service not in ROLE_QUEUES:
         raise ConfigError("This service cannot access background queues.")
+    if stop is not None and not isinstance(stop, Event):
+        raise ConfigError("A process-owned worker stop event is required.")
     if not isinstance(endpoint, ValkeyConfiguration):
         raise ConfigError("Validated Valkey connection metadata is required.")
     host = _host(endpoint.host, "Valkey host")
@@ -141,9 +145,13 @@ def build_broker(*, endpoint, password, service, handlers):
     def consume(*args, **kwargs):
         """Only a canonical UUID reaches dispatch; private errors stay local."""
         try:
-            consume_hint(args, kwargs, service=service, handlers=registry)
+            consume_hint(args, kwargs, service=service, handlers=registry, stop=stop)
         except Exception as error:
             emit_failure(error)
+        finally:
+            from django.db import connections
+
+            connections.close_all()
         # No ORM objects, operational errors or business values enter a backend.
         return None
 
@@ -152,13 +160,18 @@ def build_broker(*, endpoint, password, service, handlers):
     for name in tuple(app.tasks):
         if name != HINT_TASK:
             del app.tasks[name]
-    return BrokerRuntime(app, service)
+    return BrokerRuntime(app, service, stop)
 
 
-def consume_hint(args, kwargs, *, service, handlers):
+def consume_hint(args, kwargs, *, service, handlers, stop=None):
     """Resolve service/queue from trusted startup and durable type, never headers."""
     if service not in ROLE_QUEUES or not ROLE_QUEUES[service]:
         raise PermissionError("This service is not an execution consumer.")
+    if stop is not None:
+        if not isinstance(stop, Event):
+            raise ValueError("A process-owned worker stop event is required.")
+        if stop.is_set():
+            return False
     if kwargs or len(args) != 1 or type(args[0]) is not str or len(args[0]) != 36:
         raise ValueError("Execution hints contain only one canonical task UUID.")
     try:
@@ -176,8 +189,10 @@ def consume_hint(args, kwargs, *, service, handlers):
     if not isinstance(handler, Handler) or handler.queue not in ROLE_QUEUES[service]:
         raise PermissionError("Task type is unavailable to this isolated consumer.")
     options = dict(queue=handler.queue, worker_id=uuid4(), handlers=handlers)
-    if execute_hint(run_id, **options):
+    if execute_hint(run_id, **options, stop=stop):
         return True
+    if stop is not None and stop.is_set():
+        return False
     return recover_hint(run_id, **options)
 
 

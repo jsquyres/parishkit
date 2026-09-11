@@ -85,7 +85,7 @@ def test_application_instances_never_share_another_services_handler_closure(
     """Celery shared-task defaults must not bind future apps to a prior service."""
     calls = []
 
-    def consume(args, kwargs, *, service, handlers):
+    def consume(args, kwargs, *, service, handlers, stop):
         """Capture only the service identity passed by each app-local closure."""
         calls.append(service)
 

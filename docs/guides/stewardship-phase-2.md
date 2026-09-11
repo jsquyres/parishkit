@@ -108,6 +108,24 @@ cross-service denials. Thirty-eight pure broker/dispatcher/ACL tests pass.
 This validates the policy and transport, not yet deployment provisioning or
 an enabled worker process.
 
+The worker-lifetime checkpoint adds twenty-second renewal on an independent,
+short-lived SQL connection, with finite connection/lock/statement timeouts.
+Task and optional exact source leases renew atomically; renewal failure blocks
+further execution boundaries without inventing a task outcome. Graceful stop
+prevents new claims/external units but allows a verified current unit to finish.
+Every handler exit drains its renewer. The scheduler retains its actual owning
+SQL session across passes and stops publishing the remainder of a page on drain.
+
+Closed process helpers now exercise Celery's real single-execution controller
+without gossip, mingle, broker heartbeat, remote control, CLI banners or forked
+workers. The stop event is shared with dispatch, and the controller's current
+app is scoped to its lifetime. The nine real Valkey tests include actual worker
+consumption/acknowledgement and idle SIGTERM shutdown. Thirty PostgreSQL cases
+and nineteen new pure lifetime/process cases pass; the full baseline passes
+2,837 tests. Deployment still does not launch these helpers: concrete domain
+admission, isolated SQL grants/mount provisioning and runtime entry-point wiring
+remain in progress before BG-01 can be marked complete.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later

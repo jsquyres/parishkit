@@ -1,9 +1,12 @@
 """Real pinned Valkey ACL and Kombu transport, using only disposable synthetic data."""
 
+import json
 import os
 import re
 import subprocess
+import sys
 import time
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -179,3 +182,37 @@ def test_real_acl_denies_cross_service_commands(valkey_endpoint, role, command):
             client.execute_command(*command)
     finally:
         client.close()
+
+
+@pytest.mark.parametrize("mode", ["consume", "idle"])
+def test_actual_worker_uses_closed_queues_and_drains_after_work_or_sigterm(
+    valkey_endpoint, mode
+):
+    """Exercise Celery startup/consumption/shutdown against the real narrowed ACL."""
+    identifier = uuid4()
+    if mode == "consume":
+        producer = build_broker(
+            endpoint=valkey_endpoint,
+            password=PASSWORDS[ServiceRole.SCHEDULER].decode(),
+            service=ServiceRole.SCHEDULER,
+            handlers={},
+        )
+        try:
+            publish_hint(producer, ExecutionHint(identifier, WorkQueue.GENERAL))
+        finally:
+            producer.app.close()
+    result = subprocess.run(
+        [sys.executable, str(Path(__file__).with_name("runtime_broker_probe.py"))],
+        input=json.dumps(
+            {"port": valkey_endpoint.port, "expected": str(identifier), "mode": mode}
+        ),
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == {
+        "status": 0,
+        "ready": True,
+        "seen": [str(identifier)] if mode == "consume" else [],
+    }

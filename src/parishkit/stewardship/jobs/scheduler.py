@@ -8,7 +8,7 @@ Duplicate transport hints remain harmless even across a connection-loss race.
 
 from contextlib import contextmanager
 from dataclasses import dataclass
-from threading import get_ident, local
+from threading import Event, get_ident, local
 
 from django.db import connection
 
@@ -127,7 +127,7 @@ def _release(raw):
         raise
 
 
-def scan_once(guard, *, handlers, publish, cursor=None, limit=100):
+def scan_once(guard, *, handlers, publish, cursor=None, limit=100, stop=None):
     """Emit a bounded page of hints; failed delivery remains durable and replayable.
 
     The runtime transport must impose a finite publication timeout and translate
@@ -137,11 +137,15 @@ def scan_once(guard, *, handlers, publish, cursor=None, limit=100):
     """
     if not isinstance(guard, SchedulerGuard) or not callable(publish):
         raise ValueError("An owned scheduler and bounded publisher are required.")
+    if stop is not None and not isinstance(stop, Event):
+        raise ValueError("Scheduler drainage requires a process-owned stop event.")
     guard.check()
     hints, position = collect_hints(handlers=handlers, cursor=cursor, limit=limit)
     published = unconfirmed = 0
     for hint in hints:
         guard.check()
+        if stop is not None and stop.is_set():
+            return ScanResult(None, published, unconfirmed)
         try:
             publish(hint)
         except HintPublicationUnavailable:
