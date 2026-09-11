@@ -188,6 +188,23 @@ not a scheduler or committed watermark: durable refresh requests, overlapping
 window selection, finite transport, whole-corpus validation and promotion still
 require the concrete BG-05 owner before runtime can be enabled.
 
+The refresh-request checkpoint adds immutable task-root/tenant/campaign-window
+bindings and a separate append-only record for each coalesced command/requester.
+Manual requests share one waiting full load after any active poll, including
+the interval before its first source lease. Retry-chain, retained-lease and
+already-promoted exclusions prevent false fulfillment. Fresh owning admission
+runs at creation, replay, claim and each effect; harmless content edits preserve
+the window, while changed giving funds or campaign identity invalidate it.
+Archived-current pointers permit census refresh without adding archived giving.
+SQL independently checks exact canonical window/digest, current configuration,
+task and tenant bindings, and refuses a populated-history downgrade.
+
+All 47 selected PostgreSQL request/admission cases and the 2,917-test baseline
+pass; the baseline's 1,328 opt-in skips are not claimed as executed integration
+tests. Lint, formatting and migration-drift checks pass. These remain internal
+services: Admin endpoints, stale-request recovery, durable poll watermarks,
+bounded provider transport and concrete promotion/reconciliation are still open.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later

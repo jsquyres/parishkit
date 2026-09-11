@@ -4,6 +4,7 @@ from django.db import models
 
 from parishkit.stewardship.storage import MutableRecord, UTCDateTimeField
 
+from .refresh_models import SourceRefreshCommand, SourceRefreshRequest  # noqa: F401
 from .snapshot_models import (  # noqa: F401
     SourceCompactionBatch,
     SourceCurrent,

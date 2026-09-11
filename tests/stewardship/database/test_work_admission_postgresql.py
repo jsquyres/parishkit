@@ -167,6 +167,20 @@ def test_purge_window_holds_global_source_refresh(tmp_path):
         command(campaign, actor, Action.ACTIVATE)
     close_campaign(campaign, actor)
     command(campaign, actor, Action.ARCHIVE)
+    with work_transaction():
+        # The archived current pointer excludes its giving window, but does not
+        # stop parish-wide census refresh while waiting for Return to Testing.
+        scope = require_source_refresh(campaign_id=campaign.pk)
+        from parishkit.stewardship.source.windows import refresh_window
+
+        assert (
+            refresh_window(
+                campaign_id=scope.campaign.pk,
+                state=scope.campaign.state,
+                values=scope.campaign.active_configuration.values,
+            ).periods
+            == ()
+        )
     return_to_testing(
         campaign_id=campaign.pk,
         request_id=uuid4(),
