@@ -228,6 +228,20 @@ passes 2,984 tests, with 1,332 explicitly opt-in cases skipped; lint and formatt
 also pass. Runtime enabling,
 strict collection pagination and full/delta promotion remain in progress.
 
+The collection checkpoint adds strict shared pagination and an opt-in coherent
+client for the existing full Family/Member aggregation path. Published request
+field names and array/envelope contracts are explicit; count, ordinal, unique-ID
+and total/size evidence are checked before dictionaries can hide duplicate rows.
+Zero-origin probes distinguish an exact zero/one alias, advancing pages and a
+verified one-row offset overlap; other overlap fails closed. Empty terminators
+cannot excuse missing declared records. Per-page, per-collection and aggregate
+request/decoded-byte/time ceilings reject an incomplete scan, never truncate it.
+All 79 new pagination/client tests pass, including actual shared full-loader
+execution retaining inactive data with caches disabled. These provider-contract
+fixtures do not replace credential-dependent operational smoke validation. The
+full baseline passes 3,063 tests with the same 1,332 opt-in cases skipped; lint,
+formatting and changed-document Markdown checks also pass.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later

@@ -71,7 +71,8 @@ ParishKit's credential posture (API-key files on disk, no stored passwords).
 - `offering/contributiondetail/list` — **per-contribution detail listing**.
 - Org-wide `offering/{organizationId}/givers`.
 - `families/quick-search` / `members/quick-search` as first-class POST endpoints.
-- Structured pagination envelope (`PagingInfo`) across all list endpoints.
+- Structured pagination envelopes (`PagingInfo`) on many list endpoints;
+  other v2 collections return bare arrays with endpoint-specific paging.
 - `MemberSearchResponseDto` adds `fatherName`, `motherName`,
   `responsibleAdultName`.
 
@@ -267,6 +268,23 @@ the tenant uncached, and requires full refresh for malformed/oversized responses
 unscoped organization changes or ambiguous timestamps. Consumers must overlap
 date windows and commit their own poll boundary only after successful atomic
 reconciliation. This feed does not replace full Member/Ministry/giving refresh.
+
+The same contract check confirms heterogeneous full-load pagination:
+
+| Collection | Paging request fields | Response evidence |
+| --- | --- | --- |
+| Family search | `pageSize`, `pageNumber` | Array; `totalResults`, `rowNumber` |
+| Member search | `maximumRows`, `startRowIndex` | Array; `recordCount`, `rowNum` |
+| Member contacts | `limit`, `offset` | Array |
+| Family workgroups | `PageSize`, `PageNumber` | Array; `recordCount`, `rowNum` |
+| Other workgroups/rosters, Ministries, giving | `PageSize`, `PageNumber` | `data`, `pagingInfo` |
+
+Member search/contact positions default to zero but are described as page
+numbers. The opt-in `CoherentParishSoftClient` therefore probes continuity rather
+than assuming their origin or offset semantics. It also checks exact totals,
+ordinals and unique identities before shared loaders index records. Existing
+`ParishSoftClient` callers retain their previous behavior; bounded source loads
+disable caches and enforce aggregate request/byte/time limits.
 
 The findings above were derived from the published OpenAPI specs:
 
