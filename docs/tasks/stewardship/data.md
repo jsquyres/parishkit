@@ -200,12 +200,16 @@ Scope and dependencies: [DAT-04 work package](../../plans/stewardship/data.md#da
 Evidence: Phase 1B implements Family identities and eligibility/cohort provenance,
 stable encrypted manual codes, versioned MAC lookup/collision constraints,
 population reconciliation, sealed token generations, rehearsal epochs/reservations
-and isolated sessions. Actual source promotion and submission/mail-state pointers
-remain with DAT-03/DAT-06/DAT-07; do not fabricate those later tables. Additional
-credential lifecycle/reactivation and retirement cases now pass; actual source
-promotion and backup-catalog integration retain their named later owners. See
+and isolated sessions. Phase 2 now connects normalized promoted source data to
+the Family allocator in the same transaction, with explicit suppression inputs,
+stable reactivation codes, rollback and rotation-contention tests. Enabling the
+complete runtime promotion handler and submission/mail-state pointers remains
+with BG-05/DAT-06/DAT-07; do not fabricate those later tables. Additional
+credential lifecycle/reactivation and retirement cases now pass; invitation
+evaluation and backup-catalog integration retain their named later owners. See
 [Phase 1B evidence](../../guides/stewardship-phase-1b.md); the mixed-phase tasks stay
-unchecked rather than claiming complete integration from the storage foundation.
+unchecked rather than claiming complete runtime integration. The source-owned
+Family effect is recorded in [Phase 2 evidence](../../guides/stewardship-phase-2.md).
 
 ## DAT-05: Portal users and authorization policy records
 

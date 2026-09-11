@@ -333,6 +333,23 @@ lint, formatting and migration drift checks pass. These are not yet enabled
 runtime handlers: verified task outcomes, recovery/full-fallback scheduling,
 Family/chair reconciliation, worker grants/mounts and setup/UI integration remain.
 
+The Family-effects checkpoint derives campaign eligibility from the exact
+newly promoted Family/Member/contact collections, not browser-supplied status.
+It verifies live source ownership, the configured tenant/current campaign and
+the promoted pointer/generation before invoking the stable-code allocator.
+Eligible head addresses and explicit canonical provider-suppression inputs
+determine deliverability; publication flags and Family-level email addresses
+do not replace head eligibility. Missing email or suppression never prevents
+manual-code allocation. Historical campaigns cannot receive new Family effects.
+
+Source pointer, Family population, code fingerprints and cohort history roll
+back together if any later required effect fails. Inactivation/reactivation
+preserves the original code and cohort. A real concurrent exclusive key-rotation
+lock causes a prompt retry instead of waiting while holding source locks.
+Twenty-three pure eligibility cases and 23 PostgreSQL source/Family cases pass.
+The compiled runtime handler, chair effects and later invitation/suppression
+storage owners still need integration; this effect does not dispatch mail.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later
