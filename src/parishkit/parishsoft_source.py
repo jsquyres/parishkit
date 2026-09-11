@@ -232,7 +232,10 @@ class CoherentParishSoftClient(ParishSoftClient):
         """Use contract paging fields, never permit inherited caller paging filters."""
         if set(legacy_options) - {"limit", "limit_name", "offset_name", "offset_type"}:
             raise ValueError("Unsupported coherent source pagination options.")
-        if parameters is not None and type(parameters) is not dict:
+        if parameters is not None and (
+            type(parameters) is not dict
+            or any(type(name) is not str for name in parameters)
+        ):
             raise ValueError("Source collection parameters must be a mapping.")
         parameters = dict(parameters or {})
         if any(
@@ -249,15 +252,42 @@ class CoherentParishSoftClient(ParishSoftClient):
         ):
             raise ValueError("Source collection parameters cannot override pagination.")
         if method == "POST":
-            if parameters.get("organizationIDs", [self.expected_organization_id]) != [
-                self.expected_organization_id
-            ]:
-                raise IncompleteSourceCollection(
-                    "Source collection has another tenant."
-                )
-            parameters["organizationIDs"] = [self.expected_organization_id]
+            tenant_field = "organizationIDs"
         elif endpoint in {"ministry/type/list", "members/workgroup/lookup/list"}:
-            parameters["organizationId"] = self.expected_organization_id
+            tenant_field = "organizationId"
+        elif endpoint.startswith("offering/"):
+            tenant_field = (
+                "OrganizationID"
+                if endpoint == "offering/pledge/list"
+                else "OrganizationId"
+            )
+        else:
+            tenant_field = None
+        expected = (
+            [self.expected_organization_id]
+            if method == "POST"
+            else self.expected_organization_id
+        )
+        for name, value in parameters.items():
+            if name.casefold() not in {"organizationid", "organizationids"}:
+                continue
+            if (
+                name != tenant_field
+                or value != expected
+                or (
+                    method == "POST"
+                    and (
+                        type(value) is not list
+                        or any(type(key) is not int for key in value)
+                    )
+                )
+                or (method == "GET" and type(value) is not int)
+            ):
+                raise IncompleteSourceCollection(
+                    "Source collection has another or ambiguous tenant."
+                )
+        if tenant_field:
+            parameters[tenant_field] = expected
 
         def fetch(paging):
             """Every page goes through the aggregate budget and shared retry policy."""
@@ -268,7 +298,7 @@ class CoherentParishSoftClient(ParishSoftClient):
                 )
             return super(CoherentParishSoftClient, self).get_uncached(endpoint, values)
 
-        return read_pages(
+        rows = read_pages(
             fetch,
             contract=contract,
             identify=_roster_identity
@@ -276,3 +306,16 @@ class CoherentParishSoftClient(ParishSoftClient):
             else lambda row: _identifier(row, identity),
             page_size=legacy_options.get("limit", 500),
         )
+        # Legacy normalization accepts a sequence of email strings for general
+        # tool callers. The provider DTO requires one text field: validate it
+        # before that helper could erase the evidence of a malformed response.
+        email_field = {
+            "families/search": "eMailAddress",
+            "members/search": "emailAddress",
+        }.get(endpoint)
+        if email_field and any(
+            row.get(email_field) is not None and type(row[email_field]) is not str
+            for row in rows
+        ):
+            raise IncompleteSourceCollection("Source email DTO field is not text.")
+        return rows

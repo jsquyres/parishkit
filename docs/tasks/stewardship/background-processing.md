@@ -90,8 +90,10 @@ and append-only coalesced command evidence now pass 47 selected PostgreSQL
 request/admission cases. Bounded isolated HTTP transport and strict coherent
 pagination are implemented internally. Typed core normalization now preserves
 empty/inactive Families and source-field availability; 31 pure cases and an
-actual PostgreSQL round-trip/deduplication case pass. No item is complete:
-durable watermark, stale-request recovery, scoped giving, full/delta producers,
+actual PostgreSQL round-trip/deduplication case pass. Complete-load orchestration
+and scoped exact-decimal giving now pass 92 selected client/loading/giving cases
+and two PostgreSQL core/financial round trips. No item is complete:
+durable watermark, stale-request recovery, full/delta producers,
 runtime integration and source-driven Family/chair reconciliation remain.
 
 ## BG-06: Family invitations and reminders

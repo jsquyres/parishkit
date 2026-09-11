@@ -202,6 +202,35 @@ def test_unvalidated_client_cannot_read_any_scoped_collection(tmp_path):
 
 
 @pytest.mark.parametrize(
+    "endpoint,parameters",
+    [
+        ("offering/pledge/list", {"OrganizationID": 6}),
+        ("offering/pledge/list", {"organizationId": 5}),
+        ("offering/contributiondetail/list", {"OrganizationId": "5"}),
+        ("ministry/type/list", {"organizationId": 6}),
+        ("ministry/type/list", {"OrganizationId": 5}),
+        ("families/workgroup/4/list", {"organizationId": 5}),
+    ],
+)
+def test_ambiguous_or_wrong_tenant_query_cannot_be_silently_overridden(
+    tmp_path, endpoint, parameters
+):
+    """Canonical tenant binding cannot coexist with another provider query alias."""
+    client = initialized(tmp_path)
+    with pytest.raises(IncompleteSourceCollection, match="tenant"):
+        client.get_paginated(endpoint, parameters)
+    assert len(client.session.calls) == 1
+
+
+def test_nonstring_query_keys_are_rejected_before_transport(tmp_path):
+    """Malformed internal options have a static error, not an incidental exception."""
+    client = initialized(tmp_path)
+    with pytest.raises(ValueError, match="mapping"):
+        client.get_paginated("ministry/type/list", {1: "PRIVATE"})
+    assert len(client.session.calls) == 1
+
+
+@pytest.mark.parametrize(
     "rows",
     [
         [],

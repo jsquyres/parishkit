@@ -262,6 +262,28 @@ tests, with 1,333 explicitly opt-in cases skipped. Ruff and formatting pass.
 Scoped giving, source worker/recovery, watermark advancement, promotion effects
 and setup/configuration integration remain open.
 
+The complete-load checkpoint combines the shared core loader, fund catalog,
+typed normalization and selected current/comparison giving. Contributions are
+queried through the parish-local data-as-of day; future periods do not issue
+contribution reads. Pledge date-filter semantics are undocumented, so bounded
+selected-fund reads are filtered by effective `pledgeStartDate`, not the earlier
+recording date. No out-of-period detail reaches staging or a disk cache. Exact
+cent values retain negative adjustments, reject floats/fractional cents and do
+not substitute zero for invalid/missing data. Family DUID/local-ID aliases must
+resolve unambiguously; member attribution must agree. Explicit anonymous gifts
+produce count-only exclusion evidence, not guessed Family amounts.
+
+Whole loads reject unexpected empty Family/Member data and compare core counts
+with the last successful full baseline. The initial internal policy rejects a
+drop greater than 25 percent; its bounded argument is not yet an Admin setting.
+Giving-window changes and independent contact/address edits are not identity
+loss. Tenant query aliases fail closed, and raw email DTO types are checked
+before legacy normalization. The 92 selected client/loading/giving cases and
+two actual PostgreSQL core/financial round-trip cases pass. The full baseline
+passes 3,156 tests, with 1,334 explicitly opt-in cases skipped; Ruff and formatting
+pass. Worker attempt ownership, recovery, durable watermarks and runtime/UI
+integration remain open; these adapters alone do not complete BG-05.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later
