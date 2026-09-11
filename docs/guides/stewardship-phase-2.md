@@ -418,6 +418,19 @@ whitespace and migration-drift checks pass. Catching load failures and invoking
 these services from the compiled worker, scheduled/manual producers, isolated
 runtime wiring, chair effects and setup/editor UI remain open in this same batch.
 
+The failed-read checkpoint atomically rejects the exact attempt, releases its
+source reservation while retaining its read/drain deadline, settles the Task
+and writes a closed value-free diagnostic. Narrow historical cleanup after a
+campaign change cannot authorize new observation or promotion. Unknown drainage,
+lost ownership, completed snapshots and fallback dependencies retain their
+separate outcome owners. Log failure rolls all settlement effects back.
+Fourteen PostgreSQL tests cover these paths, database/event vocabulary parity
+and refusal to downgrade retained failure history; 18 pure classification tests
+pass. The shared transport now retries only confirmed drained connection
+failures through the existing bounded retry policy, rechecking reservation on
+each attempt; 110 selected transport/client cases pass. Runtime worker wiring
+and the rest of the Phase 2 batch remain open.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later
