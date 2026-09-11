@@ -431,6 +431,23 @@ failures through the existing bounded retry policy, rechecking reservation on
 each attempt; 110 selected transport/client cases pass. Runtime worker wiring
 and the rest of the Phase 2 batch remain open.
 
+The compiled-executor checkpoint now connects actual UUID hint claiming and
+independent renewal to credential intake, full/delta observation, staging,
+promotion and proven Task outcomes. Required reconciliation has no default
+success implementation. Fourteen executor PostgreSQL cases cover real campaign
+Family/code population, duplicate hints, no-base and incompatible-delta fallback,
+scope changes during HTTP, contention, missing credentials, partial-effect
+rollback, uncertain drainage and completion failure after committed promotion.
+Linked full success/failure is acknowledged without another parent observation,
+including after configuration changes. Terminal control flags are set only
+after the owning transaction commits while renewal is excluded.
+
+The entire source PostgreSQL suite passes 221 tests with no skips; baseline
+validation passes 3,262 tests with 1,455 opt-in cases skipped. The service remains
+disabled until required chair effects, actual startup dependencies and isolated
+SQL/mount admission are complete. Scheduled producers and the remaining setup/
+configuration UI work continue in this same Phase 2 batch.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later
