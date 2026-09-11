@@ -97,6 +97,17 @@ These factories have not yet been enabled by operational runtime: service
 mounts, SQL grants, Valkey ACL provisioning, concrete owning admission and
 bounded worker heartbeat/shutdown still need integration and container tests.
 
+The broker isolation checkpoint adds a pure queue inventory and explicit
+Valkey ACL builders for the scheduler and each consumer identity. The scheduler
+may publish but cannot consume or delete queue data; each consumer sees only
+its own normal/restore queues and unacknowledged-message keys. None can read
+web login counters or administer Valkey. Seven opt-in tests against a fresh
+disposable pinned Valkey container pass, exercising real Kombu publication,
+receipt, visibility recovery, requeue and acknowledgement plus server-enforced
+cross-service denials. Thirty-eight pure broker/dispatcher/ACL tests pass.
+This validates the policy and transport, not yet deployment provisioning or
+an enabled worker process.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later

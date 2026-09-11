@@ -8,7 +8,6 @@ its actual domain gates and completion/recovery evidence under TaskRun locks.
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from enum import StrEnum
 from uuid import UUID
 
 from django.db import transaction
@@ -17,6 +16,7 @@ from parishkit.stewardship.storage import StorageInvariantError
 
 from .models import TaskRun
 from .ownership import TaskClaim, database_now, lock_task_claim
+from .queues import WorkQueue
 from .storage import _locked, _status, change_run
 
 
@@ -44,17 +44,6 @@ class RecoveryPlan:
                 raise ValueError("Recovery retry requires a bounded delay.")
         elif self.retry_seconds is not None:
             raise ValueError("Only retry dispositions have a delay.")
-
-
-class WorkQueue(StrEnum):
-    """Separate consumers never receive another service's secret-bearing work."""
-
-    GENERAL = "general"
-    MAIL = "mail-dispatch"
-    BACKUP = "backup-worker"
-    RESTORE_GENERAL = "restore-general"
-    RESTORE_MAIL = "restore-mail"
-    RESTORE_BACKUP = "restore-backup"
 
 
 @dataclass(frozen=True)

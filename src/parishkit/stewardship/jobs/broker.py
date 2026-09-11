@@ -21,21 +21,9 @@ from parishkit.stewardship.observability import emit_failure
 
 from .dispatch import Handler, WorkQueue, execute_hint, recover_hint
 from .models import TaskRun
+from .queues import BROKER_PREFIX, HINT_TASK, ROLE_QUEUES
 from .scanning import ExecutionHint
 from .scheduler import HintPublicationUnavailable
-
-HINT_TASK = "stewardship.execution_hint"
-BROKER_PREFIX = "stewardship:broker:v1:"
-ROLE_QUEUES = MappingProxyType(
-    {
-        ServiceRole.WORKER: frozenset({WorkQueue.GENERAL, WorkQueue.RESTORE_GENERAL}),
-        ServiceRole.MAIL_DISPATCH: frozenset({WorkQueue.MAIL, WorkQueue.RESTORE_MAIL}),
-        ServiceRole.BACKUP_WORKER: frozenset(
-            {WorkQueue.BACKUP, WorkQueue.RESTORE_BACKUP}
-        ),
-        ServiceRole.SCHEDULER: frozenset(),
-    }
-)
 
 
 class ClosedLoader(BaseLoader):
