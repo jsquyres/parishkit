@@ -184,7 +184,9 @@ def render_runtime(configuration, *, image, checkout=None):
     if budget.replicas != 1:
         raise ConfigError("Operational runtime requires one web container.")
     targets = sorted(SECRET_NAMES - {"handoff_private"})
-    budget.validate_topology(background_processes=1 + len(targets))
+    # Reserve concrete SQL slots even before source handlers enable these
+    # services: configuration/target installers + worker main/renewal + scheduler.
+    budget.validate_topology(background_processes=1 + len(targets) + 3)
     image = _image(image, configuration.profile)
     if checkout is not None and (
         configuration.profile is not DeploymentProfile.DEVELOPMENT

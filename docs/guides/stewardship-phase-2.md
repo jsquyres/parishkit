@@ -165,6 +165,18 @@ pass. Existing runtime artifacts are never overwritten as an upgrade shortcut;
 the worker/scheduler entry-point and concrete source-handler integration remain
 open before enabling those services.
 
+The task SQL checkpoint provisions independent scheduler/worker logins and
+closed task-only grants. The scheduler can enqueue and lock/scan work but not
+claim or transition it; the worker can update fenced task metadata without
+campaign configuration, session or provider credential authority. Audited writes
+have only the narrow identity/default-column reads their triggers and INSERT
+RETURNING require, not access to historical private contexts. Concrete source
+owners must extend their table vocabulary explicitly. Eighteen real PostgreSQL
+grant tests, 101 initial selected runtime tests and the 2,867-test baseline pass.
+The default background reserve accounts for all installer connections plus the
+worker's main/renewal pair and scheduler's pinned session through rollout overlap.
+These identities do not yet launch an operational worker or enable source I/O.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later
