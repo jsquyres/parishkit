@@ -18,8 +18,9 @@ from .configuration_schema import validate_sections
 from .credential_database import _identity, admit_grants
 
 # Include trigger-owned effects, not just the ORM statements in the installer.
-# No DELETE/TRUNCATE/DDL, secret-staging, Family, source, response or session grants
-# belong to this process. New projection owners extend this registry explicitly.
+# No DELETE/TRUNCATE/DDL, secret-staging, Family, source-payload, response or session
+# grants belong here. The current Chairperson view exposes only relationship
+# evidence needed by policy activation, not the underlying census/contact corpus.
 CONFIGURATION_GRANTS = {
     "django_migrations": {"SELECT"},
     "stewardship_configuration_version": {"SELECT", "INSERT"},
@@ -38,7 +39,12 @@ CONFIGURATION_GRANTS = {
     "stewardship_policy_epoch": {"SELECT", "INSERT"},
     "stewardship_admin_revocation": {"SELECT", "INSERT"},
     "stewardship_portal_user": {"SELECT"},
-    "stewardship_assignment_overlay": {"SELECT"},
+    "stewardship_assignment_overlay": {"SELECT", "INSERT", "UPDATE"},
+    "stewardship_current_chair": {"SELECT"},
+    "stewardship_source_current": {"SELECT"},
+    "stewardship_chair_seed_evidence": {"SELECT"},
+    "stewardship_chair_reconciliation": {"SELECT", "INSERT"},
+    "stewardship_chair_review": {"SELECT", "INSERT", "UPDATE"},
     "stewardship_campaign_configuration": {"SELECT", "INSERT"},
     "stewardship_campaign": {"SELECT", "INSERT", "UPDATE"},
     "stewardship_campaign_work_gate": {"SELECT"},

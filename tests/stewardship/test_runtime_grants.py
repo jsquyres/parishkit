@@ -28,6 +28,7 @@ def test_grant_registry_names_existing_models_and_excludes_unrelated_download_da
     tables = {model._meta.db_table for model in apps.get_models()} | {
         "django_migrations",
         "stewardship_download_policy",  # Intentionally SQL-only singleton.
+        "stewardship_current_chair",  # Narrow SQL-only source projection.
     }
     assert WEB_INSERT_TABLES <= WEB_READ_TABLES
     assert WEB_UPDATE_TABLES <= WEB_READ_TABLES
@@ -45,6 +46,13 @@ def test_grant_registry_names_existing_models_and_excludes_unrelated_download_da
         "stewardship_audit_event",
     ):
         assert table not in grants
+
+
+def test_web_only_reads_source_owned_assignment_overlays():
+    """Browser requests cannot become source-reconciliation writers."""
+    tables, columns = runtime_grants(ServiceRole.WEB)
+    assert tables["stewardship_assignment_overlay"] == {"SELECT"}
+    assert "stewardship_assignment_overlay" not in columns
 
 
 @pytest.mark.parametrize(

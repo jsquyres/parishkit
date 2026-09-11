@@ -183,7 +183,7 @@ class DatabaseMaterializer:
                     actor_id=self.actor_id,
                     correlation_id=self.correlation_id,
                 )
-            ConfigurationActivation.objects.create(
+            activation = ConfigurationActivation.objects.create(
                 configuration_id=selected.version_id,
                 predecessor_id=runtime.active_configuration_id,
                 sequence=runtime.configuration_sequence,
@@ -191,6 +191,9 @@ class DatabaseMaterializer:
                 actor_id=self.actor_id,
                 correlation_id=self.correlation_id,
             )
+            from .chair_reconciliation import reconcile_configuration_chairs
+
+            reconcile_configuration_chairs(activation)
             # SQL inserts Applied, safe audit, and the runtime pointer in this
             # same transaction. A failure in any effect rolls them all back.
 

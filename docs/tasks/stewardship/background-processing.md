@@ -117,9 +117,13 @@ household/delta tests, 21 cursor cases and 35 combined PostgreSQL
 delta/rejection/corpus/snapshot cases. Immutable concrete attempt/credential
 bindings and SQL completion-cursor guards now pass twelve pure credential tests
 and the combined 89-case PostgreSQL source regression. No item is complete:
-runtime integration, configurable nightly-time UI/schema and required
-source-driven chair reconciliation remain; Family integration is exercised
-by the compiled executor.
+runtime integration and configurable nightly-time UI/schema remain. Concrete
+Family/Chair reconciliation now composes in one exact-attempt promotion effect;
+the latest checkpoint includes a 154-case PostgreSQL rerun covering the compiled
+executor, policy/source rollback, retained Member identity, seeded review
+episodes, local activity activation and concurrent source/policy changes.
+Startup must still bind the isolated keys, credential path, explicit suppression
+owner and complete grants before enabling the general worker.
 
 ## BG-06: Family invitations and reminders
 

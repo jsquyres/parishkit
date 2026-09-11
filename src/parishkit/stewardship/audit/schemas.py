@@ -50,6 +50,7 @@ class Action(StrEnum):
     SOURCE_COMPACTED = "source_compacted"
     FACTS_COMPACTED = "facts_compacted"
     SOURCE_PROMOTED = "source_promoted"
+    CHAIR_RECONCILED = "chair_reconciled"
     SOURCE_REJECTED = "source_rejected"
     SOURCE_SUPERSEDED = "source_superseded"
     SOURCE_FALLBACK = "source_fallback_requested"

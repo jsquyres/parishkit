@@ -163,7 +163,10 @@ def _suggestions(corpus, document, organization_id):
         if (
             roster["current"]
             and role is not None
-            and role.casefold() == "chairperson"
+            # ParishSoft's role label is ASCII; match the SQL projection without
+            # locale-dependent lowercasing or Unicode lookalike equivalences.
+            and role.isascii()
+            and role.lower() == "chairperson"
             and member in members
             and ministry_id in active
         ):

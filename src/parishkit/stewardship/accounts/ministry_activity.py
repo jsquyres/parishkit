@@ -8,15 +8,14 @@ RECOVERY_SCHEMA = "operator-recovery-ministry-v4"
 
 
 class MinistryReconciliationUnavailable(RuntimeError):
-    """Activity cannot apply before its required seeded-source effects are wired."""
+    """Activity cannot apply without the required source evidence for seeded scope."""
 
 
 def validate_installation(document):
-    """Hold seeded activity edits before selecting YAML, until DAT-05 owns effects.
+    """Hold seeded activity edits lacking source before selecting their YAML.
 
-    This is a temporary implementation boundary, not the final activity policy.
-    SQL independently refuses a bypass at activation. Source reconciliation will
-    replace both checks with exact transactional evidence in this same phase.
+    With current source, activation performs exact seeded reconciliation in its
+    transaction. SQL independently requires its receipt even after this preflight.
     """
     from .runtime_models import SystemConfiguration
 
@@ -33,9 +32,12 @@ def validate_installation(document):
         and row["values"].get("source") == "chair-seed"
         for row in document["sections"].get("login_rules", [])
     ):
-        raise MinistryReconciliationUnavailable(
-            "Ministry activity requires seeded assignment reconciliation."
-        )
+        from parishkit.stewardship.source.snapshot_models import SourceCurrent
+
+        if not SourceCurrent.objects.filter(snapshot__isnull=False).exists():
+            raise MinistryReconciliationUnavailable(
+                "Ministry activity requires seeded assignment reconciliation."
+            )
 
 
 def validate_records(records):

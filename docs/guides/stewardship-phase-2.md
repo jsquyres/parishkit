@@ -524,11 +524,69 @@ whitespace checks pass. Integrated Phase 2 container/browser coverage and the
 formal review rounds remain for the completed batch.
 
 This remains an internal checkpoint, not the completed Admin activity feature.
-Preflight and SQL hold activity changes with seeded assignments until the
-source-effects owner can reconcile overlays and review tasks in the same
-activation transaction. This prevents storage support from leaving stale
-authorization active. Admin UI, source-effect integration and later Family
-submission enforcement remain open; no Phase 2 review round has started.
+At that checkpoint, preflight and SQL held activity changes with seeded
+assignments until the source-effects owner could reconcile overlays and review
+tasks in the same activation transaction. This prevented storage support from
+leaving stale authorization active. The following checkpoint replaces that
+barrier; Admin UI and later Family submission enforcement remain open.
+
+The subsequent Chair reconciliation checkpoint replaces that temporary blanket
+barrier with exact transactional receipts. A security-barrier current-source
+view exposes only Chairperson Member/Ministry/email relationships and roster
+evidence to the restricted installer, not census or giving payloads. Every join
+uses one promoted snapshot; staging and historical contacts cannot fill gaps in
+current truth. ASCII Chairperson label matching is identical in SQL and Python.
+
+An immutable selection record binds a seeded assignment to the specific Member
+and exact original source evidence. No online role can create this evidence yet:
+the Admin-confirmed request creator remains with ADM-07. Fixtures representing
+previously confirmed seeds exercise the downstream behavior without inventing
+an operational confirmation path. Missing evidence suspends rather than choosing
+a Member by shared email.
+
+Source and configuration owners now atomically record all seeded decisions,
+update the access overlay, open or refresh one suspension-review episode, and
+close that episode on relationship return or explicit assignment removal.
+Manual assignments and configured roles are untouched. Each receipt has a
+parish-owned audit event; retained review/receipt links preserve the full reason
+and source/configuration history without copying private contacts into logs.
+SQL verifies live source fencing or the owning configuration activation, exact
+decisions, and complete effects before promotion/activation can commit. A later
+failure rolls back source, overlays, review records and audit together. A missing
+source still holds activity changes affecting seeds before YAML selection.
+
+The initial targeted suite passed nine PostgreSQL scenarios, including real
+restricted-installer inactivation/reactivation, source loss/return, repeated
+imports, explicit removal, stale fences, omitted/forged effects, rollback and
+closed-review retention. The completed checkpoint adds fresh authorization's
+manual-provenance variants, exact effect retries and a real two-connection
+source-promotion/activity-installation race. Browser SQL authority now reads
+assignment overlays without INSERT/UPDATE privileges; source/configuration
+owners remain responsible for their writes. Receipt/audit attribution uses
+the original Task or configuration activation correlation.
+
+The compiled refresh handler also has one concrete Phase 2 effects composition:
+it verifies the exact live attempt, applies Chair effects, populates a current
+non-archived campaign through the real Family owner, and succeeds only after
+both complete. Keys and transactionally fresh suppression reads are explicit
+startup dependencies; no implicit empty suppression set or success placeholder
+is supplied. Fake-provider integration covers pre-campaign and campaign loads,
+Task acknowledgement, replay, and rollback of earlier Chair effects when a
+Family dependency fails. Production worker startup is still not enabled by
+these internal services.
+
+Validation: the complete PostgreSQL suite passes 1,412 cases in 13 minutes
+38 seconds. After the final composition, provenance, concurrency and attribution
+changes, a 154-case PostgreSQL rerun passes without skips, including restricted
+configuration/authentication grants, bootstrap and storage migration tests.
+Its three focused implementation modules have 95% combined line coverage;
+the pure suggestion and seeded-decision modules separately have 100% coverage.
+The final baseline passes 3,356 tests with 1,536 explicit opt-in cases skipped
+and two existing warnings. Ruff, formatting, Markdown, migration drift and
+whitespace checks pass. No Phase 2 review round has started.
+
+This checkpoint does not complete the Admin screen, confirmed-seeding workflow,
+complete worker wiring or later Family-form activity enforcement.
 
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge

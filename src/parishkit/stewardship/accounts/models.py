@@ -9,6 +9,11 @@ from .auth_models import (  # noqa: F401
     LimiterStoreHealth,
     OAuthStateConsumption,
 )
+from .chair_models import (  # noqa: F401
+    ChairAssignmentReview,
+    ChairReconciliation,
+    ChairSeedEvidence,
+)
 
 # Django discovers these models through this module; keep session and immutable
 # configuration contracts in separate source files for maintainability.
