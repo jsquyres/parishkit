@@ -21,9 +21,11 @@ Evidence: In progress after DAT-03 storage. The
 [Phase 2 checkpoints](../../guides/stewardship-phase-2.md) include internal
 UUID-only hint dispatch, queue/type isolation, repeated owning admission,
 explicit verified outcomes, abandoned-work fencing/recovery and bounded fair
-lost-hint scanning. Nine PostgreSQL tests and sixteen pure input tests pass.
-No item is complete yet: singleton runtime scheduling, Celery/Valkey transport,
-concrete campaign/restore/purge admission, authorized progress endpoints and
+lost-hint scanning, plus session-pinned singleton ownership and a closed
+Celery/Valkey transport factory. Twenty PostgreSQL tests and twenty-five pure
+input/transport tests pass. No item is complete yet: enabling the runtime with
+isolated mounts/grants/ACLs, concrete campaign/restore/purge admission,
+worker heartbeat/shutdown, authorized progress endpoints and
 their integration/fault tests remain. Source-specific handlers arrive with BG-05;
 the generic dispatcher does not enable unimplemented provider operations.
 

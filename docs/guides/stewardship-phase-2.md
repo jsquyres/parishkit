@@ -80,6 +80,23 @@ The dispatcher/scanner are not an enabled runtime service. Singleton scheduling,
 Celery/Valkey transport, concrete domain admission, worker lifecycle and task
 status APIs remain BG-01 work; all BG-01 checklist items remain open.
 
+The next BG-01 checkpoint adds a PostgreSQL session-pinned singleton scheduler
+guard and the closed Celery/Valkey transport factory. Reconnects invalidate old
+ownership; transport failures advance fair paging without removing durable
+work. Celery 5.6.3/Kombu 5.6.2 are validated locally. The factory uses JSON only,
+no result backend or remote control, finite transport timeouts and a single
+UUID-only task, following the [Celery configuration reference](https://docs.celeryq.dev/en/stable/userguide/configuration.html).
+App-local task registration, service-specific default queues and independent
+unacknowledged-message keys prevent one service from inheriting another's handler
+or consuming its queue by default. Broker passwords remain separate in-memory
+options rather than URL components; ambient Celery overrides fail closed.
+
+All 20 dispatcher/scanner/scheduler/consumer PostgreSQL tests pass, as do nine
+broker and sixteen dispatcher pure tests. The baseline passes 2,813 tests.
+These factories have not yet been enabled by operational runtime: service
+mounts, SQL grants, Valkey ACL provisioning, concrete owning admission and
+bounded worker heartbeat/shutdown still need integration and container tests.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later
