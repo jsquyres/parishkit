@@ -7,6 +7,7 @@ its actual domain gates and completion/recovery evidence under TaskRun locks.
 """
 
 from collections.abc import Callable
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass, field
 from threading import Event
 from uuid import UUID
@@ -56,12 +57,15 @@ class Handler:
     admit: Callable
     execute: Callable
     recover: Callable | None = None
+    scope: Callable = nullcontext
 
     def __post_init__(self):
         """Reject incomplete handlers before any durable task can be claimed."""
         if (
             not isinstance(self.queue, WorkQueue)
-            or not all(callable(value) for value in (self.admit, self.execute))
+            or not all(
+                callable(value) for value in (self.admit, self.execute, self.scope)
+            )
             or (self.recover is not None and not callable(self.recover))
         ):
             raise ValueError("A complete internal task handler is required.")
@@ -86,11 +90,27 @@ class Execution:
         """Attach this execution's live source lease through one external-work scope."""
         return maintain_source(self, claim)
 
+    @contextmanager
+    def effect(self):
+        """Own admission before task/domain locks for one short durable effect.
+
+        Handlers compose source/fact/domain storage inside this scope. No provider
+        call belongs here. Each compiled scope must be reentrant and acquire its
+        gate before TaskRun; the empty default is only for unrelated task domains.
+        """
+        with self.control.lock:
+            self.control.check()
+            with self.handler.scope(), transaction.atomic():
+                row = lock_task_claim(self.claim)
+                if self.handler.admit("effect", _status(row)) is not True:
+                    raise PermissionError("This task effect is not admitted.")
+                yield
+
     def transition(self, action, **options):
         """Recheck ownership and owning evidence before any execution transition."""
         with self.control.lock:
             self.control.check(allow_drain=True)
-            with transaction.atomic():
+            with self.handler.scope(), transaction.atomic():
                 row = lock_task_claim(self.claim)
                 result = change_run(
                     run_id=row.pk,
@@ -132,7 +152,7 @@ def claim_hint(run_id, *, queue, worker_id, handlers):
     handler = handlers.get(original.task_type)
     if not isinstance(handler, Handler) or handler.queue is not queue:
         raise PermissionError("This task is unavailable to the admitted consumer.")
-    with _locked(original.correlation_id, root_id=original.root_id):
+    with handler.scope(), _locked(original.correlation_id, root_id=original.root_id):
         row = TaskRun.objects.select_for_update().get(pk=run_id)
         if row.state not in {"queued", "retry_wait"} or row.not_before > database_now():
             return None
@@ -195,7 +215,7 @@ def recover_hint(run_id, *, queue, worker_id, handlers):
     handler = handlers.get(original.task_type)
     if not isinstance(handler, Handler) or handler.queue is not queue:
         raise PermissionError("This task is unavailable to the admitted consumer.")
-    with _locked(original.correlation_id, root_id=original.root_id):
+    with handler.scope(), _locked(original.correlation_id, root_id=original.root_id):
         row = TaskRun.objects.select_for_update().get(pk=run_id)
         if row.state == "running" and row.lease_expires_at <= database_now():
             change_run(

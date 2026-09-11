@@ -49,3 +49,19 @@ def test_unknown_task_types_are_not_dynamically_imported_or_routed():
     queued()
     assert collect_hints(handlers={}) == ((), None)
     assert TaskRun.objects.get().state == "queued"
+
+
+def test_raised_gate_denial_also_advances_past_held_work():
+    """Concrete admission services raise safely without poisoning the whole page."""
+    held, wanted = queued(), queued()
+
+    def admit(action, status):
+        """Reject one durable scope while a later independent operation is ready."""
+        if status.run_id == held.run_id:
+            raise PermissionError("Synthetic held work")
+        return True
+
+    registry = {"dispatch_probe": Handler(WorkQueue.GENERAL, admit, lambda *args: None)}
+    hints, cursor = collect_hints(handlers=registry)
+    assert [hint.run_id for hint in hints] == [wanted.run_id] and cursor is None
+    assert TaskRun.objects.filter(state="queued").count() == 2

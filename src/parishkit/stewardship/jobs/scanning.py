@@ -88,16 +88,24 @@ def collect_hints(*, handlers, cursor=None, limit=100):
         page = list(rows.order_by("not_before", "id")[:limit])
     hints = []
     for candidate in page:
-        with _locked(candidate.correlation_id, root_id=candidate.root_id):
-            row = TaskRun.objects.select_for_update().get(pk=candidate.pk)
-            if not due(row, database_now()):
-                continue
-            handler = handlers[row.task_type]
-            action = (
-                "recovery_hint" if row.state in {"running", "abandoned"} else "hint"
-            )
-            if handler.admit(action, _status(row)) is True:
-                hints.append(ExecutionHint(row.pk, handler.queue))
+        handler = handlers[candidate.task_type]
+        try:
+            with (
+                handler.scope(),
+                _locked(candidate.correlation_id, root_id=candidate.root_id),
+            ):
+                row = TaskRun.objects.select_for_update().get(pk=candidate.pk)
+                if not due(row, database_now()):
+                    continue
+                action = (
+                    "recovery_hint" if row.state in {"running", "abandoned"} else "hint"
+                )
+                if handler.admit(action, _status(row)) is True:
+                    hints.append(ExecutionHint(row.pk, handler.queue))
+        except PermissionError:
+            # A raised gate denial and an explicit False are equally held work;
+            # neither may pin the cursor forever on an ineligible prefix.
+            continue
     position = (
         ScanCursor(page[-1].not_before, page[-1].pk) if len(page) == limit else None
     )

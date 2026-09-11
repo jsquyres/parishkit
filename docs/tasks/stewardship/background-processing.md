@@ -25,9 +25,11 @@ lost-hint scanning, plus session-pinned singleton ownership and a closed
 Celery/Valkey transport factory, exact broker ACLs, finite task/source heartbeat
 renewal and closed worker/scheduler process loops. Thirty PostgreSQL tests and
 nine real disposable-Valkey transport/controller tests pass, including SIGTERM
-shutdown. No item is complete yet: enabling the runtime with
-isolated mounts/grants/ACLs, concrete campaign/restore/purge admission,
-authorized progress endpoints and
+shutdown. Fresh campaign/restore/purge/go-live/mode/epoch/pause gates now use
+compiled owning scopes; the combined source/fact/task/admission/race regression
+passes 255 PostgreSQL cases. No item is complete yet: enabling the runtime with
+isolated mounts/grants/ACLs, concrete durable request bindings,
+phase/status endpoints and
 their integration/fault tests remain. Source-specific handlers arrive with BG-05;
 the generic dispatcher does not enable unimplemented provider operations.
 

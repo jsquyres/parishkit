@@ -90,9 +90,10 @@ def renew_once(execution):
             with connection.cursor() as cursor:
                 cursor.execute("SET LOCAL lock_timeout = '2s'")
                 cursor.execute("SET LOCAL statement_timeout = '5s'")
-            execution.heartbeat()
-            if control.source_claim is not None:
-                renew_source(control.source_claim)
+            with execution.handler.scope():
+                execution.heartbeat()
+                if control.source_claim is not None:
+                    renew_source(control.source_claim)
 
 
 def _renewal_loop(execution, done):

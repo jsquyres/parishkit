@@ -126,6 +126,23 @@ and nineteen new pure lifetime/process cases pass; the full baseline passes
 admission, isolated SQL grants/mount provisioning and runtime entry-point wiring
 remain in progress before BG-01 can be marked complete.
 
+The admission checkpoint adds fresh transactional campaign checks using the
+existing lifecycle policy and durable restore, purge, go-live and rehearsal
+epoch state. Source refresh is the explicit cleanup/pause exception and remains
+bound to the current campaign's giving window. Compiled campaign handlers enter
+their owning scope before task/domain locks at scan, claim, renewal, recovery
+and each durable effect. Admission rejects a missing lock order instead of
+quietly acquiring it too late. Unrelated tasks retain independent retry-root
+locks; no global task-allocation mutex was added. Raised gate denials advance
+the scheduler's fair cursor just like an explicit refusal.
+
+All 255 selected PostgreSQL source/fact/task/admission/worker/campaign-race cases
+pass, including the existing unrelated-enqueue concurrency tests and the new
+claim-versus-cleanup race. Forty-three pure admission/dispatch/lifetime/process
+cases pass. Concrete source request binding, operational exception owners,
+phase/status APIs and isolated deployment wiring remain open; these internal
+admission services are not HTTP authorization or completion evidence.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later
