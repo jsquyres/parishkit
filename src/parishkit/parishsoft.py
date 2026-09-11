@@ -188,15 +188,19 @@ class ParishSoftClient:
         cached = self._load_cache(endpoint, params)
         if cached is not None:
             return cached
+        data = self.get_uncached(endpoint, params)
+        self._save_cache(endpoint, params, data)
+        return data
+
+    def get_uncached(self, endpoint: str, params: dict[str, Any] | None = None) -> Any:
+        """Read current provider state without consulting or populating the cache."""
         url = self._url(endpoint)
         LOGGER.debug("Fetching ParishSoft GET %s", endpoint)
         response = self._request(
             lambda: self.session.get(url, params=params, timeout=self.config.timeout)
         )
         # An empty response body is normalized to [] so callers always get JSON.
-        data = _response_json(response, endpoint)
-        self._save_cache(endpoint, params, data)
-        return data
+        return _response_json(response, endpoint)
 
     def post(self, endpoint: str, payload: dict[str, Any] | None = None) -> Any:
         """Send a POST request, returning cached data when a fresh copy exists.

@@ -177,6 +177,17 @@ The default background reserve accounts for all installer connections plus the
 worker's main/renewal pair and scheduler's pinned session through rollout overlap.
 These identities do not yet launch an operational worker or enable source I/O.
 
+BG-05's shared adapter checkpoint verifies the live public v2 change-feed
+contract and adds an explicitly uncached GET path without changing ordinary
+shared cache behavior. Family indications have date-only query bounds, no
+server cursor, and only validated distinct identities in the returned value.
+Wrong-tenant/relationship transitions, ambiguous timestamps and responses at the
+bounded ceiling require full refresh without exposing a partial delta. The
+66 shared ParishSoft tests and 2,906-test baseline pass. This is an adapter,
+not a scheduler or committed watermark: durable refresh requests, overlapping
+window selection, finite transport, whole-corpus validation and promotion still
+require the concrete BG-05 owner before runtime can be enabled.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later

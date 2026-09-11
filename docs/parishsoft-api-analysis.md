@@ -192,12 +192,13 @@ v2 (see `parishsoft.py` loaders):
 `offering/{org}/funds`, `offering/pledge/list`,
 `offering/contributiondetail/list`.
 
-Available in v2 but unused — useful candidates, in priority order:
+Additional v2 capabilities, in priority order:
 
 1. **`families/change/list` (FamilyChanges)** — an incremental "what changed
    since X" feed. ParishKit currently pages the entire census on every run; this
-   could turn full re-syncs into deltas for the sync tools. Highest-value unused
-   read endpoint.
+   can provide delta indications. The shared `parishsoft_changes` adapter now
+   exposes validated, uncached Family identities; the operational Stewardship
+   refresh workflow remains in progress.
 2. **`PUT members/{id}/contact` + `PUT families/{id}/contact`** — would let
    ParishKit *write back* corrected emails/phones/addresses instead of only
    reporting discrepancies. The package client already anticipates this:
@@ -255,6 +256,17 @@ ParishKit's dry-run discipline (see
 and the `expected_organization` guard before mutating a tenant.
 
 ## 6. Reproducing this analysis
+
+The September 11, 2026 contract check against the
+[published v2 OpenAPI document](https://ps-fs-external-api-prod.azurewebsites.net/swagger/v2/swagger.json)
+confirmed `FamilyChangeList` is an unpaginated GET with required date-only
+`StartDate` and `EndDate`, returning `family_DUID`, `logDate` and organization
+fields alongside private contact detail. It has no server cursor or upper-event
+watermark. The shared adapter returns only distinct sorted Family IDs, checks
+the tenant uncached, and requires full refresh for malformed/oversized responses,
+unscoped organization changes or ambiguous timestamps. Consumers must overlap
+date windows and commit their own poll boundary only after successful atomic
+reconciliation. This feed does not replace full Member/Ministry/giving refresh.
 
 The findings above were derived from the published OpenAPI specs:
 
