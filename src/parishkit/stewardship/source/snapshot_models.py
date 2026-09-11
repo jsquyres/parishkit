@@ -2,7 +2,11 @@
 
 from django.db import models
 
-from parishkit.stewardship.storage import MutableRecord, UTCDateTimeField
+from parishkit.stewardship.storage import (
+    ImmutableRecord,
+    MutableRecord,
+    UTCDateTimeField,
+)
 
 
 class SourceSnapshot(MutableRecord):
@@ -55,7 +59,10 @@ class SourceSnapshot(MutableRecord):
             models.CheckConstraint(
                 condition=(
                     models.Q(
-                        state="promoted", generation__gt=0, promoted_at__isnull=False
+                        state="promoted",
+                        generation__gt=0,
+                        generation__isnull=False,
+                        promoted_at__isnull=False,
                     )
                     | (
                         ~models.Q(state="promoted")
@@ -98,7 +105,10 @@ class SourceCurrent(MutableRecord):
                     snapshot__isnull=True, generation=0, organization_id__isnull=True
                 )
                 | models.Q(
-                    snapshot__isnull=False, generation__gt=0, organization_id__gt=0
+                    snapshot__isnull=False,
+                    generation__gt=0,
+                    organization_id__gt=0,
+                    organization_id__isnull=False,
                 ),
                 name="source_current_shape",
             ),
@@ -145,8 +155,35 @@ class SourceSnapshotPin(MutableRecord):
                 name="source_pin_kind",
             ),
             models.CheckConstraint(
-                condition=models.Q(expires_at__isnull=True)
-                | models.Q(parent_kind="form_baseline"),
+                condition=(
+                    models.Q(expires_at__isnull=True)
+                    & ~models.Q(parent_kind="form_baseline")
+                )
+                | models.Q(parent_kind="form_baseline", expires_at__isnull=False),
                 name="source_pin_expiry_owner",
+            ),
+        ]
+
+
+class SourceCompactionBatch(ImmutableRecord):
+    """Permanent cleanup evidence contains scope, cutoffs and aggregate counts only."""
+
+    task = models.ForeignKey("stewardship_jobs.TaskRun", on_delete=models.PROTECT)
+    source_fence = models.PositiveBigIntegerField()
+    cutoff_at = UTCDateTimeField()
+    recent_cutoff = UTCDateTimeField()
+    yearly_cutoff = UTCDateTimeField()
+    snapshot_count = models.PositiveBigIntegerField()
+    membership_count = models.PositiveBigIntegerField()
+    payload_count = models.PositiveBigIntegerField()
+
+    class Meta:
+        db_table = "stewardship_source_compaction"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(source_fence__gt=0)
+                & models.Q(yearly_cutoff__lt=models.F("recent_cutoff"))
+                & models.Q(recent_cutoff__lt=models.F("cutoff_at")),
+                name="source_compaction_cutoffs",
             ),
         ]

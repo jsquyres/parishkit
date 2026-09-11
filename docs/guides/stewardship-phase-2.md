@@ -22,9 +22,20 @@ relationship evidence, atomic promotion/reconciliation, immutable manifests and
 protected reads. Its source-specific PostgreSQL suite passes all 46 tests,
 including migration reversal/reapplication; pure canonicalization/lease tests
 pass all 33 cases. The complete baseline passes 2,743 tests; Ruff, formatting,
-Markdown and migration drift checks pass. No Phase 2 task is complete yet:
+Markdown and migration drift checks pass. At that checkpoint, no Phase 2 task
+was complete yet:
 retention anchors/services, daily-fact storage, concrete promotion effects and
 runtime/refresh/setup consumers still need their owning implementations.
+
+The next internal checkpoint adds deterministic UTC retention anchors, explicit
+parent pins, protected-reader/late-pin race handling, bounded source compaction
+and permanent count/cutoff evidence. Source promotion and compaction use the
+shared typed audit helper without logging source field values. All 63 source
+PostgreSQL cases and all 44 pure source cases pass; the final audit-specific
+repeat passes 34 PostgreSQL cases. The updated baseline passes 2,754 tests.
+DAT-03.01-.05 are complete for their storage scope. Daily-fact storage,
+fact-specific tests and concrete runtime consumers remain open, so DAT-03 as a
+whole is not yet marked complete.
 
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge

@@ -5,6 +5,7 @@ from django.db import IntegrityError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
 from django.db.models import F
 
+from parishkit.stewardship.audit.models import AuditContext
 from parishkit.stewardship.source.canonical import InvalidSourcePayload
 from parishkit.stewardship.source.leases import _now, acquire_source, release_source
 from parishkit.stewardship.source.models import SourceMutationLease
@@ -72,6 +73,16 @@ def test_staging_is_invisible_until_the_complete_corpus_promotes():
     assert promoted.generation == 1
     assert reconstruct_snapshot() == source_corpus()
     assert SourceCurrent.objects.get().snapshot_id == snapshot.pk
+    evidence = AuditContext.objects.get(
+        event__event_type="source_promoted", event__subject_id=claim.task_id
+    ).context
+    assert evidence == {
+        "before_version": 0,
+        "after_version": 1,
+        "count": 9,
+        "source_fingerprint": promoted.content_digest,
+        "outcome": "succeeded",
+    }
 
 
 def test_repeated_identical_refresh_reuses_all_payload_versions():
@@ -231,7 +242,9 @@ def test_source_migrations_reverse_and_reapply_with_idle_singletons():
     target = executor.loader.graph.leaf_nodes()
     try:
         executor.migrate([("stewardship_source", None)])
-        assert "stewardship_source_snapshot" not in connection.introspection.table_names()
+        assert (
+            "stewardship_source_snapshot" not in connection.introspection.table_names()
+        )
     finally:
         MigrationExecutor(connection).migrate(target)
     assert SourceCurrent.objects.get().snapshot_id is None

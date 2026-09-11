@@ -12,6 +12,8 @@ from contextlib import contextmanager
 
 from django.db import connection, transaction
 
+from parishkit.stewardship.audit.schemas import Action, ActorKind, Outcome
+from parishkit.stewardship.audit.services import record_action
 from parishkit.stewardship.storage import StorageInvariantError
 
 from .canonical import InvalidSourcePayload, canonical_payload
@@ -268,6 +270,21 @@ def promote_snapshot(snapshot_id, claim, *, admit, reconcile):
         current.save()
         if reconcile(snapshot) is not True:
             raise StorageInvariantError("Source reconciliation did not complete.")
+        # Operational generation metadata does not pin the entire source corpus.
+        # Content-dependent audit parents acquire a separate explicit input pin.
+        record_action(
+            Action.SOURCE_PROMOTED,
+            actor_kind=ActorKind.SYSTEM,
+            actor_id=claim.worker_id,
+            subject_id=claim.task_id,
+            context={
+                "before_version": snapshot.generation - 1,
+                "after_version": snapshot.generation,
+                "count": sum(snapshot.counts.values()),
+                "source_fingerprint": snapshot.content_digest,
+                "outcome": Outcome.SUCCEEDED,
+            },
+        )
         # Long derived work cannot publish after its owner silently expires.
         verify_source(claim)
         return snapshot

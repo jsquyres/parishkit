@@ -5,6 +5,7 @@ from django.db import models
 from parishkit.stewardship.storage import MutableRecord, UTCDateTimeField
 
 from .snapshot_models import (  # noqa: F401
+    SourceCompactionBatch,
     SourceCurrent,
     SourceSnapshot,
     SourceSnapshotPin,

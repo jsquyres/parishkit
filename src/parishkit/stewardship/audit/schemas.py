@@ -47,6 +47,8 @@ class Action(StrEnum):
     DESTRUCTIVE_CONFIRMATION = "destructive_confirmation"
     INVALID_LINK = "family_link_invalid"
     FAMILY_MAC_BACKFILLED = "family_mac_backfilled"
+    SOURCE_COMPACTED = "source_compacted"
+    SOURCE_PROMOTED = "source_promoted"
 
 
 FIELDS = {
