@@ -17,7 +17,15 @@ Scope and dependencies: [BG-01 work package](../../plans/stewardship/background-
 - [ ] BG-01.04 — Expose authorized task progress and status.
 - [ ] BG-01.05 — Test all state transitions, admission guards, retries, crashes, and leases.
 
-Evidence: Not started.
+Evidence: In progress after DAT-03 storage. The
+[Phase 2 checkpoints](../../guides/stewardship-phase-2.md) include internal
+UUID-only hint dispatch, queue/type isolation, repeated owning admission,
+explicit verified outcomes, abandoned-work fencing/recovery and bounded fair
+lost-hint scanning. Nine PostgreSQL tests and sixteen pure input tests pass.
+No item is complete yet: singleton runtime scheduling, Celery/Valkey transport,
+concrete campaign/restore/purge admission, authorized progress endpoints and
+their integration/fault tests remain. Source-specific handlers arrive with BG-05;
+the generic dispatcher does not enable unimplemented provider operations.
 
 ## BG-02: Campaign boundary occurrences
 

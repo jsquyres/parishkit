@@ -64,6 +64,22 @@ workers: BG-01/BG-05 own concrete runtime admission, source producer wiring and
 queue consumers; RPT-02/RPT-03 retain calculation/materializer/UI ownership.
 Runtime database grants remain closed until their owning service is admitted.
 
+BG-01 has started with the internal durable hint dispatcher and task scan.
+The transport-facing identity is only a TaskRun UUID; its type and handler
+are resolved from durable state and the startup-owned registry. Queue isolation
+does not authorize work. Claim, heartbeat, progress and verified outcomes repeat
+the owning admission check under retry-root/task locks. Execution occurs outside
+a transaction; an unexpected exception or return never implies completion or
+safe retry. Recovery fences expired owners and applies only an explicit verified
+disposition, preserving unresolved work and retry delay.
+
+The bounded keyset scan repeats lost hints without changing durable task state
+and advances across held work so an ineligible prefix cannot starve later work.
+Nine PostgreSQL tests and sixteen pure tests pass for this initial substrate.
+The dispatcher/scanner are not an enabled runtime service. Singleton scheduling,
+Celery/Valkey transport, concrete domain admission, worker lifecycle and task
+status APIs remain BG-01 work; all BG-01 checklist items remain open.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later
