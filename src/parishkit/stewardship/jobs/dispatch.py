@@ -130,9 +130,9 @@ class Execution:
         """Only a still-current owner can extend its lease between bounded steps."""
         return self.transition("heartbeat", lease_seconds=seconds)
 
-    def progress(self, current, total):
-        """Persist counts only, never payloads or arbitrary phase messages."""
-        return self.transition("progress", progress=(current, total))
+    def progress(self, current, total, *, phase=None):
+        """Persist counts and optional typed phase, never arbitrary worker messages."""
+        return self.transition("progress", progress=(current, total), phase=phase)
 
 
 def claim_hint(run_id, *, queue, worker_id, handlers):

@@ -27,10 +27,11 @@ renewal and closed worker/scheduler process loops. Thirty PostgreSQL tests and
 nine real disposable-Valkey transport/controller tests pass, including SIGTERM
 shutdown. Fresh campaign/restore/purge/go-live/mode/epoch/pause gates now use
 compiled owning scopes; the combined source/fact/task/admission/race regression
-passes 255 PostgreSQL cases. No item is complete yet: enabling the runtime with
-isolated mounts/grants/ACLs, concrete durable request bindings,
-phase/status endpoints and
-their integration/fault tests remain. Source-specific handlers arrive with BG-05;
+passes 255 PostgreSQL cases. Closed progress phases and Admin-only passive
+status/history APIs now pass 90 PostgreSQL task/status/migration tests. No item
+is complete yet: enabling the runtime with isolated mounts/grants/ACLs,
+concrete durable request bindings and integration/fault tests remain.
+Source-specific handlers arrive with BG-05;
 the generic dispatcher does not enable unimplemented provider operations.
 
 ## BG-02: Campaign boundary occurrences

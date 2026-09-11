@@ -143,6 +143,17 @@ cases pass. Concrete source request binding, operational exception owners,
 phase/status APIs and isolated deployment wiring remain open; these internal
 admission services are not HTTP authorization or completion evidence.
 
+The progress/status checkpoint adds closed typed task phases, claim resets,
+SQL-enforced phase/history binding and refusal of populated history downgrades.
+Admin-only bounded JSON endpoints expose whitelisted task metadata and paginated
+immutable history; no worker arguments, exceptions, credential values or domain
+payloads are serialized. Fresh authorization is repeated at the response
+boundary, and passive polling does not renew an abandoned session's idle timer.
+All 90 PostgreSQL task/status/history cases pass, including role denial,
+revocation, filtering, privacy and migration tests. The full baseline passes
+2,849 tests, and lint, formatting and migration-drift checks pass. ADM-03 still
+owns the visible background-work interface; runtime integration remains open.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later
