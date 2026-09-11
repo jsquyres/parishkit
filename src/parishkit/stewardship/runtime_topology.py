@@ -107,7 +107,7 @@ def _service_config(configuration, role, *, target=None):
         ),
         valkey=replace(
             configuration.valkey,
-            password_file=configuration.valkey.password_file
+            password_file=layout.valkey_password(role.value)
             if role is ServiceRole.WEB
             else None,
         ),
@@ -165,6 +165,7 @@ def _online_mounts(configuration):
 def render_runtime(configuration, *, image, checkout=None):
     """Build one complete foundation topology, with independent offline profiles."""
     configuration = resolve_database_files(configuration)
+    configuration = resolve_valkey_files(configuration)
     RuntimeLayout(configuration).validate()
     from .runtime_paths import admit_credential_directory
 
@@ -316,6 +317,23 @@ def resolve_database_files(configuration):
             files[identity] = path
     return replace(
         configuration, postgres=replace(configuration.postgres, password_files=files)
+    )
+
+
+def resolve_valkey_files(configuration):
+    """Preserve this profile's scalar override across per-service rendering."""
+    from .deployment import VALKEY_IDENTITIES
+
+    files = dict(configuration.valkey.password_files)
+    name, scalar = configuration.service_role.value, configuration.valkey.password_file
+    if scalar is not None:
+        if name not in VALKEY_IDENTITIES:
+            raise ConfigError("This service has no Valkey credential authority.")
+        if name in files and files[name] != scalar:
+            raise ConfigError("Valkey password override references disagree.")
+        files[name] = scalar
+    return replace(
+        configuration, valkey=replace(configuration.valkey, password_files=files)
     )
 
 

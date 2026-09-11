@@ -154,6 +154,17 @@ revocation, filtering, privacy and migration tests. The full baseline passes
 2,849 tests, and lint, formatting and migration-drift checks pass. ADM-03 still
 owns the visible background-work interface; runtime integration remains open.
 
+The broker-provisioning checkpoint adds immutable per-identity Valkey path
+references and fresh, resumable allocation of independent web/worker/scheduler
+passwords. The private server ACL contains only their hashes and the previously
+tested isolated command/key rules. Path validation also reserves future SQL
+credential identities, preventing later consumers from inheriting an alias.
+No provider credentials or future mail/backup broker accounts are created.
+All 180 selected configuration/provisioning tests and the 2,862-test baseline
+pass. Existing runtime artifacts are never overwritten as an upgrade shortcut;
+the worker/scheduler entry-point and concrete source-handler integration remain
+open before enabling those services.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later
