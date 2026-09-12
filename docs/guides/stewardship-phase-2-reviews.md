@@ -287,3 +287,22 @@ drain instead of changing clocks or disabling guards. Runtime composition passes
 31 tests; the baseline passes 3,827 tests with 2,237 explicit profile skips and
 two existing warnings. This closes the source-row disposal slice, not all of
 ADM-02: staged campaign and final installer/activation integration remain open.
+
+### First-campaign structural staging checkpoint
+
+The original wizard can now save the first campaign's structural configuration
+using only its validated unpublished Ministry/fund catalog. It shares the normal
+campaign form's module, date, financial-period, fund and default share-option
+validation, while keeping the initial timezone bound to the Parish profile.
+An exact source-result binding and whole-attempt version protect both service
+and SQL writes. Another login cannot read the catalog. Replacing the staged
+source key invalidates the old catalog rather than silently using stale data.
+Cancellation clears the staged campaign; no Campaign, source-current pointer or
+configured marker is created by this form.
+
+The combined first-campaign, public-draft and credential HTTP suite passes
+27 PostgreSQL tests with 95% focused service/view coverage. The actual form
+passes six Chromium/Firefox/WebKit mobile/desktop accessibility checks. The
+baseline passes 3,827 tests with 2,250 explicit profile skips and two existing
+warnings. Wizard-specific content, share-option and schedule editing, provider
+test delivery and final installer/activation integration remain required.

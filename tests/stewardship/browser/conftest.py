@@ -23,6 +23,7 @@ from parishkit.stewardship.accounts.integration_forms import (
 from parishkit.stewardship.accounts.parish_views import ParishForm
 from parishkit.stewardship.accounts.schedule_forms import Schedules, ScheduleWindow
 from parishkit.stewardship.accounts.setup_branding_views import SetupLogoForm
+from parishkit.stewardship.accounts.setup_campaign_views import SetupCampaignForm
 from parishkit.stewardship.accounts.setup_credential_views import SetupCredentialForm
 from parishkit.stewardship.accounts.setup_forms import FORMS, STEPS
 from parishkit.stewardship.accounts.share_forms import (
@@ -416,6 +417,18 @@ def component_origin():
                 "form": SetupCredentialForm("parishsoft"),
                 "label": "ParishSoft",
                 "saved": True,
+            },
+        ),
+        (
+            "/setup-campaign",
+            "setup-campaign",
+            {
+                "draft": setup_draft,
+                "form": SetupCampaignForm(
+                    initial={"timezone": "America/New_York"},
+                    ministries=[("1", "Music ministry")],
+                    funds=[("9", "Offertory")],
+                ),
             },
         ),
         (

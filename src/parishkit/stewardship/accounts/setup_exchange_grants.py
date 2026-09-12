@@ -77,3 +77,23 @@ def add_exchange_cleanup_grants(columns):
             "version",
         },
     }
+
+
+def add_web_setup_catalog_grants(tables, columns):
+    """The original web wizard reads result bindings, never relay ciphertext."""
+    tables["stewardship_setup_source_result"] = {"SELECT"}
+    columns["stewardship_source_snapshot"]["SELECT"].update(
+        {"state", "task_id", "source_fence"}
+    )
+    columns["stewardship_setup_source_exchange"]["SELECT"].update(
+        {
+            "id",
+            "attempt_id",
+            "credential_id",
+            "credential_version",
+            "fingerprint",
+            "task_id",
+            "task_fence",
+            "source_fence",
+        }
+    )

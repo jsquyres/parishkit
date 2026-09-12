@@ -18,8 +18,9 @@ refreshed `origin/main` tip.
 The active package is ADM-02: completing initial setup end to end. Source
 refresh, staged initial loading, ephemeral credential exchange, public setup
 forms and the preparation editors are implemented with focused test evidence.
-Expired source cleanup is implemented; staged first-campaign preparation,
-provider delivery checks and atomic setup finalization remain open. No Phase 2
+Expired source cleanup and first-campaign structural staging are implemented;
+wizard content/schedule preparation, provider delivery checks and atomic setup
+finalization remain open. No Phase 2
 PR exists yet, and the three complete phase review/fix rounds are not complete.
 The chronological checkpoints below record partial progress, not phase exit.
 
@@ -1119,6 +1120,12 @@ deletion restrictions, bounded rollback-safe batches and shared-payload
 preservation. Its combined PostgreSQL regression passes 55 tests with 85%
 focused cleanup coverage. The next setup work is staged first-campaign
 preparation and installer finalization; full Phase 2 acceptance remains open.
+
+The [first-campaign structural checkpoint](stewardship-phase-2-reviews.md#first-campaign-structural-staging-checkpoint)
+passes 27 PostgreSQL cases with 95% focused coverage and six three-engine
+mobile/desktop accessibility cases. It remains original-login temporary data,
+not an active campaign. Continue with wizard content/share/schedule editing,
+provider checks and the final coherent installation workflow.
 
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge

@@ -313,9 +313,13 @@ def runtime_grants(role, *, target=None):
                 "version",
             },
         }
-        from .accounts.setup_exchange_grants import add_exchange_cleanup_grants
+        from .accounts.setup_exchange_grants import (
+            add_exchange_cleanup_grants,
+            add_web_setup_catalog_grants,
+        )
 
         add_exchange_cleanup_grants(columns)
+        add_web_setup_catalog_grants(tables, columns)
     return tables, columns
 
 

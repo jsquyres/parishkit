@@ -105,6 +105,7 @@ class SetupDraftSection(MutableRecord):
                         "mail",
                         "slack",
                         "testing",
+                        "campaign",
                     ]
                 ),
                 name="setup_public_step",

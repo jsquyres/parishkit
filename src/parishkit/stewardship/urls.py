@@ -20,6 +20,7 @@ from .accounts import (
     presence,
     schedule_views,
     setup_branding_views,
+    setup_campaign_views,
     setup_cancellation_views,
     setup_credential_views,
     setup_progress_views,
@@ -174,6 +175,7 @@ admin_patterns = [
         setup_branding_views.setup_branding_asset,
         name="setup_branding_asset",
     ),
+    path("setup/campaign", setup_campaign_views.setup_campaign, name="setup_campaign"),
     path("setup/<str:step>", setup_views.setup_step, name="setup_step"),
     path("maintenance", access_gate.maintenance, name="maintenance"),
     path(

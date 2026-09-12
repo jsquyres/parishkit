@@ -1,6 +1,7 @@
 """Closed, non-secret wizard forms; credentials have a separate sealed intake."""
 
 from copy import deepcopy
+from uuid import UUID
 
 from django import forms
 from django.utils.translation import gettext_lazy as _
@@ -18,6 +19,7 @@ STEPS = {
     "mail": _("Outgoing email settings"),
     "slack": _("Optional Slack notifications"),
     "testing": _("Testing recipient"),
+    "campaign": _("First campaign"),
 }
 
 
@@ -162,6 +164,18 @@ def initial_values(step, values):
 
 def validate_values(step, values):
     """Service callers cannot inject extra fields, coercions or private payloads."""
+    if step == "campaign":
+        from parishkit.stewardship.campaigns.configuration import campaign_values
+
+        if (
+            type(values) is not dict
+            or set(values) != {"campaign", "source_result"}
+            or type(values["source_result"]) is not str
+            or str(UUID(values["source_result"])) != values["source_result"]
+        ):
+            raise ValueError("Invalid first-campaign setup fields.")
+        campaign_values(values["campaign"])
+        return deepcopy(values)
     if step not in FORMS or type(values) is not dict:
         raise ValueError("Invalid public setup values.")
     form_type = FORMS[step]

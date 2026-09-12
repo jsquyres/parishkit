@@ -96,6 +96,10 @@ def save_section(request, service, attempt_id, *, step, values, expected_version
                 UUID(values["bundle_id"]),
                 setup_attempt_id=attempt.pk,
             )
+        if step == "campaign":
+            from .setup_campaign import admit_campaign_values
+
+            admit_campaign_values(request, service, attempt_id, values)
         row = SetupDraftSection.objects.filter(attempt=attempt, step=step).first()
         context = dict(actor_id=actor.identity, correlation_id=current_correlation())
         if row is None:

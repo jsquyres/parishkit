@@ -66,6 +66,13 @@ PostgreSQL run passes 62 cases with 91% focused coverage. An additional 35-case
 HTTP/grant run includes real CSRF-protected source-load intake and deduplication.
 Remaining source-row cleanup and finalization still prevent closing ADM-02.
 
+Source-row cleanup now passes its 55-case source/retention regression, including
+exact deletion guards, shared payloads and rollback-safe batches. The subsequent
+[first-campaign staging checkpoint](../../guides/stewardship-phase-2-reviews.md#first-campaign-structural-staging-checkpoint)
+passes 27 PostgreSQL cases with 95% focused coverage and six browser cases.
+Wizard content/share/schedule editing, provider test delivery and coherent
+installer finalization still prevent closing ADM-02 as a whole.
+
 ## ADM-03: Navigation, dashboard, indicators, and configuration
 
 Scope and dependencies: [ADM-03 work package](../../plans/stewardship/admin-portal.md#adm-03-navigation-dashboard-indicators-and-configuration).
