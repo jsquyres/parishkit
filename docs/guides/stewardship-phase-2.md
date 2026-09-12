@@ -1066,6 +1066,35 @@ coverage; 54 setup browser checks pass across all three engines. Historical
 creation-time fixtures exercise the hard SQL clock under restored timestamps;
 all guards are enabled during the actual restricted-role renewal assertions.
 
+The first interim dual-model correction pass is recorded in the
+[Phase 2 review ledger](stewardship-phase-2-reviews.md). It found issues and is
+still being corrected; it is not phase acceptance. The reviewed commit's full
+browser run passes all 312 cases.
+
+The next correction checkpoint passes 318 browser cases, 3,765 baseline cases,
+and the focused database runs recorded in that ledger. Full PostgreSQL regression
+is in progress; remaining wizard implementation and the three complete phase
+review/fix rounds are not finished. The
+[setup cancellation decision](stewardship-phase-2-reviews.md#setup-finalization-specification-decision)
+is now approved and reflected in the controlling specifications. Its implementation
+now has a tested original-login cancellation page, immutable request/abort
+journal, installer recovery and temporary-logo cleanup. See the
+[implementation checkpoint](stewardship-phase-2-reviews.md#approved-setup-cancellation-implementation-checkpoint).
+The bootstrap transition parser is explicit; ordinary intake cannot select it.
+Final source/Family/configured-marker activation remains closed until its full
+owner is implemented. No PR, merge, release or deployment is claimed.
+
+The subsequent full PostgreSQL regression passes 1,815 tests. Sealed setup
+credential forms and their separate temporary store now also pass actual
+web/scheduler isolation, cancellation and HTTP tests. They do not enqueue live
+credential installation. The latest baseline passes 3,825 tests, and the new
+form passes six three-engine mobile/desktop browser checks. The
+[latest review-ledger checkpoint](stewardship-phase-2-reviews.md#subsequent-regression-and-credential-intake-checkpoint)
+records which later changes have focused rather than full-suite evidence.
+Continue with the fenced setup credential exchange and staged source loader;
+the overall empty-to-configured demonstration and Phase 2 review cycle remain
+incomplete.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later

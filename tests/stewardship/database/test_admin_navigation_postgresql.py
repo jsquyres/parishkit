@@ -3,9 +3,11 @@
 from uuid import uuid4
 
 import pytest
+from django.db import connection
+from django.db.models import F
 from django.test import Client
 
-from parishkit.stewardship.accounts.models import PortalSession
+from parishkit.stewardship.accounts.models import PortalSession, PortalUser
 from parishkit.stewardship.audit.models import AuditEvent
 from parishkit.stewardship.audit.services import operational
 from parishkit.stewardship.deployment import ServiceRole
@@ -116,12 +118,82 @@ def test_background_pagination_preserves_filtered_scope(auth_service, google):
     assert b'value="succeeded" selected' in response.content
 
 
+def test_dashboard_failure_links_open_the_html_task_page(auth_service, google):
+    """A dashboard navigation link must not strand the Admin on a JSON response."""
+    task = act(act(new(), "claim"), "permanent_failure")
+    browser, _ = signed_in()
+    with task_login(ServiceRole.WEB):
+        response = browser.get("/admin/")
+        assert response.status_code == 200
+        path = f"/admin/background/task/{task.run_id}"
+        assert f'href="{path}"'.encode() in response.content
+        detail = browser.get(path)
+        assert detail.status_code == 200
+        assert detail["Content-Type"].startswith("text/html")
+
+
+@pytest.mark.parametrize("revoke", [False, True])
+def test_dashboard_render_releases_work_lock_and_rechecks_authority(
+    auth_service, google, monkeypatch, revoke
+):
+    """Template work cannot serialize task claims or bypass a concurrent revocation."""
+    from parishkit.stewardship.accounts import authentication
+
+    browser, _ = signed_in()
+    original = authentication.render
+    observed = []
+
+    def render(request, *args, **kwargs):
+        """Probe the actual backend before rendering the captured observation."""
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT EXISTS(SELECT 1 FROM pg_locks WHERE pid=pg_backend_pid() "
+                "AND locktype='advisory' AND classid=736220 AND objid=1 "
+                "AND objsubid=2 AND granted)"
+            )
+            assert cursor.fetchone()[0] is False
+        observed.append(True)
+        result = original(request, *args, **kwargs)
+        if revoke:
+            PortalUser.objects.update(disabled=True, version=F("version") + 1)
+        return result
+
+    monkeypatch.setattr(authentication, "render", render)
+    response = browser.get("/admin/")
+    assert response.status_code == (403 if revoke else 200)
+    assert observed == [True]
+    if revoke:
+        assert b"test@example.org" not in response.content
+
+
 def test_restricted_web_role_can_read_dashboard_and_status_pages(auth_service, google):
     """Dashboard reads use the same real grants as container startup admission."""
     browser, _ = signed_in()
     with task_login(ServiceRole.WEB):
         assert browser.get("/admin/").status_code == 200
         assert browser.get("/admin/background").status_code == 200
+
+
+@pytest.mark.parametrize("error", [ValueError, TypeError, LookupError])
+def test_unexpected_dashboard_failures_use_the_global_closed_error_boundary(
+    auth_service, google, monkeypatch, error
+):
+    """Programming errors remain 500, but never expose private exception values."""
+    from parishkit.stewardship.accounts import admin_dashboard
+
+    browser, _ = signed_in()
+    browser.raise_request_exception = False
+
+    def failed(*args):
+        """Simulate a defect, not known retryable configuration unavailability."""
+        raise error("PRIVATE-DASHBOARD-FAILURE")
+
+    monkeypatch.setattr(admin_dashboard, "summary", failed)
+    response = browser.get("/admin/")
+    assert response.status_code == 500
+    assert response.content == b"The request could not be completed.\n"
+    assert b"PRIVATE-DASHBOARD-FAILURE" not in response.content
+    assert b"test@example.org" not in response.content
 
 
 def test_critical_event_warning_is_persistent_and_admin_only(auth_service, google):

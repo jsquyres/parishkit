@@ -23,6 +23,7 @@ from parishkit.stewardship.accounts.integration_forms import (
 from parishkit.stewardship.accounts.parish_views import ParishForm
 from parishkit.stewardship.accounts.schedule_forms import Schedules, ScheduleWindow
 from parishkit.stewardship.accounts.setup_branding_views import SetupLogoForm
+from parishkit.stewardship.accounts.setup_credential_views import SetupCredentialForm
 from parishkit.stewardship.accounts.setup_forms import FORMS, STEPS
 from parishkit.stewardship.accounts.share_forms import (
     ShareOptions,
@@ -408,10 +409,21 @@ def component_origin():
             {"draft": setup_draft, "form": SetupLogoForm(), "assets": []},
         ),
         (
+            "/setup-credential",
+            "setup-credential",
+            {
+                "draft": setup_draft,
+                "form": SetupCredentialForm("parishsoft"),
+                "label": "ParishSoft",
+                "saved": True,
+            },
+        ),
+        (
             "/setup-source-progress",
             "setup-source-progress",
             {
                 "progress": {
+                    "server_now": NOW.isoformat(),
                     "task_id": uuid4(),
                     "task_state": "running",
                     "setup_state": "loading",

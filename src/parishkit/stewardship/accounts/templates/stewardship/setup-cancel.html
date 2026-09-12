@@ -1,0 +1,16 @@
+{% extends 'stewardship/base.html' %}{% load i18n %}
+{% block title %}{% translate "Cancel initial setup" %}{% endblock %}
+{% block content %}
+<h1>{% translate "Cancel initial setup" %}</h1>
+{% if attempt.state == 'expired' %}
+<p role="status">{% translate "Cancellation is recorded. Background cleanup must restore the original configuration and remove temporary setup data before a new attempt can finish." %}</p>
+<p><a href="{% url 'admin:setup' %}">{% translate "Check setup status" %}</a></p>
+{% else %}
+<p>{% translate "This will permanently end your initial setup attempt. Your original Administrator access will be preserved. This cannot undo a completed setup." %}</p>
+<form method="post">{% csrf_token %}
+<input type="hidden" name="attempt" value="{{ attempt.attempt_id }}">
+<button type="submit">{% translate "Cancel initial setup" %}</button>
+</form>
+{% endif %}
+<form method="post" action="{% url 'admin:logout' %}">{% csrf_token %}<button type="submit">{% translate "Sign out" %}</button></form>
+{% endblock %}

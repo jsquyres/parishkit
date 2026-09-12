@@ -38,6 +38,10 @@ remain below `/admin/` and apply server-side authorization.
 5. Freeze setup, run target-specific secret installers, apply one complete YAML
    version/materialization, and commit the configured marker only after source,
    Family codes, Testing mode, digests, and consumer fingerprints agree.
+   Use the [initial-setup abort protocol](../../specs/stewardship/data/spec.md#parish-and-integrations)
+   for selected-but-unapplied cancellation. Commit database activation and the
+   configured marker atomically; test cancellation/activation races and crash
+   recovery on both sides of manifest restoration without rewinding applied history.
 6. Add browser and worker-race tests for happy path, every abort boundary,
    timeout, and restored deployment skip.
 

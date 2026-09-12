@@ -1,6 +1,6 @@
 """Admin integration settings and sealed replacement intake; no provider IO in web."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from uuid import UUID, uuid4
 
 from django.core import signing
@@ -35,8 +35,8 @@ from .privileged_actions import sealed_secret_request
 from .provider_context import validated_context
 from .request_patch import build_candidate
 from .secret_models import SECRET_PENDING, SecretReplacementRequest
-from .secret_requests import secret_request_status
-from .sessions import authenticated_admin, database_now, require_fresh
+from .secret_requests import SecretRequestConflict, secret_request_status
+from .sessions import authenticated_admin, require_fresh
 
 SALT = "stewardship-integration-settings-v1"
 CREDENTIAL_SALT = "stewardship-integration-credential-v1"
@@ -252,7 +252,6 @@ def _credential_form(configuration, actor, target):
             "base": configuration.active_configuration.digest,
             "request": str(uuid4()),
             "staging": str(uuid4()),
-            "expires": int((database_now() + timedelta(minutes=10)).timestamp()),
         },
         salt=CREDENTIAL_SALT,
     )
@@ -291,7 +290,7 @@ def _stage(request, configuration, actor, target, form):
         request_id=identifier,
         target=target,
         staging_reference=UUID(intent["staging"]),
-        expires_at=datetime.fromtimestamp(intent["expires"], tz=UTC),
+        staging_lifetime=timedelta(hours=1),
         expected_fingerprint=_selected(configuration, target)["values"][
             "credential_fingerprint"
         ],
@@ -352,6 +351,8 @@ def replace_credential(request, target):
         if status == 400:
             response.stewardship_safe_error = True
         return _checked(request, service, response)
+    except SecretRequestConflict:
+        return error_response(ValueError("Credential intake identity has changed."))
     except ERRORS as error:
         return error_response(error)
 

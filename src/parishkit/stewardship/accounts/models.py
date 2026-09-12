@@ -49,7 +49,13 @@ from .secret_models import (  # noqa: F401
     SecretReplacementRequest,
     SecretRequestCheckpoint,
 )
-from .setup_models import SetupAttempt, SetupDraftSection  # noqa: F401
+from .setup_models import (  # noqa: F401
+    SetupAttempt,
+    SetupConfigurationAbort,
+    SetupConfigurationIntent,
+    SetupDraftSection,
+)
+from .setup_secret_models import SetupSealedCredential  # noqa: F401
 
 
 class PortalSession(MutableRecord):

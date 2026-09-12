@@ -20,6 +20,8 @@ from .accounts import (
     presence,
     schedule_views,
     setup_branding_views,
+    setup_cancellation_views,
+    setup_credential_views,
     setup_progress_views,
     setup_views,
     share_views,
@@ -146,6 +148,7 @@ admin_patterns = [
         name="background_task_page",
     ),
     path("background/tasks", job_views.task_list, name="background_tasks"),
+    path("background/counts", job_views.task_counts, name="background_counts"),
     path(
         "background/tasks/<uuid:task_id>",
         job_views.task_detail,
@@ -153,11 +156,19 @@ admin_patterns = [
     ),
     path("setup", setup_views.setup, name="setup"),
     path(
+        "setup/cancel", setup_cancellation_views.setup_cancellation, name="setup_cancel"
+    ),
+    path(
         "setup/source/<uuid:task_id>",
         setup_progress_views.setup_source_progress,
         name="setup_source_progress",
     ),
     path("setup/branding", setup_branding_views.setup_branding, name="setup_branding"),
+    path(
+        "setup/credentials/<str:target>",
+        setup_credential_views.setup_credential,
+        name="setup_credential",
+    ),
     path(
         "setup/branding/assets/<uuid:asset_id>.png",
         setup_branding_views.setup_branding_asset,

@@ -401,26 +401,33 @@ def index(request):
             if config.restore_review_required:
                 return denial(status=503, retry=5)
             data = summary(principal, config, database_now())
-            current = authenticated_admin(request, store=service.store, read_only=True)
-            if current != principal:
-                return denial(status=403)
-            response = render(
-                request,
-                "stewardship/home.html",
-                {
-                    "principal": current,
-                    "configuration": config,
-                    "dashboard": data,
-                },
-            )
+            # Presentation only: this exact projection is already verified and
+            # captured with the summary under the work transaction. Rendering
+            # happens after release; chrome must use that observation, not
+            # independently choose a newer projection for the same response.
+            request._stewardship_display_configuration = config
             record_action(
                 Action.DASHBOARD_VIEWED,
                 actor_kind=ActorKind.PORTAL_USER,
-                actor_id=current.identity,
+                actor_id=principal.identity,
                 parish_id=config.active_configuration.parish.pk,
                 campaign_id=config.current_campaign_id,
                 context={"outcome": Outcome.SUCCEEDED},
             )
+        response = render(
+            request,
+            "stewardship/home.html",
+            {
+                "principal": principal,
+                "configuration": config,
+                "dashboard": data,
+            },
+        )
+        if (
+            authenticated_admin(request, store=service.store, read_only=True)
+            != principal
+        ):
+            return denial(status=403)
         response["Cache-Control"] = "no-store"
         return response
     except (LimiterUnavailable, ConfigError, DatabaseError):

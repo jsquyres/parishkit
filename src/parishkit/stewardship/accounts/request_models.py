@@ -38,6 +38,7 @@ class ConfigurationChangeRequest(ImmutableRecord):
                         "campaign-content-patch-v5",
                         "operator-recovery-content-v5",
                         "integration-credential-patch-v6",
+                        "initial-setup-patch-v7",
                     ]
                 ),
                 name="config_request_schema",

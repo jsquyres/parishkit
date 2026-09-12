@@ -8,6 +8,9 @@ import pytest
 from django.db import DatabaseError, connection, transaction
 from django.utils import timezone
 
+from parishkit.stewardship.accounts.configuration_errors import (
+    ConfigurationReadinessUnavailable,
+)
 from parishkit.stewardship.accounts.configuration_installation import install_request
 from parishkit.stewardship.accounts.credential_files import CredentialFiles
 from parishkit.stewardship.accounts.credential_installation import (
@@ -188,7 +191,7 @@ def test_selection_rechecks_proof_intent_and_fresh_auth(
         response.status_code
         == {
             "stale_base": 409,
-            "settings": 400,
+            "settings": 409,
             "freshness": 403,
             "hidden": 400,
             "csrf": 403,
@@ -228,8 +231,10 @@ def test_installer_refuses_fingerprint_without_matching_ack(replacement):
     assert value.service.store.active() == old
 
 
-def test_installer_rechecks_a_new_pending_replacement_after_intake(replacement):
-    """The first preview cannot race a new target operation into YAML selection."""
+def test_second_replacement_requires_selection_of_the_installed_predecessor(
+    replacement,
+):
+    """A new candidate cannot bind stale YAML as the working-file rollback value."""
     value = replacement
     complete(value)
     old = value.service.store.active()
@@ -243,13 +248,35 @@ def test_installer_rechecks_a_new_pending_replacement_after_intake(replacement):
         post(
             value.browser, REPLACE, {"intent": intent, "candidate": "third-candidate"}
         ).status_code
+        == 409
+    )
+    assert SecretReplacementRequest.objects.count() == 1
+    assert read_private(value.installer.files.path) == CANDIDATE
+    assert (
+        install_request(
+            value.service.store, request_id=row.pk, correlation_id=uuid4()
+        ).state
+        == "applied"
+    )
+    assert not row.checkpoints.filter(state="failed").exists()
+    assert value.service.store.active() != old
+    intent = hidden(value.browser.get(REPLACE), "intent")
+    assert (
+        post(
+            value.browser, REPLACE, {"intent": intent, "candidate": "third-candidate"}
+        ).status_code
         == 302
     )
-    result = install_request(
-        value.service.store, request_id=row.pk, correlation_id=uuid4()
+    newest = SecretReplacementRequest.objects.exclude(pk=value.row.pk).get()
+    assert newest.expected_fingerprint == file_fingerprint(CANDIDATE)
+    from parishkit.stewardship.accounts.secret_requests import cancel_secret_request
+
+    cancel_secret_request(
+        request_id=newest.pk, actor_id=newest.requested_by_id, correlation_id=uuid4()
     )
-    assert result.state == "failed" and result.failure_code == "invalid_candidate"
-    assert value.service.store.active() == old
+    with identity("pk_stewardship_credential_parishsoft"):
+        assert value.installer.run_once().state == "cancelled"
+    assert read_private(value.installer.files.path) == CANDIDATE
 
 
 def test_selection_migration_roundtrip_and_populated_refusal(replacement):
@@ -283,16 +310,90 @@ def test_pending_replacement_holds_selection_and_latest_receipt_is_required(
     """An in-flight replacement is not mistaken for current acknowledged evidence."""
     value = replacement
     complete(value)
-    intent = hidden(value.browser.get(REPLACE), "intent")
-    assert (
-        post(
-            value.browser,
-            REPLACE,
-            {"intent": intent, "candidate": "synthetic-third-key"},
-        ).status_code
-        == 302
+    from parishkit.stewardship.accounts.secret_requests import stage_secret_request
+
+    # The legacy internal protocol can also reserve a target. Even though the
+    # web rejects an unselected sealed predecessor, selection must check every
+    # reservation rather than infer availability from the latest applied row.
+    stage_secret_request(
+        request_id=uuid4(),
+        target="parishsoft",
+        staging_reference=uuid4(),
+        actor_id=value.row.requested_by_id,
+        reauthenticated_at=value.row.reauthenticated_at,
+        expires_at=timezone.now() + timedelta(minutes=10),
+        expected_fingerprint=file_fingerprint(CANDIDATE),
+        correlation_id=uuid4(),
     )
-    assert value.browser.get(value.url).status_code == 400
+    assert value.browser.get(value.url).status_code == 503
+
+
+def test_pending_replacement_does_not_permanently_reject_selection_intent(
+    replacement, monkeypatch
+):
+    """A transient target hold leaves the accepted configuration request retryable."""
+    from parishkit.stewardship.accounts import integration_selection
+    from parishkit.stewardship.accounts.request_models import (
+        ConfigurationRequestCheckpoint,
+    )
+
+    value = replacement
+    complete(value)
+    preview = hidden(value.browser.get(value.url), "preview")
+    response = post(value.browser, value.url, {"action": "confirm", "preview": preview})
+    request = ConfigurationChangeRequest.objects.get(
+        pk=response["Location"].rsplit("/", 1)[-1]
+    )
+
+    def held(*args):
+        """The separate race test exercises SQL; here isolate resumable installation."""
+        raise ConfigurationReadinessUnavailable("Synthetic target hold.")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(integration_selection, "current_receipt", held)
+        with pytest.raises(ConfigurationReadinessUnavailable):
+            install_request(
+                value.service.store, request_id=request.pk, correlation_id=uuid4()
+            )
+    assert not ConfigurationRequestCheckpoint.objects.filter(
+        request=request, state="failed"
+    ).exists()
+    assert (
+        install_request(
+            value.service.store, request_id=request.pk, correlation_id=uuid4()
+        ).state
+        == "applied"
+    )
+
+
+@pytest.mark.parametrize("hook", ["build_candidate", "render"])
+def test_selection_preview_does_not_hold_the_global_work_lock(
+    replacement, monkeypatch, hook
+):
+    """CPU/template work cannot serialize independent source and task owners."""
+    from parishkit.stewardship.accounts import integration_selection_views as views
+
+    value = replacement
+    complete(value)
+    original = getattr(views, hook)
+    observed = []
+
+    def probe(*args, **kwargs):
+        """Read the real backend's lock inventory immediately before rendering work."""
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT EXISTS(SELECT 1 FROM pg_locks WHERE pid=pg_backend_pid() "
+                "AND locktype='advisory' AND classid=736220 AND objid=1 "
+                "AND objsubid=2 AND granted)"
+            )
+            assert cursor.fetchone()[0] is False
+        observed.append(True)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(views, hook, probe)
+    with identity("pk_stewardship_web"):
+        assert value.browser.get(value.url).status_code == 200
+    assert observed == [True]
 
 
 def test_selection_is_original_actor_scoped(replacement, google):

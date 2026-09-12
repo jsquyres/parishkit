@@ -44,9 +44,13 @@
     });
     let active = panel.dataset.progressActive === "true";
     let closed = false, pending = false, timer = null, controller = null;
+    // Anchor server instants to monotonic elapsed time, not the browser's wall
+    // clock. Clock skew or a later system-clock correction must not stop renewal.
+    let serverAt = Date.parse(panel.dataset.progressNow), observedAt = performance.now();
     const live = () => {
       const until = Math.min(...deadlines.map(node => Date.parse(node.dateTime)));
-      return !closed && active && Number.isFinite(until) && Date.now() < until;
+      const now = serverAt + performance.now() - observedAt;
+      return !closed && active && Number.isFinite(until) && Number.isFinite(now) && now < until;
     };
     const schedule = () => {
       window.clearTimeout(timer);
@@ -67,6 +71,7 @@
         if (!response.ok) throw new Error("unavailable");
         const data = await response.json();
         if (data.task_id !== panel.dataset.progressTask || typeof data.active !== "boolean"
+            || !Number.isFinite(Date.parse(data.server_now))
             || !Number.isSafeInteger(data.current) || !Number.isSafeInteger(data.total)
             || data.current < 0 || data.total < data.current
             || !["queued", "running", "retry_wait", "abandoned", "succeeded", "failed", "cancelled"].includes(data.task_state)
@@ -76,6 +81,8 @@
           throw new Error("unavailable");
         }
         if (closed || document.hidden) return;
+        serverAt = Date.parse(data.server_now);
+        observedAt = performance.now();
         active = data.active;
         panel.querySelector("[data-task-state]").textContent = data.task_state;
         panel.querySelector("[data-setup-state]").textContent = data.setup_state;
@@ -97,7 +104,10 @@
         schedule();
       }
     }
-    form.addEventListener("submit", event => { event.preventDefault(); refresh(); });
+    form.addEventListener("submit", event => {
+      // A stopped automatic poller must not disable the normal manual form.
+      if (live()) { event.preventDefault(); refresh(); }
+    });
     window.addEventListener("pagehide", () => {
       closed = true;
       window.clearTimeout(timer);
@@ -228,7 +238,7 @@
     backgroundPending = true;
     const unavailable = document.querySelector("[data-background-unavailable]");
     try {
-      const response = await fetch("/admin/background/tasks?size=1", {
+      const response = await fetch("/admin/background/counts", {
         credentials: "same-origin", cache: "no-store"
       });
       if (!response.ok) throw new Error("Background work unavailable");

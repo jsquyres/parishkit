@@ -7,7 +7,11 @@ be cleaned while setup's safe tombstone and audit references remain durable.
 
 from django.db import models
 
-from parishkit.stewardship.storage import MutableRecord, UTCDateTimeField
+from parishkit.stewardship.storage import (
+    ImmutableRecord,
+    MutableRecord,
+    UTCDateTimeField,
+)
 
 
 class SetupAttempt(MutableRecord):
@@ -108,5 +112,42 @@ class SetupDraftSection(MutableRecord):
             models.CheckConstraint(
                 condition=models.Q(scrubbed_at__isnull=True) | models.Q(values={}),
                 name="setup_scrubbed_values_empty",
+            ),
+        ]
+
+
+class SetupConfigurationIntent(ImmutableRecord):
+    """One frozen original-login attempt owns exactly one finalization request."""
+
+    attempt = models.OneToOneField(SetupAttempt, on_delete=models.PROTECT)
+    request = models.OneToOneField(
+        "ConfigurationChangeRequest", on_delete=models.PROTECT
+    )
+    attempt_version = models.PositiveBigIntegerField()
+
+    class Meta:
+        db_table = "stewardship_setup_config_intent"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(attempt_version__gte=1),
+                name="setup_intent_positive_version",
+            ),
+        ]
+
+
+class SetupConfigurationAbort(ImmutableRecord):
+    """Durable cancellation proof precedes restoration of unapplied setup YAML."""
+
+    intent = models.OneToOneField(SetupConfigurationIntent, on_delete=models.PROTECT)
+    reason = models.CharField(max_length=16)
+
+    class Meta:
+        db_table = "stewardship_setup_config_abort"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(
+                    reason__in=["cancelled", "session", "idle", "watchdog", "absolute"]
+                ),
+                name="setup_abort_reason",
             ),
         ]

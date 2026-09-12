@@ -93,7 +93,7 @@ def test_explicit_clear_and_safe_samples():
     assert sample_render(None, parish={}, campaign={}) is None
     value["text"] = "{{ financial_period }}"
     assert (
-        "2027-01-01"
+        "January 1, 2027"
         in sample_render(
             value,
             parish={"name": "Example"},
@@ -150,6 +150,6 @@ def test_parish_and_civil_date_placeholders_use_campaign_values():
         campaign=owner,
     )
     assert rendered["text"] == (
-        "https://example.org/ +12125550100 2026-10-01 2026-10-31 "
-        "America/New_York 2027 2027-01-01 2027-12-31"
+        "https://example.org/ +12125550100 October 1, 2026 October 31, 2026 "
+        "America/New_York 2027 January 1, 2027 December 31, 2027"
     )

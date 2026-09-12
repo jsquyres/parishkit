@@ -368,6 +368,17 @@ class RehearsalCodeReservation(models.Model):
         ]
 
 
+PRESENCE_SECTIONS = (
+    "welcome",
+    "census",
+    "members",
+    "ministry",
+    "financial",
+    "additional",
+    "review",
+)
+
+
 class FamilySession(MutableRecord):
     """Separate PostgreSQL authority with fixed mode/epoch and absolute deadline."""
 
@@ -410,15 +421,7 @@ class FamilySession(MutableRecord):
                     presence_at__isnull=False,
                     presence_at__gte=models.F("authenticated_at"),
                     presence_at__lt=models.F("expires_at"),
-                    presence_section__in=(
-                        "welcome",
-                        "census",
-                        "members",
-                        "ministry",
-                        "financial",
-                        "additional",
-                        "review",
-                    ),
+                    presence_section__in=PRESENCE_SECTIONS,
                 ),
                 name="family_presence_shape",
             ),

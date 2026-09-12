@@ -8,6 +8,7 @@ replacement of an existing reference must not nominate arbitrary fingerprints.
 from parishkit.config import ConfigError
 from parishkit.stewardship.service_boundaries import ALLOWED_SECRETS
 
+from .configuration_errors import ConfigurationReadinessUnavailable
 from .configuration_models import AppliedConfigurationVersion
 from .provider_context import validated_context
 from .provider_models import ProviderValidationContext
@@ -18,6 +19,10 @@ from .secret_models import (
 )
 
 TARGETS = frozenset({"parishsoft", "google_workspace", "slack"})
+
+
+class StaleCredentialReceipt(ConfigError):
+    """A retained receipt no longer describes current authentication inputs."""
 
 
 def integration_records(document):
@@ -58,7 +63,9 @@ def current_receipt(target, fingerprint, records):
     if SecretReplacementRequest.objects.filter(
         target=target, state__in=SECRET_PENDING
     ).exists():
-        raise ConfigError("A credential replacement is still in progress.")
+        raise ConfigurationReadinessUnavailable(
+            "A credential replacement is still in progress."
+        )
     receipt = (
         SecretReplacementRequest.objects.filter(target=target, state="applied")
         .order_by("-created_at", "-pk")
@@ -72,7 +79,7 @@ def current_receipt(target, fingerprint, records):
         or receipt.resulting_fingerprint != fingerprint
         or sorted(receipt.required_consumers) != required
     ):
-        raise ConfigError("The selected credential receipt is not current.")
+        raise StaleCredentialReceipt("The selected credential receipt is not current.")
     acknowledgements = dict(
         CredentialConsumerAcknowledgement.objects.filter(request=receipt).values_list(
             "consumer", "fingerprint"
@@ -84,7 +91,9 @@ def current_receipt(target, fingerprint, records):
         request=receipt, target=target
     ).first()
     if context is None or context.settings != _scope(target, records, context.settings):
-        raise ConfigError("The credential was checked against different settings.")
+        raise StaleCredentialReceipt(
+            "The credential was checked against different settings."
+        )
     return receipt
 
 

@@ -15,6 +15,7 @@ from parishkit.stewardship.accounts.content_schema import (
     RECOVERY_SCHEMA,
     REQUEST_SCHEMA,
     SCHEMA,
+    remember_content,
 )
 from parishkit.stewardship.accounts.request_patch import build_candidate, default_schema
 
@@ -171,6 +172,20 @@ def test_content_revision_cannot_be_edited_in_place():
             ],
             candidate_id=uuid4(),
         )
+
+
+def test_historical_content_identity_retains_only_fixed_size_evidence():
+    """An ancestry batch can release full content without weakening ID checks."""
+    document = content_document()
+    identities = {}
+    remember_content(document, identities)
+    remember_content(deepcopy(document), identities)
+    assert all(
+        type(value) is bytes and len(value) == 32 for value in identities.values()
+    )
+    document["sections"]["content"][0]["values"]["text"] = "Changed"
+    with pytest.raises(ConfigError, match="immutable"):
+        remember_content(document, identities)
 
 
 def test_clear_last_content_keeps_v5_and_requires_reference_removal():

@@ -54,24 +54,26 @@ def test_progress_get_is_passive_and_csrf_post_renews_only_the_bound_load(
 def test_progress_cannot_accept_browser_deadlines_or_unbound_tasks(progress_browser):
     """Hidden fields do not become heartbeat evidence or provider authority."""
     browser, _, path = progress_browser
-    for values in (
-        {"worker_live": "true"},
-        {"heartbeat": "now"},
-        {"task_id": str(uuid4())},
-    ):
-        assert post(browser, path + "?format=json", values).status_code == 400
-    assert browser.get(path + "?format=private").status_code == 400
-    assert browser.get(f"/admin/setup/source/{uuid4()}").status_code == 404
-    assert SetupAttempt.objects.get().renewed_at is None
+    with web_login():
+        for values in (
+            {"worker_live": "true"},
+            {"heartbeat": "now"},
+            {"task_id": str(uuid4())},
+        ):
+            assert post(browser, path + "?format=json", values).status_code == 400
+        assert browser.get(path + "?format=private").status_code == 400
+        assert browser.get(f"/admin/setup/source/{uuid4()}").status_code == 404
+        assert SetupAttempt.objects.get().renewed_at is None
 
 
 def test_watchdog_response_stops_polling_and_fences_setup(progress_browser):
     """Even a live source lease cannot buy another second past the original bound."""
     browser, task, path = progress_browser
     aged_original_load(task.run_id, minutes=120)
-    response = post(browser, path + "?format=json", {})
-    assert response.status_code == 200
-    assert not response.json()["active"]
-    assert not response.json()["renewed"]
-    assert response.json()["setup_state"] == "expired"
-    assert SetupAttempt.objects.get().expiry_reason == "watchdog"
+    with web_login():
+        response = post(browser, path + "?format=json", {})
+        assert response.status_code == 200
+        assert not response.json()["active"]
+        assert not response.json()["renewed"]
+        assert response.json()["setup_state"] == "expired"
+        assert SetupAttempt.objects.get().expiry_reason == "watchdog"

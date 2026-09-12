@@ -12,12 +12,24 @@
 <h2>{% translate "Setup sections" %}</h2>
 <ul>{% for item in steps %}<li><a href="{% url 'admin:setup_step' item.key %}">{{ item.label }}</a> — {% if item.saved %}{% translate "Saved temporarily" %}{% else %}{% translate "Not yet entered" %}{% endif %}</li>{% endfor %}</ul>
 <p>{% translate "The original bootstrap Administrator is preserved. Additional access rules do not take effect until setup completes." %}</p>
+{% if draft.status.state == 'collecting' %}
+<h2>{% translate "Sealed setup credentials" %}</h2>
+<ul>
+<li><a href="{% url 'admin:setup_credential' 'parishsoft' %}">{% translate "ParishSoft credential" %}</a></li>
+<li><a href="{% url 'admin:setup_credential' 'google_workspace' %}">{% translate "Google Workspace mail credential" %}</a></li>
+<li><a href="{% url 'admin:setup_credential' 'slack' %}">{% translate "Optional Slack credential" %}</a></li>
+</ul>
+{% endif %}
 <p>{% translate "Provider credentials, source loading, delivery checks and the final readiness confirmation must also complete before this system can be configured." %}</p>
+{% if draft.status.state == 'frozen' %}
+<p><a href="{% url 'admin:setup_cancel' %}">{% translate "Cancel initial setup finalization" %}</a></p>
+{% else %}
 <form method="post" class="panel">{% csrf_token %}
 <input type="hidden" name="action" value="cancel"><input type="hidden" name="attempt" value="{{ draft.status.attempt_id }}">
 <p>{% translate "Cancel permanently ends this attempt and clears its temporary settings. A new login is required to restart." %}</p>
 <button type="submit">{% translate "Cancel setup and clear temporary settings" %}</button>
 </form>
+{% endif %}
 {% else %}
 <p>{% translate "Complete the Parish and first campaign setup using this login. Another login cannot resume your temporary settings. Closing the browser stops any source-load renewal; idle and absolute timeouts still apply." %}</p>
 <form method="post">{% csrf_token %}<input type="hidden" name="action" value="start"><button type="submit">{% translate "Start setup" %}</button></form>

@@ -40,9 +40,24 @@ Evidence: Bootstrap and independent keyring preparation are implemented and
 covered by Phase 2 offline/database tests. Original-login public wizard forms
 and private logo staging now pass 73 focused cases with 98% coverage and 42 new
 browser cases. Scheduler expiry clears public values atomically and fences
-original-session artifacts. Sealed setup credential intake, staged source work,
+original-session artifacts. Staged source work,
 delivery checks and final configured-marker activation remain open.
 See [Phase 2 evidence](../../guides/stewardship-phase-2.md).
+
+September 12 correction checkpoint: setup timing/session, private integration,
+configuration readiness and review regressions are recorded in the
+[review ledger](../../guides/stewardship-phase-2-reviews.md). The owner approved
+the [narrow setup cancellation exception](../../guides/stewardship-phase-2-reviews.md#setup-finalization-specification-decision)
+for ADM-02.05. Its original-login cancellation page, immutable setup-abort journal,
+installer-first recovery and temporary-logo cleanup now pass the
+[focused acceptance cases](../../guides/stewardship-phase-2-reviews.md#approved-setup-cancellation-implementation-checkpoint).
+Separate sealed wizard intake and its write-only HTTP forms now have actual
+web/scheduler isolation, expiry, audit and browser evidence in the
+[subsequent checkpoint](../../guides/stewardship-phase-2-reviews.md#subsequent-regression-and-credential-intake-checkpoint).
+This completes that intake slice of ADM-02.02/.04, not those whole tasks.
+The final source/Family/configured-marker transaction and remaining wizard work
+are still open; no whole checklist item or phase review gate is closed by this
+partial implementation checkpoint.
 
 ## ADM-03: Navigation, dashboard, indicators, and configuration
 

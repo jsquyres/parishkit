@@ -21,8 +21,9 @@ def source_progress(request, service, task_id, *, renew=False):
     """Observe one exact task; only its current live leases permit throttled renewal.
 
     The Task's immutable creation instant anchors the hard watchdog. Failed,
-    queued or abandoned work never extends idle time. Expiry commits its fence
-    before returning a terminal response, so the worker cannot repopulate drafts.
+    queued or abandoned work never extends idle time. A renewal POST commits an
+    expired fence before returning; passive reads leave that mutation to the
+    scheduler. Every worker effect must independently check the same deadlines.
     """
     if not isinstance(task_id, UUID) or type(renew) is not bool:
         raise ValueError("Exact setup task and renewal intent are required.")
@@ -75,12 +76,16 @@ def source_progress(request, service, task_id, *, renew=False):
             )
             # SQL stamps renewed_at. Update session activity afterward so its
             # deadline cannot precede that accepted renewal, even by microseconds.
-            if authenticated_admin(request, store=service.store, activity=True) is None:
+            if (
+                authenticated_admin(request, store=service.store, activity=True) is None
+                or request.portal_session.pk != attempt.session_id
+            ):
                 raise PermissionError("Setup session expired during renewal.")
             attempt.refresh_from_db()
             window = _window(attempt, request.portal_session)
             renewed = True
         return {
+            "server_now": now.isoformat(),
             "task_id": str(task.pk),
             "task_state": task.state,
             "setup_state": attempt.state,

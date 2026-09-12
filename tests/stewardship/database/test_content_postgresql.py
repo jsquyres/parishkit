@@ -22,14 +22,22 @@ from parishkit.stewardship.accounts.content_models import ContentVersion
 from parishkit.stewardship.accounts.operator_recovery import recover_admin
 from parishkit.stewardship.accounts.request_models import ConfigurationChangeRequest
 from parishkit.stewardship.accounts.runtime_models import SystemConfiguration
-from parishkit.stewardship.campaigns.admission import CampaignAdmissionUnavailable
+from parishkit.stewardship.campaigns.admission import (
+    CampaignAdmissionUnavailable,
+    _validate_content_installation,
+)
+from parishkit.stewardship.campaigns.controls import reserve_work_gate
 from parishkit.stewardship.campaigns.lifecycle import Action
+from parishkit.stewardship.campaigns.runtime import return_to_testing
+from parishkit.stewardship.campaigns.work_locks import work_transaction
 
 from ..configuration_factory import configuration_version, successor_document
 from ..content_factory import content, content_document
 from .campaign_builders import (
+    admit_test_work,
     campaign_clock,
     change,
+    close_campaign,
     command,
     draft_campaign,
     restored_runtime,
@@ -220,6 +228,84 @@ def test_content_preserves_locked_structure_and_is_held_during_restore(tmp_path)
         with restored_runtime(instant), pytest.raises(CampaignAdmissionUnavailable):
             change(store, store.active(), actor, patch)
         assert change(store, store.active(), actor, patch).state == "applied"
+
+
+@pytest.fixture
+def archived_content(tmp_path):
+    """Retain real content after lifecycle owners archive and clear current scope."""
+    store, campaign, actor = draft_campaign(tmp_path)
+    rows = [content(str(campaign.pk), slot=slot) for slot in ("welcome", "login_help")]
+    assert (
+        change(
+            store,
+            store.active(),
+            actor,
+            [{"operation": "add", "section": "content", **row} for row in rows],
+        ).state
+        == "applied"
+    )
+    campaign.refresh_from_db()
+    with campaign_clock(campaign.active_configuration.starts_at):
+        command(campaign, actor, Action.ACTIVATE)
+    close_campaign(campaign, actor)
+    command(campaign, actor, Action.ARCHIVE)
+    return_to_testing(
+        campaign_id=campaign.pk,
+        request_id=uuid4(),
+        expected_runtime_version=SystemConfiguration.objects.get().version,
+        actor_id=actor,
+        correlation_id=uuid4(),
+        admit=admit_test_work,
+    )
+    return store, campaign, actor
+
+
+@pytest.mark.parametrize("target", [None, "different-campaign"])
+def test_archived_content_is_not_editable_without_current_ownership(
+    archived_content, target
+):
+    """Isolate content admission so another structural check cannot mask refusal."""
+    store, _, _ = archived_content
+    runtime = SystemConfiguration.objects.select_related("active_configuration").get()
+    assert runtime.current_campaign_id is None
+    document = store.active().document()
+    document["sections"]["content"][0]["values"]["text"] = "Must not be installed"
+    with (
+        work_transaction(),
+        pytest.raises(ConfigError, match="Content can only be edited"),
+    ):
+        _validate_content_installation(
+            document, runtime, target_id=None if target is None else uuid4()
+        )
+
+
+def test_content_reordering_is_a_noop_even_without_current_or_during_work_hold(
+    archived_content,
+):
+    """A list-order-only change cannot become permission to mutate retained text."""
+    store, campaign, actor = archived_content
+    reserve_work_gate(
+        campaign_id=campaign.pk,
+        request_id=uuid4(),
+        actor_id=actor,
+        correlation_id=uuid4(),
+        admit=admit_test_work,
+    )
+    runtime = SystemConfiguration.objects.select_related("active_configuration").get()
+    document = store.active().document()
+    document["sections"]["content"].reverse()
+    with work_transaction():
+        _validate_content_installation(document, runtime, target_id=None)
+    document["sections"]["content"][0]["values"]["text"] = "Held change"
+    # Pin the correct campaign deliberately to isolate the global work gate
+    # from the separately tested historical-campaign ownership refusal.
+    with (
+        work_transaction(),
+        pytest.raises(
+            CampaignAdmissionUnavailable, match="Content changes are currently held"
+        ),
+    ):
+        _validate_content_installation(document, runtime, target_id=campaign.pk)
 
 
 def test_populated_downgrade_preserves_guards():

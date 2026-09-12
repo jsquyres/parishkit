@@ -15,7 +15,7 @@ from uuid import UUID
 from parishkit.config import ConfigError
 
 from .authority import ConfigurationVersion, parse_version
-from .configuration_schema import schema_for, validator_for
+from .configuration_schema import validator_for
 from .content_schema import RECOVERY_SCHEMA as CONTENT_RECOVERY_SCHEMA
 from .content_schema import REQUEST_SCHEMA as CONTENT_REQUEST_SCHEMA
 from .content_schema import SCHEMA as CONTENT_SCHEMA
@@ -24,6 +24,8 @@ from .ministry_activity import RECOVERY_SCHEMA as MINISTRY_RECOVERY_SCHEMA
 from .ministry_activity import REQUEST_SCHEMA as MINISTRY_REQUEST_SCHEMA
 from .ministry_activity import SCHEMA as MINISTRY_SCHEMA
 from .ministry_activity import remember_records
+from .setup_configuration import REQUEST_SCHEMA as SETUP_REQUEST_SCHEMA
+from .setup_configuration import build_setup_candidate
 
 REQUEST_SCHEMA = "parish-integrations-patch-v1"
 POLICY_REQUEST_SCHEMA = "foundation-policy-patch-v2"
@@ -170,6 +172,20 @@ def _build_v5_candidate(base, patch, *, candidate_id):
     return result
 
 
+def _credential_schema_v6(document):
+    """Freeze v6 receipt replay against its original five supported public schemas."""
+    sections = document["sections"]
+    if "content" in sections:
+        return "campaign-content-v5"
+    if sections.get("ministries"):
+        return "ministry-activity-v4"
+    if any(sections.get(name) for name in ("campaigns", "schedules")):
+        return "campaign-foundation-v3"
+    if sections.get("login_rules"):
+        return "foundation-policy-v2"
+    return "parish-integrations-v1"
+
+
 def _build_credential_candidate(base, patch, *, candidate_id):
     """A separate explicit format changes one fingerprint, never public settings.
 
@@ -194,7 +210,7 @@ def _build_credential_candidate(base, patch, *, candidate_id):
         base,
         patch,
         candidate_id=candidate_id,
-        schema=schema_for(base.document()),
+        schema=_credential_schema_v6(base.document()),
         sections={"integrations"},
         credential_reference=True,
     )
@@ -387,6 +403,7 @@ BUILDERS = MappingProxyType(
         CONTENT_REQUEST_SCHEMA: _build_v5_candidate,
         CONTENT_RECOVERY_SCHEMA: _build_recovery_content_candidate,
         CREDENTIAL_REQUEST_SCHEMA: _build_credential_candidate,
+        SETUP_REQUEST_SCHEMA: build_setup_candidate,
         "operator-recovery-patch-v1": _build_recovery_candidate,
         "operator-recovery-patch-v2": _build_recovery_v2_candidate,
         "operator-recovery-bootstrap-v1": _build_recovery_bootstrap_candidate,

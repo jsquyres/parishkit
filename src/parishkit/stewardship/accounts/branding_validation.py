@@ -5,6 +5,7 @@ from uuid import UUID
 from parishkit.config import ConfigError
 
 from .branding_models import BrandingAsset
+from .configuration_errors import ConfigurationReadinessUnavailable
 from .configuration_models import AppliedConfigurationVersion, Parish
 from .runtime_models import ConfigurationActivation
 from .sessions import database_now
@@ -33,7 +34,7 @@ def validate_installation(document, *, actor_id):
         raise ConfigError("Branding requires a complete normalized bundle.")
     bundle = assets[0].bundle
     if bundle.state != "ready":
-        raise ConfigError("Branding is not ready.")
+        raise ConfigurationReadinessUnavailable("Branding is not ready.")
     retained = Parish.objects.filter(
         configuration_id__in=ConfigurationActivation.objects.values("configuration_id"),
         large_logo_id=values["large"],

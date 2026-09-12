@@ -55,6 +55,20 @@ its specific reason. This narrow cancellation never rolls back an applied
 version, removes prepared history, or chooses an arbitrary side of a mismatch.
 Ordinary configuration recovery retains the forward-only contract above.
 
+Initial setup has the same narrowly scoped journaled cancellation exception,
+approved September 12, 2026. An immutable setup abort binds the original setup
+attempt, its exact configuration request, the still-applied bootstrap predecessor,
+and the selected-but-unapplied candidate. Before restoring that predecessor's
+manifest, the installer must prove the candidate was never activated, serialize
+against final activation, and verify the original attempt's cancellation or
+expiry. Replaying the journal never restores an arbitrary version or rewinds a
+later coherent configuration. Final database activation, source/Family selection,
+and the configured marker commit atomically; there is no applied-configuration
+interval in which setup cancellation is still allowed. Abort recovery precedes
+ordinary forward recovery, and cleanup cannot finish until selected YAML and
+the applied bootstrap digest agree. Safe journal/checkpoint history is retained;
+wizard-only values/files are scrubbed by their owning cleanup services.
+
 Configuration requests identify their authority as authenticated Admin or the
 explicit [offline operator-recovery workflow](../operations/spec.md#offline-admin-access-recovery).
 The latter stores a named operator, reason, confirmed deployment/target, and

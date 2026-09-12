@@ -163,6 +163,7 @@ def test_replacement_seals_once_and_real_web_cannot_read_ciphertext(
     row = SecretReplacementRequest.objects.get()
     staged = SealedCredentialStaging.objects.get()
     assert row.state == "staged" and row.required_consumers == ["worker"]
+    assert timedelta(minutes=59) < row.expires_at - row.created_at <= timedelta(hours=1)
     assert handoff.open(row.pk, staged.ciphertext) == SECRET.encode()
     context = ProviderValidationContext.objects.get()
     assert context.settings == {"organization_id": 12345}

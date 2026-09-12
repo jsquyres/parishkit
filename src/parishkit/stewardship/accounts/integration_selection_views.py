@@ -5,8 +5,8 @@ from uuid import uuid4
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
-from parishkit.config import ConfigError
 from parishkit.stewardship.campaigns.work_locks import work_transaction
+from parishkit.stewardship.storage import StaleRecordError
 from parishkit.stewardship.web.contracts import filters
 
 from .admin_editing import (
@@ -19,7 +19,12 @@ from .admin_editing import (
 )
 from .authentication import runtime
 from .integration_forms import LABELS
-from .integration_selection import TARGETS, current_receipt, integration_records
+from .integration_selection import (
+    TARGETS,
+    StaleCredentialReceipt,
+    current_receipt,
+    integration_records,
+)
 from .integration_views import ERRORS, _checked
 from .request_patch import CREDENTIAL_REQUEST_SCHEMA, build_candidate
 from .secret_models import SecretReplacementRequest
@@ -40,15 +45,20 @@ def _selection(service, request_id, actor):
     if receipt is None:
         raise LookupError("An acknowledged replacement is unavailable.")
     records = integration_records(configuration.active_configuration.canonical_document)
-    proof = current_receipt(receipt.target, receipt.resulting_fingerprint, records)
+    if receipt.target not in records:
+        raise StaleRecordError("This integration is no longer configured.")
+    try:
+        proof = current_receipt(receipt.target, receipt.resulting_fingerprint, records)
+    except StaleCredentialReceipt:
+        raise StaleRecordError("This replacement is no longer current.") from None
     if proof.pk != receipt.pk:
-        raise ConfigError("This replacement is no longer current.")
+        raise StaleRecordError("This replacement is no longer current.")
     record = records[receipt.target]
     if record["values"]["credential_fingerprint"] not in {
         receipt.expected_fingerprint,
         receipt.resulting_fingerprint,
     }:
-        raise ConfigError("The integration fingerprint changed.")
+        raise StaleRecordError("The integration fingerprint changed.")
     return configuration, receipt, record
 
 
@@ -83,45 +93,52 @@ def select_credential(request, request_id):
         else:
             with work_transaction():
                 configuration, receipt, record = _selection(service, request_id, actor)
-                selected = (
-                    record["values"]["credential_fingerprint"]
-                    == receipt.resulting_fingerprint
+                base = service.store.active()
+                if (
+                    base is None
+                    or base.digest != configuration.active_configuration.digest
+                ):
+                    raise StaleRecordError("The credential preview base changed.")
+            # Preview/render work uses the captured immutable inputs without
+            # blocking task claims or source promotion. Confirmation rechecks
+            # current receipt, freshness and base under the owning work lock.
+            selected = (
+                record["values"]["credential_fingerprint"]
+                == receipt.resulting_fingerprint
+            )
+            patch = [
+                {
+                    "operation": "update",
+                    "section": "integrations",
+                    "id": record["id"],
+                    "values": {"credential_fingerprint": receipt.resulting_fingerprint},
+                }
+            ]
+            preview = None
+            if not selected:
+                build_candidate(
+                    base,
+                    patch,
+                    candidate_id=uuid4(),
+                    request_schema=CREDENTIAL_REQUEST_SCHEMA,
                 )
-                patch = [
-                    {
-                        "operation": "update",
-                        "section": "integrations",
-                        "id": record["id"],
-                        "values": {
-                            "credential_fingerprint": receipt.resulting_fingerprint
-                        },
-                    }
-                ]
-                preview = None
-                if not selected:
-                    build_candidate(
-                        service.store.active(),
-                        patch,
-                        candidate_id=uuid4(),
-                        request_schema=CREDENTIAL_REQUEST_SCHEMA,
-                    )
-                    preview = sign_preview(
-                        actor=actor,
-                        configuration=configuration,
-                        patch=patch,
-                        salt=SALT + str(request_id),
-                    )
-                response = render(
-                    request,
-                    "stewardship/credential-selection.html",
-                    {
-                        "receipt": receipt,
-                        "label": LABELS[receipt.target],
-                        "before": record["values"]["credential_fingerprint"],
-                        "preview": preview,
-                        "selected": selected,
-                    },
+                preview = sign_preview(
+                    actor=actor,
+                    configuration=configuration,
+                    patch=patch,
+                    salt=SALT + str(request_id),
                 )
+            response = render(
+                request,
+                "stewardship/credential-selection.html",
+                {
+                    "receipt": receipt,
+                    "label": LABELS[receipt.target],
+                    "before": record["values"]["credential_fingerprint"],
+                    "preview": preview,
+                    "selected": selected,
+                },
+            )
         return _checked(request, service, response)
     except ERRORS as error:
         return error_response(error)

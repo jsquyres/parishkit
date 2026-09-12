@@ -213,10 +213,10 @@ def _validate_content_installation(document, runtime, *, target_id):
         else []
     )
     new = document["sections"].get("content", [])
-    if old == new:
-        return
     before = {row["id"]: row for row in old}
     after = {row["id"]: row for row in new}
+    if before == after:
+        return
     changed = [
         row for identifier, row in before.items() if after.get(identifier) != row
     ] + [row for identifier, row in after.items() if before.get(identifier) != row]

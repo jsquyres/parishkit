@@ -115,10 +115,31 @@ def test_background_grants_exclude_web_secrets_and_campaign_write_authority(role
     """Reserved producer/consumer identities cannot inherit web or future tables."""
     tables, columns = runtime_grants(role)
     for table in (
-        "stewardship_secret_request",
+        "stewardship_sealed_credential_staging",
         "stewardship_family_session",
     ):
         assert table not in tables and table not in columns
+    # Consumer acknowledgement needs target-scoped metadata and a row lock,
+    # never candidate ciphertext or ordinary replacement mutation authority.
+    assert tables["stewardship_secret_request"] == {"SELECT"}
+    assert columns["stewardship_secret_request"] == {"UPDATE": {"id"}}
+    assert tables["stewardship_credential_consumer_ack"] == {"SELECT", "INSERT"}
+    if role is ServiceRole.SCHEDULER:
+        assert "stewardship_setup_sealed_credential" not in tables
+        assert (
+            "ciphertext" not in columns["stewardship_setup_sealed_credential"]["SELECT"]
+        )
+        assert columns["stewardship_setup_sealed_credential"]["UPDATE"] == {
+            "settings",
+            "ciphertext",
+            "scrubbed_at",
+            "actor_id",
+            "correlation_id",
+            "version",
+        }
+    else:
+        assert "stewardship_setup_sealed_credential" not in tables
+        assert "stewardship_setup_sealed_credential" not in columns
     assert tables["stewardship_campaign"] == {"SELECT"}
     assert tables["stewardship_domain_rule"] == {"SELECT"}
     assert columns["stewardship_campaign"] == {"UPDATE": {"id"}}

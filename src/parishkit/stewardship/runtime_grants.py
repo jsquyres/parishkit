@@ -15,6 +15,8 @@ WEB_READ_TABLES = frozenset(
     [
         "stewardship_setup_attempt",
         "stewardship_setup_draft_section",
+        "stewardship_setup_config_intent",
+        "stewardship_setup_config_abort",
         "stewardship_branding_bundle",
         "stewardship_branding_asset",
         "stewardship_provider_context",
@@ -284,6 +286,31 @@ def runtime_grants(role, *, target=None):
         tables["stewardship_sealed_credential_staging"] = {"INSERT"}
         columns["stewardship_sealed_credential_staging"] = {
             "SELECT": {"reference", "request_id", "target", "fingerprint"}
+        }
+        tables["stewardship_setup_sealed_credential"] = {"INSERT"}
+        columns["stewardship_setup_sealed_credential"] = {
+            "SELECT": {
+                "id",
+                "created_at",
+                "updated_at",
+                "version",
+                "actor_id",
+                "correlation_id",
+                "attempt_id",
+                "target",
+                "fingerprint",
+                "settings",
+                "scrubbed_at",
+            },
+            "UPDATE": {
+                "ciphertext",
+                "fingerprint",
+                "settings",
+                "scrubbed_at",
+                "actor_id",
+                "correlation_id",
+                "version",
+            },
         }
     return tables, columns
 

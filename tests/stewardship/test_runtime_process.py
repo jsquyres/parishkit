@@ -240,6 +240,7 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
     producer, matching = Mock(return_value=("source-receipt",)), Mock()
     guard, cleanup = Mock(), Mock(return_value=("cleanup-receipt",))
     expiry = Mock(return_value=0)
+    matching.side_effect = lambda _: expiry.assert_called_once_with(guard)
     monkeypatch.setattr(runtime_background, "configure_background", configure)
     monkeypatch.setattr(runtime_background, "matching_authority", matching)
     monkeypatch.setattr(

@@ -19,6 +19,7 @@ from parishkit.config import ConfigError
 from parishkit.stewardship.storage import StorageInvariantError
 
 from .authority import apply_version, recover_active
+from .configuration_errors import ConfigurationReadinessUnavailable
 from .configuration_requests import _identities, _status
 from .configuration_snapshots import is_prepared, prepare_snapshot
 from .installation_lock import installation_lock
@@ -218,13 +219,19 @@ class DatabaseMaterializer:
         """
         from parishkit.stewardship.campaigns.models import CampaignConfigurationAbort
 
+        from .setup_models import SetupConfigurationAbort
+
         self._check()
         request = self.request
+        journal = (
+            SetupConfigurationAbort
+            if request is not None
+            and request.request_schema == "initial-setup-patch-v7"
+            else CampaignConfigurationAbort
+        )
         if (
             request is None
-            or not CampaignConfigurationAbort.objects.filter(
-                intent__request=request
-            ).exists()
+            or not journal.objects.filter(intent__request=request).exists()
         ):
             raise StorageInvariantError(
                 "Exceptional cancellation requires its journal."
@@ -348,6 +355,11 @@ def _install_request(store, *, request, correlation_id, admit_campaign=None):
     )
     with materializer.lock():
         current = _status(request)
+        from .setup_installation import recover_setup_abort
+
+        setup_abort = recover_setup_abort(materializer)
+        if setup_abort is not None:
+            return setup_abort
         from parishkit.stewardship.campaigns.configuration_intents import (
             recover_configuration_abort,
         )
@@ -433,6 +445,10 @@ def _install_request(store, *, request, correlation_id, admit_campaign=None):
                 )
 
                 validate_credentials(intent.candidate.document())
+            except ConfigurationReadinessUnavailable:
+                # Retain the exact durable request for a later installer pass;
+                # unfinished normalization/replacement is not malformed intent.
+                raise
             except ConfigError:
                 failure_code = "invalid_candidate"
             if not failure_code:

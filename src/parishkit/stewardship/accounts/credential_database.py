@@ -146,6 +146,8 @@ def admit_web_staging_grants():
         cursor.execute(
             "SELECT has_column_privilege(current_user,"
             "'public.stewardship_sealed_credential_staging','ciphertext','SELECT')"
+            " OR has_column_privilege(current_user,"
+            "'public.stewardship_setup_sealed_credential','ciphertext','SELECT')"
         )
         if cursor.fetchone()[0]:
             raise ConfigError("Web staging ciphertext access is forbidden.")

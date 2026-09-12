@@ -57,6 +57,13 @@ class Action(StrEnum):
     BACKGROUND_VIEWED = "background_viewed"
     DASHBOARD_VIEWED = "dashboard_viewed"
     PRESENCE_VIEWED = "family_presence_viewed"
+    SETUP_STARTED = "setup_started"
+    SETUP_SOURCE_STARTED = "setup_source_started"
+    SETUP_SOURCE_COMPLETED = "setup_source_completed"
+    SETUP_FROZEN = "setup_frozen"
+    SETUP_EXPIRED = "setup_expired"
+    SETUP_CREDENTIAL_STAGED = "setup_credential_staged"
+    SETUP_CREDENTIAL_SCRUBBED = "setup_credential_scrubbed"
 
 
 FIELDS = {

@@ -79,6 +79,16 @@ def test_context_exact_retry_and_target_isolation():
         ProviderValidationContext.objects.exists()
 
 
+def test_provider_context_forces_owner_policies():
+    """The migration must not exempt the table owner from target intake policy."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT relrowsecurity,relforcerowsecurity FROM pg_class "
+            "WHERE oid='public.stewardship_provider_context'::regclass"
+        )
+        assert cursor.fetchone() == (True, True)
+
+
 def test_context_cannot_be_attached_later_or_modified():
     """Even direct SQL cannot attach new scope to a previously committed intake."""
     arguments = intent()

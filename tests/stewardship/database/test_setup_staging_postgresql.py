@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 from django.contrib.sessions.backends.db import SessionStore
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.db.models import F
 from django.test import RequestFactory
 
@@ -20,6 +20,7 @@ from parishkit.stewardship.accounts.setup_staging import (
     expire_setup_attempts,
 )
 from parishkit.stewardship.audit.models import AuditEvent
+from parishkit.stewardship.audit.schemas import Action
 from parishkit.stewardship.campaigns.work_locks import work_transaction
 from parishkit.stewardship.storage import StaleRecordError
 
@@ -59,8 +60,8 @@ def test_same_login_resumes_but_cancelled_attempt_never_restarts(setup_service):
     assert begin_setup(request, setup_service) == expired
     assert SetupAttempt.objects.count() == 1
     assert SetupAttempt.objects.get().expiry_reason == "cancelled"
-    assert AuditEvent.objects.filter(event_type="setup_started").count() == 1
-    assert AuditEvent.objects.filter(event_type="setup_expired").count() == 1
+    assert AuditEvent.objects.filter(event_type=Action.SETUP_STARTED).count() == 1
+    assert AuditEvent.objects.filter(event_type=Action.SETUP_EXPIRED).count() == 1
 
 
 def test_another_login_cannot_take_over_or_cancel_live_staging(setup_service):
@@ -136,8 +137,12 @@ def test_sql_requires_work_order_and_retains_tombstones(setup_service):
             version=F("version") + 1
         )
     cancel_setup(request, setup_service, attempt.attempt_id)
-    with pytest.raises(IntegrityError), transaction.atomic():
+    with (
+        pytest.raises(IntegrityError, match="Setup history cannot be deleted") as error,
+        transaction.atomic(),
+    ):
         SetupAttempt.objects.filter(pk=attempt.attempt_id).delete()
+    assert error.value.__cause__.sqlstate == "23514"
 
 
 def test_source_task_binding_is_exact_and_failed_work_cannot_be_frozen(setup_service):
@@ -184,6 +189,69 @@ def test_active_attempt_cleanup_is_nonmutating_and_anonymous_is_denied(setup_ser
     anonymous.session = SessionStore()
     with pytest.raises(PermissionError):
         begin_setup(anonymous, setup_service)
+
+
+@pytest.mark.parametrize("state", ["collecting", "loading", "frozen"])
+def test_frozen_attempt_cannot_resume_or_change_attribution(setup_service, state):
+    """The frozen-state predicate is a rejection, not a transition allowlist."""
+    request = login(setup_service)
+    attempt = begin_setup(request, setup_service)
+    row = SetupAttempt.objects.get(pk=attempt.attempt_id)
+    task = new(
+        task_type="setup_source_load", actor_id=row.owner_id, domain_request_id=row.pk
+    )
+    with work_transaction():
+        SetupAttempt.objects.filter(pk=row.pk).update(
+            source_task_id=task.run_id, state="loading", version=F("version") + 1
+        )
+    act(act(task, "claim"), "complete")
+    with work_transaction():
+        for target in ("collecting", "frozen"):
+            SetupAttempt.objects.filter(pk=row.pk).update(
+                state=target, version=F("version") + 1
+            )
+    before = AuditEvent.objects.count()
+    for actor in (row.owner_id, uuid4(), None):
+        with pytest.raises(IntegrityError, match="owning work"), work_transaction():
+            SetupAttempt.objects.filter(pk=row.pk).update(
+                state=state, actor_id=actor, version=F("version") + 1
+            )
+    assert AuditEvent.objects.count() == before
+    assert SetupAttempt.objects.get(pk=row.pk).state == "frozen"
+
+
+def test_installed_setup_deadlines_and_audit_vocabulary_match_python():
+    """Changing a Python deadline requires the corresponding explicit SQL migration."""
+    from parishkit.stewardship.accounts import setup_policy
+    from parishkit.stewardship.accounts.sessions import ADMIN_IDLE
+
+    assert setup_policy.IDLE_LIMIT == ADMIN_IDLE
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT pg_get_functiondef("
+            "'stewardship_setup_attempt_guard_v1()'::regprocedure)"
+        )
+        guard = cursor.fetchone()[0]
+        for value, unit in (
+            (setup_policy.IDLE_LIMIT, "minutes"),
+            (setup_policy.RENEWAL_INTERVAL, "minutes"),
+            (setup_policy.SOURCE_WATCHDOG, "hours"),
+        ):
+            count = int(value.total_seconds() / (60 if unit == "minutes" else 3600))
+            assert f"interval '{count} {unit}'" in guard
+        cursor.execute(
+            "SELECT pg_get_functiondef("
+            "'stewardship_setup_attempt_audit_v1()'::regprocedure)"
+        )
+        audit = cursor.fetchone()[0]
+        for event in (
+            Action.SETUP_STARTED,
+            Action.SETUP_SOURCE_STARTED,
+            Action.SETUP_SOURCE_COMPLETED,
+            Action.SETUP_FROZEN,
+            Action.SETUP_EXPIRED,
+        ):
+            assert f"'{event.value}'" in audit
 
 
 def test_configured_runtime_and_non_uuid_cancellation_are_not_admitted(setup_service):

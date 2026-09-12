@@ -135,6 +135,31 @@ def test_unhealthy_or_unowned_worker_never_renews(setup_service, mode):
     assert PortalSession.objects.get().last_activity_at == before
 
 
+def test_renewal_cannot_switch_to_a_different_login(setup_service, monkeypatch):
+    """A session rotation during final recheck rolls back the attempted renewal."""
+    from copy import copy
+
+    from parishkit.stewardship.accounts import setup_progress
+
+    request, task, _ = loading(setup_service)
+    aged_original_load(task.run_id, minutes=6)
+    session = PortalSession.objects.get()
+    authenticate = setup_progress.authenticated_admin
+
+    def rotate(*args, **kwargs):
+        """Model the final authenticator returning a distinct session binding."""
+        actor = authenticate(*args, **kwargs)
+        request.portal_session = copy(request.portal_session)
+        request.portal_session.pk = uuid4()
+        return actor
+
+    monkeypatch.setattr(setup_progress, "authenticated_admin", rotate)
+    with web_login(), pytest.raises(PermissionError, match="expired during renewal"):
+        source_progress(request, setup_service, task.run_id, renew=True)
+    assert SetupAttempt.objects.get().renewed_at is None
+    assert PortalSession.objects.get().last_activity_at == session.last_activity_at
+
+
 def test_watchdog_expiry_is_nonextendable_and_commits_the_attempt_fence(setup_service):
     """A healthy worker cannot override the two-hour original Task deadline."""
     request, task, _ = loading(setup_service)

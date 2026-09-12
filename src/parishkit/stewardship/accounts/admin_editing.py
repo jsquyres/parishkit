@@ -129,6 +129,8 @@ def error_response(error):
         return validation_response([FieldError(ErrorCode.DENIED)], status=403)
     if isinstance(error, StaleRecordError):
         return validation_response([FieldError(ErrorCode.STALE)], status=409)
+    if isinstance(error, ConfigError):
+        return validation_response([FieldError(ErrorCode.UNAVAILABLE)], status=503)
     if isinstance(error, (ValueError, InvalidPage, signing.BadSignature)):
         return validation_response([FieldError(ErrorCode.INVALID)], status=400)
     if isinstance(error, LookupError):

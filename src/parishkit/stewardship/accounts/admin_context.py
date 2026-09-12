@@ -31,9 +31,11 @@ def portal_chrome(request):
         or session is None
     ):
         return {}
-    configuration = SystemConfiguration.objects.select_related(
-        "active_configuration__parish", "current_campaign__active_configuration"
-    ).first()
+    configuration = getattr(request, "_stewardship_display_configuration", None)
+    if configuration is None:
+        configuration = SystemConfiguration.objects.select_related(
+            "active_configuration__parish", "current_campaign__active_configuration"
+        ).first()
     if configuration is None:
         return {}
     admin = allows(actor, Capability.CONFIGURE)

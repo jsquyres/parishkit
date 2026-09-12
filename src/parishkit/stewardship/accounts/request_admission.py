@@ -4,8 +4,13 @@ from django.db import connection
 
 from parishkit.config import ConfigError
 
-from .configuration_models import AppliedConfigurationVersion, AppliedIntegration
+from .configuration_models import (
+    AppliedConfigurationVersion,
+    AppliedIntegration,
+    MinistryActivity,
+)
 from .configuration_snapshots import verified_snapshot_version
+from .content_models import ContentVersion
 
 
 def intake_base(digest):
@@ -91,6 +96,32 @@ def check_historical_additions(base_id, patch):
             )
 
 
+def _history_join(model):
+    """Build model-owned identifiers only; the selected base remains a parameter."""
+    quote = connection.ops.quote_name
+    versions = AppliedConfigurationVersion._meta
+    table = quote(versions.db_table)
+    pk = quote(versions.pk.column)
+    predecessor = quote(versions.get_field("predecessor").column)
+    projection = quote(model._meta.db_table)
+    configuration = quote(model._meta.get_field("configuration").column)
+    return f"""WITH RECURSIVE chain(id, predecessor_id) AS (
+        SELECT {pk}, {predecessor} FROM {table} WHERE {pk}=%s
+        UNION
+        SELECT p.{pk}, p.{predecessor} FROM {table} p
+        JOIN chain c ON p.{pk}=c.predecessor_id
+    ) SELECT 1 FROM {projection} m
+      JOIN chain c ON c.id=m.{configuration} WHERE """
+
+
+def _columns(model, *names):
+    """Quote real projection columns, not canonical-document field spellings."""
+    return {
+        name: "m." + connection.ops.quote_name(model._meta.get_field(name).column)
+        for name in names
+    }
+
+
 def _check_content_additions(base_id, patch):
     """Compare only matching revision payloads across retained immutable ancestry."""
     import json
@@ -102,27 +133,30 @@ def _check_content_additions(base_id, patch):
     ]
     if not additions:
         return
+    columns = _columns(
+        ContentVersion,
+        "record_id",
+        "campaign_id",
+        "kind",
+        "slot",
+        "subject",
+        "html",
+        "text",
+    )
+    payload = ", ".join(
+        f"'{name}', {columns[name]}"
+        for name in ("campaign_id", "kind", "slot", "subject", "html", "text")
+    )
     predicates, parameters = [], [base_id]
     for item in additions:
         predicates.append(
-            "(m.record_id=%s AND jsonb_build_object("
-            "'campaign_id', m.campaign_id, 'kind', m.kind, 'slot', m.slot, "
-            "'subject', m.subject, 'html', m.html, 'text', m.text) "
+            f"({columns['record_id']}=%s AND jsonb_build_object({payload}) "
             "IS DISTINCT FROM %s::jsonb)"
         )
         parameters.extend([item["id"], json.dumps(item["values"])])
     with connection.cursor() as cursor:
         cursor.execute(
-            """WITH RECURSIVE chain(id, predecessor_id) AS (
-                SELECT id, predecessor_id FROM stewardship_configuration_version
-                WHERE id=%s
-                UNION
-                SELECT p.id, p.predecessor_id FROM stewardship_configuration_version p
-                JOIN chain c ON p.id=c.predecessor_id
-            ) SELECT 1 FROM stewardship_content_version m
-              JOIN chain c ON c.id=m.configuration_id WHERE """
-            + " OR ".join(predicates)
-            + " LIMIT 1",
+            _history_join(ContentVersion) + " OR ".join(predicates) + " LIMIT 1",
             parameters,
         )
         if cursor.fetchone() is not None:
@@ -138,28 +172,25 @@ def _check_ministry_additions(base_id, patch):
     ]
     if not additions:
         return
+    columns = _columns(
+        MinistryActivity, "record_id", "organization_id", "ministry_duid"
+    )
+    record, organization, ministry = (
+        columns[name] for name in ("record_id", "organization_id", "ministry_duid")
+    )
     predicates, parameters = [], [base_id]
     for item in additions:
         values = item["values"]
         predicates.append(
-            "((m.record_id=%s AND (m.organization_id, m.ministry_duid) "
+            f"(({record}=%s AND ({organization}, {ministry}) "
             "IS DISTINCT FROM (%s::bigint, %s::bigint)) OR "
-            "(m.record_id<>%s AND m.organization_id=%s AND m.ministry_duid=%s))"
+            f"({record}<>%s AND {organization}=%s AND {ministry}=%s))"
         )
         identity = [values["organization_id"], values["ministry_duid"]]
         parameters.extend([item["id"], *identity, item["id"], *identity])
     with connection.cursor() as cursor:
         cursor.execute(
-            """WITH RECURSIVE chain(id, predecessor_id) AS (
-                SELECT id, predecessor_id FROM stewardship_configuration_version
-                WHERE id=%s
-                UNION
-                SELECT p.id, p.predecessor_id FROM stewardship_configuration_version p
-                JOIN chain c ON p.id=c.predecessor_id
-            ) SELECT 1 FROM stewardship_ministry_activity m
-              JOIN chain c ON c.id=m.configuration_id WHERE """
-            + " OR ".join(predicates)
-            + " LIMIT 1",
+            _history_join(MinistryActivity) + " OR ".join(predicates) + " LIMIT 1",
             parameters,
         )
         if cursor.fetchone() is not None:

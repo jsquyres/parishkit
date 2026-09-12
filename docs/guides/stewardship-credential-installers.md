@@ -119,6 +119,21 @@ files for investigation. Never force `applied`, clear the uniqueness reservation
 disable triggers, or overwrite an unrecognized working credential to unblock the
 UI. Operational command assembly and its restore runbook remain OPS-04/OPS-06.
 
+The closed `credential_handoff_key_mismatch` event identifies a mounted handoff
+key that differs from the immutable public discovery record. Check the emitting
+installer's service identity, restore its original matching handoff key from
+the deployment's protected escrow, and restart that same target. Do not regenerate
+the key, edit the publication row, or discard sealed requests. This is distinct
+from an ordinary mount/grant startup failure: replacing the advertised public
+key would make retained ciphertext unreadable. Handoff-key rotation requires
+its own reviewed migration protocol and is not supplied by credential replacement.
+
+The Phase 2 replacement form provides a one-hour installer/consumer window from
+first submission; exact retries retain that original deadline. After installation
+and all consumer acknowledgements, select the resulting configuration fingerprint
+before submitting another replacement. Intake rejects a stale predecessor so
+that cancellation can always retain the actual installed working credential.
+
 ## Runtime integration boundaries
 
 The internal consumer hook attests the credential bytes loaded by a whole
@@ -148,6 +163,17 @@ confirmation: its new process namespace has no live service cohort. All workers
 must have completed admission with the replacement loaded. The command refuses
 multi-container replica configurations; no partial service acknowledgement is
 inferred. Later provider/consumer integrations remain pending as described above.
+
+Phase 2 extends the same command to the single-process `worker` and `scheduler`
+services. Recreate the complete affected service, then run
+`pk-stewardship acknowledge-credential --config <service-config> --request-id <UUID>`
+with `docker compose exec -T <service>`. The command repeats runtime admission
+and verifies that the original live process published matching loaded receipts;
+it cannot publish readiness for itself or substitute a newly opened file for
+that proof. The consumer SQL role can acknowledge its required targets but cannot
+read sealed staging or change credential-installation state. Mail-dispatch's
+separate Workspace consumer remains pending; these commands do not enable mail
+delivery or acknowledge a different service.
 
 ## Verification
 

@@ -6,6 +6,7 @@ from django import forms
 from django.forms import BaseFormSet, formset_factory
 from django.utils.translation import gettext_lazy as _
 
+from parishkit.stewardship.schema_primitives import text
 from parishkit.stewardship.web.content import validate_template
 
 DEFAULT_LABELS = (
@@ -41,12 +42,13 @@ class ShareOptionForm(forms.Form):
         """Share labels admit only non-private Parish/pronoun substitutions."""
         value = self.cleaned_data["label"]
         try:
+            text(value, 1024)
             names = validate_template(value)
             if not names <= {"parish_name", "pronoun"}:
                 raise ValueError
         except ValueError:
             raise forms.ValidationError(
-                _("Use only the parish_name and pronoun placeholders.")
+                _("Use visible text and only the parish_name and pronoun placeholders.")
             ) from None
         return value
 

@@ -39,8 +39,14 @@ def task_runtime_grants(role):
         "stewardship_setup_attempt",
         "stewardship_config_request",
         "stewardship_config_checkpoint",
+        "stewardship_config_activation",
+        "stewardship_setup_config_intent",
+        "stewardship_setup_config_abort",
+        "stewardship_secret_request",
+        "stewardship_credential_consumer_ack",
     ):
         tables[table] = {"SELECT"}
+    tables["stewardship_credential_consumer_ack"].add("INSERT")
     for table in (
         "stewardship_audit_event",
         "stewardship_audit_context",
@@ -55,12 +61,13 @@ def task_runtime_grants(role):
             "stewardship_campaign_credentials",
         )
     }
-    # Ownership triggers need only the parish identity/configuration binding.
+    # The ACK trigger takes FOR SHARE on its target-scoped receipt. Id-only
+    # UPDATE permits that lock; RLS and mutation guards reject actual edits.
+    columns["stewardship_secret_request"] = {"UPDATE": {"id"}}
     # Django INSERT RETURNING needs the declared database-default columns, not
     # read authority over unrelated historical audit or diagnostic payloads.
     columns.update(
         {
-            "stewardship_parish": {"SELECT": {"id", "configuration_id"}},
             "stewardship_audit_event": {
                 "SELECT": {"created_at", "ownership_scope", "parish_id"}
             },
@@ -104,6 +111,17 @@ def task_runtime_grants(role):
             "SELECT": {"attempt_id", "scrubbed_at", "version"},
             "UPDATE": {
                 "values",
+                "scrubbed_at",
+                "actor_id",
+                "correlation_id",
+                "version",
+            },
+        }
+        columns["stewardship_setup_sealed_credential"] = {
+            "SELECT": {"attempt_id", "scrubbed_at", "version"},
+            "UPDATE": {
+                "settings",
+                "ciphertext",
                 "scrubbed_at",
                 "actor_id",
                 "correlation_id",

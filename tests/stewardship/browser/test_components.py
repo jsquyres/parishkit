@@ -12,11 +12,12 @@ pytestmark = pytest.mark.parametrize(
 )
 
 
+@pytest.mark.parametrize("clock_skew_hours", [-48, 0, 48])
 def test_setup_progress_only_polls_visible_correlated_work_and_stops_at_deadline(
-    page, component_origin
+    page, component_origin, clock_skew_hours
 ):
     """Visible-page polling carries only CSRF and stops at local deadlines."""
-    page.clock.install(time=NOW)
+    page.clock.install(time=NOW + timedelta(hours=clock_skew_hours))
     requests = []
 
     def observe(route):
@@ -24,6 +25,7 @@ def test_setup_progress_only_polls_visible_correlated_work_and_stops_at_deadline
         requests.append(route.request)
         route.fulfill(
             json={
+                "server_now": NOW.isoformat(),
                 "task_id": urlsplit(route.request.url).path.split("/")[-1],
                 "task_state": "running",
                 "setup_state": "loading",
@@ -47,6 +49,7 @@ def test_setup_progress_only_polls_visible_correlated_work_and_stops_at_deadline
     assert len(requests) == 1 and requests[0].method == "POST"
     assert requests[0].post_data.startswith("csrfmiddlewaretoken=")
     assert "&" not in requests[0].post_data
+    page.clock.set_system_time(NOW + timedelta(days=7))
     page.evaluate(
         "Object.defineProperty(document, 'hidden', {configurable:true, get:()=>true})"
     )
@@ -72,6 +75,7 @@ def test_setup_progress_terminal_response_stops_automatic_posts(page, component_
         requests.append(route.request)
         route.fulfill(
             json={
+                "server_now": NOW.isoformat(),
                 "task_id": urlsplit(route.request.url).path.split("/")[-1],
                 "task_state": "cancelled",
                 "setup_state": "expired",
@@ -92,6 +96,13 @@ def test_setup_progress_terminal_response_stops_automatic_posts(page, component_
     )
     page.clock.fast_forward(60000)
     assert len(requests) == 1
+    page.route(
+        "**/setup-source-progress",
+        lambda route: route.fulfill(content_type="text/html", body="Manual progress"),
+    )
+    with page.expect_request("**/setup-source-progress") as submitted:
+        page.get_by_role("button", name="Check source progress").click()
+    assert submitted.value.method == "POST"
 
 
 def test_csp_permits_the_fixed_google_form_destination(page, component_origin):
@@ -185,6 +196,7 @@ def test_csp_blocks_an_unrelated_form_destination(page, component_origin):
         "/setup",
         "/setup-parish",
         "/setup-branding",
+        "/setup-credential",
         "/setup-access",
         "/setup-mail",
         "/setup-slack",

@@ -313,9 +313,14 @@ def serve_background(configuration, lease):
         producer = SourceProducer(uuid4())
 
         def produce(guard):
-            """A later YAML/SQL mismatch cannot enqueue or cancel scheduled work."""
-            matching_authority(assembled.store)
+            """Expire abandoned setup even while exact candidate recovery is pending.
+
+            Expiry uses its original SQL-bound login, never selects configuration,
+            and is needed to unblock a selected-but-unapplied setup abort. Normal
+            source production and file cleanup still require matching authority.
+            """
             produce_setup_expiry(guard)
+            matching_authority(assembled.store)
             return (*producer(guard), *produce_cleanup(guard))
 
         return serve_scheduler(

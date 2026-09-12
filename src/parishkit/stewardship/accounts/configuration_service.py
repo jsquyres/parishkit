@@ -22,6 +22,9 @@ from .credential_database import _identity, admit_grants
 # grants belong here. The current Chairperson view exposes only relationship
 # evidence needed by policy activation, not the underlying census/contact corpus.
 CONFIGURATION_GRANTS = {
+    "stewardship_setup_attempt": {"SELECT"},
+    "stewardship_setup_config_intent": {"SELECT"},
+    "stewardship_setup_config_abort": {"SELECT", "INSERT"},
     "stewardship_secret_request": {"SELECT"},
     "stewardship_credential_consumer_ack": {"SELECT"},
     "stewardship_provider_context": {"SELECT"},

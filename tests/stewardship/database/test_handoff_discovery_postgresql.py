@@ -63,12 +63,16 @@ def test_web_discovers_encryption_only_and_target_can_open_it(handoff_roles):
     assert private.open(request, sealed) == b"synthetic-replacement"
 
 
-def test_public_handoff_cannot_be_replaced_or_cross_target_published(handoff_roles):
+def test_public_handoff_cannot_be_replaced_or_cross_target_published(
+    handoff_roles, caplog
+):
     """Neither a role flag nor a known key identity is cross-target authority."""
     with identity("pk_stewardship_credential_slack"):
         publish_handoff(key())
         with pytest.raises(ConfigError):
             publish_handoff(key(material=b"x" * 32))
+        assert "credential_handoff_key_mismatch" in caplog.text
+        assert (b"x" * 32).decode() not in caplog.text
         with pytest.raises(ConfigError):
             publish_handoff(key("parishsoft"))
         with pytest.raises(DatabaseError), transaction.atomic():

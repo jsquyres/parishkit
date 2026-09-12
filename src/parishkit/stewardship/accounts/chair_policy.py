@@ -1,5 +1,6 @@
 """Pure seeded-scope decisions; neither a suggestion nor a match creates a grant."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from uuid import UUID
 
@@ -44,6 +45,11 @@ def seed_decisions(document, *, organization_id, relationships, identities):
     """
     if not isinstance(relationships, frozenset):
         raise TypeError("Chair relationships must be an explicit frozen set.")
+    if not isinstance(identities, Mapping) or any(
+        not isinstance(key, UUID) or not isinstance(value, SeedIdentity)
+        for key, value in identities.items()
+    ):
+        raise TypeError("Chair identities require UUID keys and explicit bindings.")
     catalog = frozenset(
         row.ministry_duid
         for row in relationships
