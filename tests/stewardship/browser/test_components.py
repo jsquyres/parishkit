@@ -391,14 +391,13 @@ def test_admin_presence_poll_is_passive_and_shows_service_failure(
         )
 
     page.route("**/admin/presence?format=count", observe)
-    page.goto(component_origin + "/home")
-    with page.expect_request("**/admin/presence?format=count"):
-        page.clock.fast_forward(30000)
+    with page.expect_response("**/admin/presence?format=count"):
+        page.goto(component_origin + "/home")
     page.wait_for_function(
         "() => document.querySelector('[data-presence-count]').textContent === '1,234'"
     )
     assert requests[0].method == "GET" and not requests[0].post_data
-    with page.expect_request("**/admin/presence?format=count"):
+    with page.expect_response("**/admin/presence?format=count"):
         page.clock.fast_forward(30000)
     page.wait_for_function(
         "() => !document.querySelector('[data-presence-unavailable]').hidden"

@@ -31,9 +31,15 @@ def browser_opt_in():
         pytest.skip("Browser component tests require PARISHKIT_RUN_BROWSER_TESTS=1.")
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def browser_engine(request):
-    """An explicitly enabled browser job fails if tools/engines are missing."""
+    """Isolate processes as well as contexts for clock and interception scenarios.
+
+    Reusing one WebKit process across this growing suite reproducibly stalled
+    navigation before any request in the 64th scenario; either 63-test subset
+    passed. Fresh processes avoid cross-scenario engine state without retries,
+    skipped assertions, or longer navigation timeouts.
+    """
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as runner:
