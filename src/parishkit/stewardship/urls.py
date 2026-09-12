@@ -13,6 +13,7 @@ from .accounts import (
     content_history,
     content_views,
     family_authentication,
+    integration_selection_views,
     integration_views,
     ministry_views,
     parish_views,
@@ -38,6 +39,11 @@ family_patterns = [
     path("logout", family_authentication.logout, name="logout"),
 ]
 admin_patterns = [
+    path(
+        "configuration/credentials/<uuid:request_id>/select",
+        integration_selection_views.select_credential,
+        name="select_credential",
+    ),
     path(
         "configuration/branding",
         branding_views.branding_settings,

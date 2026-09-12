@@ -923,10 +923,39 @@ acknowledgement and completed/failed cleanup; it never claims that YAML or
 delivery readiness changed just because a credential was installed.
 
 Remaining integration work includes adding/removing optional configuration
-through its complete owning workflow, selecting the acknowledged credential
-fingerprint in YAML, test-only checks of an existing installed credential,
+through its complete owning workflow, test-only checks of an installed credential,
 explicit test deliveries and wizard use of these services. The setup wizard and
 final Compose demonstration remain incomplete.
+
+### Acknowledged credential reference selection
+
+After target installation and all required consumer acknowledgements, the
+original Admin can review/select the non-secret fingerprint from the replacement
+status page. Fresh Google authentication, current provider settings, the latest
+applied target receipt, complete matching consumer evidence and absence of a
+pending replacement are required. An already-selected reference is displayed
+read-only; exact confirmation retries return the original YAML request.
+
+The dedicated `integration-credential-patch-v6` request format admits exactly one
+existing integration fingerprint update. It cannot modify settings, add/remove
+services or change policy. Ordinary/default and retained v1-v5 parsers still
+reject fingerprint edits; only the compiled selection owner opts into this new
+format. The installer rechecks receipt/provenance before preparation. A pending
+replacement arriving after web intake fails the selection without changing YAML.
+The configuration installer receives read-only, target-scoped receipt and public
+provider-context access, never ciphertext, private keys or credential-file mounts.
+Retained selection requests prevent a schema downgrade that would lose replay.
+
+The combined reference-format, HTTP, configuration-installer and provider-context
+run passes 93 cases with 94% focused selection coverage. Tests perform real
+private-file replacement and required-worker acknowledgement, use the actual web
+and configuration-installer identities, and exercise stale settings/authentication,
+CSRF, arbitrary fingerprints, pending replacement races and migration rollback.
+Six new three-engine browser cases pass. Selecting a receipt is not a provider
+delivery-readiness test and does not complete the initial setup workflow.
+The ordinary full suite passes 3,700 tests with 1,998 explicit opt-in skips and
+two existing warnings. Ruff, formatting, edited Markdown and migration-drift
+checks pass.
 
 ### Durable branding and retained content previews
 

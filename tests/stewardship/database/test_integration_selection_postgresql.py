@@ -1,0 +1,324 @@
+"""Installed private files, actual consumer ACKs and later exact YAML selection."""
+
+from datetime import timedelta
+from types import SimpleNamespace
+from uuid import uuid4
+
+import pytest
+from django.db import DatabaseError, connection, transaction
+from django.utils import timezone
+
+from parishkit.stewardship.accounts.configuration_installation import install_request
+from parishkit.stewardship.accounts.credential_files import CredentialFiles
+from parishkit.stewardship.accounts.credential_installation import (
+    CredentialInstaller,
+    acknowledge_loaded_credential,
+)
+from parishkit.stewardship.accounts.key_files import (
+    file_fingerprint,
+    read_private,
+    write_private,
+)
+from parishkit.stewardship.accounts.request_models import ConfigurationChangeRequest
+from parishkit.stewardship.accounts.secret_models import SecretReplacementRequest
+
+from . import campaign_builders
+from .auth_builders import signed_in
+from .campaign_builders import change
+from .test_configuration_service_postgresql import (  # noqa: F401
+    as_config_installer,
+    config_role,
+)
+from .test_credential_isolation_postgresql import identity, isolated_roles  # noqa: F401
+from .test_integration_views_postgresql import (  # noqa: F401
+    REPLACE,
+    handoff,
+    hidden,
+    post,
+)
+
+pytestmark = pytest.mark.django_db(transaction=True)
+PRIOR = b"synthetic-working-parishsoft-key"
+CANDIDATE = b"synthetic-next-parishsoft-key"
+
+
+@pytest.fixture
+def replacement(request, monkeypatch, tmp_path, google):
+    """Start from genuine known key bytes, not a forged installed SHA256 receipt."""
+    original = campaign_builders.configuration_document
+
+    def document():
+        """Only fixture initialization supplies the existing working fingerprint."""
+        result = original()
+        result["sections"]["integrations"][0]["values"]["credential_fingerprint"] = (
+            file_fingerprint(PRIOR)
+        )
+        return result
+
+    monkeypatch.setattr(campaign_builders, "configuration_document", document)
+    service = request.getfixturevalue("auth_service")
+    private = request.getfixturevalue("handoff")
+    browser, _ = signed_in()
+    intent = hidden(browser.get(REPLACE), "intent")
+    result = post(browser, REPLACE, {"intent": intent, "candidate": CANDIDATE.decode()})
+    assert result.status_code == 302, result.content
+    row = SecretReplacementRequest.objects.get()
+    directory = tmp_path / "private-parishsoft"
+    directory.mkdir(mode=0o700)
+    write_private(directory / "credential", PRIOR)
+    installer = CredentialInstaller(
+        CredentialFiles(directory / "credential", private),
+        validate=lambda value: value == CANDIDATE,
+    )
+    with identity("pk_stewardship_credential_parishsoft"):
+        assert installer.run_once().state == "awaiting_ack"
+    assert read_private(installer.files.path) == CANDIDATE
+    return SimpleNamespace(
+        service=service,
+        browser=browser,
+        installer=installer,
+        row=row,
+        url=result["Location"] + "/select",
+    )
+
+
+def complete(value):
+    """Finish only after the actual required worker attests its loaded key bytes."""
+    with identity("pk_stewardship_worker"):
+        acknowledge_loaded_credential(
+            request_id=value.row.pk, consumer="worker", loaded_value=CANDIDATE
+        )
+    with identity("pk_stewardship_credential_parishsoft"):
+        assert value.installer.run_once().state == "applied"
+    value.row.refresh_from_db()
+
+
+def test_select_acknowledged_fingerprint_via_real_web_and_config_roles(
+    replacement, request
+):
+    """Neither installed bytes nor an Applying request alone changes selected YAML."""
+    value = replacement
+    assert value.browser.get(value.url).status_code == 404
+    complete(value)
+    old = value.service.store.active()
+    with identity("pk_stewardship_web"):
+        preview = hidden(value.browser.get(value.url), "preview")
+        response = post(
+            value.browser, value.url, {"action": "confirm", "preview": preview}
+        )
+        assert response.status_code == 302, response.content
+    assert value.service.store.active() == old
+    row = ConfigurationChangeRequest.objects.get(
+        pk=response["Location"].rsplit("/", 1)[-1]
+    )
+    request.getfixturevalue("config_role")
+    with as_config_installer():
+        assert (
+            install_request(
+                value.service.store, request_id=row.pk, correlation_id=uuid4()
+            ).state
+            == "applied"
+        )
+        with (
+            pytest.raises(DatabaseError),
+            transaction.atomic(),
+            connection.cursor() as cursor,
+        ):
+            cursor.execute(
+                "SELECT ciphertext FROM stewardship_sealed_credential_staging"
+            )
+    record = value.service.store.active().document()["sections"]["integrations"][0][
+        "values"
+    ]
+    assert record["credential_fingerprint"] == file_fingerprint(CANDIDATE)
+    assert b"already selected" in value.browser.get(value.url).content
+    assert (
+        post(value.browser, value.url, {"action": "confirm", "preview": preview})[
+            "Location"
+        ]
+        == response["Location"]
+    )
+    assert CANDIDATE not in value.browser.get(value.url).content
+
+
+@pytest.mark.parametrize(
+    "failure", ["stale_base", "settings", "freshness", "hidden", "csrf"]
+)
+def test_selection_rechecks_proof_intent_and_fresh_auth(
+    replacement, monkeypatch, failure
+):
+    """A correct old preview never authorizes new settings or stale authentication."""
+    value = replacement
+    complete(value)
+    preview = hidden(value.browser.get(value.url), "preview")
+    before = value.service.store.active()
+    if failure in {"stale_base", "settings"}:
+        section = "parish" if failure == "stale_base" else "integrations"
+        record = before.document()["sections"][section][0]
+        change(
+            value.service.store,
+            before,
+            uuid4(),
+            [
+                {
+                    "operation": "update",
+                    "section": section,
+                    "id": record["id"],
+                    "values": {"name": "New parish"}
+                    if failure == "stale_base"
+                    else {"settings": {"organization_id": "4321"}},
+                }
+            ],
+        )
+    elif failure == "freshness":
+        monkeypatch.setattr(
+            "parishkit.stewardship.accounts.sessions.database_now",
+            lambda: timezone.now() + timedelta(minutes=6),
+        )
+    count = ConfigurationChangeRequest.objects.count()
+    data = {"action": "confirm", "preview": preview}
+    if failure == "hidden":
+        data["credential_fingerprint"] = "b" * 64
+    response = (
+        value.browser.post(value.url, data)
+        if failure == "csrf"
+        else post(value.browser, value.url, data)
+    )
+    assert (
+        response.status_code
+        == {
+            "stale_base": 409,
+            "settings": 400,
+            "freshness": 403,
+            "hidden": 400,
+            "csrf": 403,
+        }[failure]
+    )
+    assert ConfigurationChangeRequest.objects.count() == count
+
+
+def test_installer_refuses_fingerprint_without_matching_ack(replacement):
+    """Reject an arbitrary changed reference before selecting any authority file."""
+    value = replacement
+    complete(value)
+    old = value.service.store.active()
+    record = old.document()["sections"]["integrations"][0]
+    from parishkit.stewardship.accounts.configuration_requests import record_request
+    from parishkit.stewardship.accounts.request_patch import CREDENTIAL_REQUEST_SCHEMA
+
+    request = record_request(
+        base_digest=old.digest,
+        actor_id=uuid4(),
+        request_key=uuid4(),
+        correlation_id=uuid4(),
+        request_schema=CREDENTIAL_REQUEST_SCHEMA,
+        patch=[
+            {
+                "operation": "update",
+                "section": "integrations",
+                "id": record["id"],
+                "values": {"credential_fingerprint": "f" * 64},
+            }
+        ],
+    )
+    receipt = install_request(
+        value.service.store, request_id=request.request_id, correlation_id=uuid4()
+    )
+    assert receipt.state == "failed" and receipt.failure_code == "invalid_candidate"
+    assert value.service.store.active() == old
+
+
+def test_installer_rechecks_a_new_pending_replacement_after_intake(replacement):
+    """The first preview cannot race a new target operation into YAML selection."""
+    value = replacement
+    complete(value)
+    old = value.service.store.active()
+    preview = hidden(value.browser.get(value.url), "preview")
+    response = post(value.browser, value.url, {"action": "confirm", "preview": preview})
+    row = ConfigurationChangeRequest.objects.get(
+        pk=response["Location"].rsplit("/", 1)[-1]
+    )
+    intent = hidden(value.browser.get(REPLACE), "intent")
+    assert (
+        post(
+            value.browser, REPLACE, {"intent": intent, "candidate": "third-candidate"}
+        ).status_code
+        == 302
+    )
+    result = install_request(
+        value.service.store, request_id=row.pk, correlation_id=uuid4()
+    )
+    assert result.state == "failed" and result.failure_code == "invalid_candidate"
+    assert value.service.store.active() == old
+
+
+def test_selection_migration_roundtrip_and_populated_refusal(replacement):
+    """Retained requests cannot lose the parser discriminator required for replay."""
+    from django.db.migrations.executor import MigrationExecutor
+
+    leaves = MigrationExecutor(connection).loader.graph.leaf_nodes()
+    previous = [("stewardship_accounts", "0056_configuration_credential_receipts")]
+    try:
+        MigrationExecutor(connection).migrate(previous)
+        MigrationExecutor(connection).migrate(leaves)
+        complete(replacement)
+        preview = hidden(replacement.browser.get(replacement.url), "preview")
+        assert (
+            post(
+                replacement.browser,
+                replacement.url,
+                {"action": "confirm", "preview": preview},
+            ).status_code
+            == 302
+        )
+        with pytest.raises(DatabaseError, match="selection history prevents downgrade"):
+            MigrationExecutor(connection).migrate(previous)
+    finally:
+        MigrationExecutor(connection).migrate(leaves)
+
+
+def test_pending_replacement_holds_selection_and_latest_receipt_is_required(
+    replacement,
+):
+    """An in-flight replacement is not mistaken for current acknowledged evidence."""
+    value = replacement
+    complete(value)
+    intent = hidden(value.browser.get(REPLACE), "intent")
+    assert (
+        post(
+            value.browser,
+            REPLACE,
+            {"intent": intent, "candidate": "synthetic-third-key"},
+        ).status_code
+        == 302
+    )
+    assert value.browser.get(value.url).status_code == 400
+
+
+def test_selection_is_original_actor_scoped(replacement, google):
+    """A different Administrator cannot reuse the original owner's signed intent."""
+    from ..policy_factory import address
+
+    value = replacement
+    complete(value)
+    preview = hidden(value.browser.get(value.url), "preview")
+    change(
+        value.service.store,
+        value.service.store.active(),
+        uuid4(),
+        [
+            {
+                "operation": "add",
+                "section": "login_rules",
+                **address("second@example.org"),
+            }
+        ],
+    )
+    google[0]["email"] = "second@example.org"
+    google[0]["sub"] = "second-google-subject"
+    browser, _ = signed_in()
+    assert browser.get(value.url).status_code == 404
+    assert (
+        post(browser, value.url, {"action": "confirm", "preview": preview}).status_code
+        == 403
+    )

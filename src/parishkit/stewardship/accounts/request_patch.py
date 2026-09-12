@@ -15,7 +15,7 @@ from uuid import UUID
 from parishkit.config import ConfigError
 
 from .authority import ConfigurationVersion, parse_version
-from .configuration_schema import validator_for
+from .configuration_schema import schema_for, validator_for
 from .content_schema import RECOVERY_SCHEMA as CONTENT_RECOVERY_SCHEMA
 from .content_schema import REQUEST_SCHEMA as CONTENT_REQUEST_SCHEMA
 from .content_schema import SCHEMA as CONTENT_SCHEMA
@@ -28,6 +28,7 @@ from .ministry_activity import remember_records
 REQUEST_SCHEMA = "parish-integrations-patch-v1"
 POLICY_REQUEST_SCHEMA = "foundation-policy-patch-v2"
 CAMPAIGN_REQUEST_SCHEMA = "campaign-foundation-patch-v3"
+CREDENTIAL_REQUEST_SCHEMA = "integration-credential-patch-v6"
 
 
 def _invalid():
@@ -169,7 +170,47 @@ def _build_v5_candidate(base, patch, *, candidate_id):
     return result
 
 
-def _build_records(base, patch, *, candidate_id, schema, sections):
+def _build_credential_candidate(base, patch, *, candidate_id):
+    """A separate explicit format changes one fingerprint, never public settings.
+
+    Parsing binds immutable intent, not installed-credential authority. The
+    selection owner and installer verify target receipts/ACKs independently.
+    Default and retained v1-v5 parsers continue to reject fingerprint edits.
+    """
+    if not isinstance(base, ConfigurationVersion):
+        raise TypeError("An explicit configuration version is required.")
+    if (
+        type(patch) is not list
+        or len(patch) != 1
+        or type(patch[0]) is not dict
+        or patch[0].get("operation") != "update"
+        or patch[0].get("section") != "integrations"
+        or type(patch[0].get("values")) is not dict
+        or set(patch[0]["values"]) != {"credential_fingerprint"}
+        or patch[0]["values"]["credential_fingerprint"] is None
+    ):
+        _invalid()
+    result = _build_records(
+        base,
+        patch,
+        candidate_id=candidate_id,
+        schema=schema_for(base.document()),
+        sections={"integrations"},
+        credential_reference=True,
+    )
+    record = next(
+        row
+        for row in result.candidate.document()["sections"]["integrations"]
+        if row["id"] == patch[0]["id"]
+    )
+    if record["values"]["kind"] not in {"parishsoft", "google_workspace", "slack"}:
+        _invalid()
+    return result
+
+
+def _build_records(
+    base, patch, *, candidate_id, schema, sections, credential_reference=False
+):
     """Shared mechanical patch application; each stored parser chooses its schema."""
     if not isinstance(base, ConfigurationVersion) or not isinstance(candidate_id, UUID):
         raise TypeError("Explicit configuration and candidate identities are required.")
@@ -225,7 +266,9 @@ def _build_records(base, patch, *, candidate_id, schema, sections):
                 if action == "add":
                     if values.get("credential_fingerprint") is not None:
                         _invalid()
-                elif "kind" in values or "credential_fingerprint" in values:
+                elif "kind" in values or (
+                    "credential_fingerprint" in values and not credential_reference
+                ):
                     # These are identity/installer evidence, not Admin-editable
                     # settings. Even resubmitting an unchanged value is refused.
                     _invalid()
@@ -343,6 +386,7 @@ BUILDERS = MappingProxyType(
         MINISTRY_RECOVERY_SCHEMA: _build_recovery_ministry_candidate,
         CONTENT_REQUEST_SCHEMA: _build_v5_candidate,
         CONTENT_RECOVERY_SCHEMA: _build_recovery_content_candidate,
+        CREDENTIAL_REQUEST_SCHEMA: _build_credential_candidate,
         "operator-recovery-patch-v1": _build_recovery_candidate,
         "operator-recovery-patch-v2": _build_recovery_v2_candidate,
         "operator-recovery-bootstrap-v1": _build_recovery_bootstrap_candidate,

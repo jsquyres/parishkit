@@ -66,9 +66,10 @@ form run has 93% focused coverage, and 30 new three-engine browser cases pass.
 Normalized logo upload, four-size preview, immutable activation and historical
 branding are implemented. Durable, bounded worker cleanup preserves all retained
 references and resumes interrupted removal; the combined branding/history run
-passes 68 cases with 95% focused coverage. Wizard finalization,
-post-install configuration fingerprint selection,
-explicit delivery tests and the remaining full acceptance checks are not
+passes 68 cases with 95% focused coverage. Post-install selection now requires
+the latest target receipt, complete consumer acknowledgements and matching public
+provider scope; the combined 93-case run has 94% focused selection coverage.
+Wizard finalization, explicit delivery tests and full acceptance checks are not
 complete. See
 [Phase 2 evidence](../../guides/stewardship-phase-2.md#worker-composition-and-initial-admin-editors-in-progress).
 

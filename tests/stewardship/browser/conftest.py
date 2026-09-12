@@ -182,6 +182,17 @@ def component_origin():
             },
         ),
         (
+            "/credential-selection",
+            "credential-selection",
+            {
+                "label": "ParishSoft",
+                "before": "a" * 64,
+                "receipt": {"pk": uuid4(), "resulting_fingerprint": "b" * 64},
+                "preview": "synthetic-selection-intent",
+                "selected": False,
+            },
+        ),
+        (
             "/credential-status",
             "credential-status",
             {

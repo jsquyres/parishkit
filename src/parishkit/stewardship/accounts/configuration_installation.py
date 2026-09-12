@@ -136,10 +136,12 @@ class DatabaseMaterializer:
         self._check()
         self._candidate(version)
         from .branding_validation import validate_installation as validate_branding
+        from .integration_selection import validate_installation as validate_credentials
         from .ministry_activity import validate_installation as validate_activity
 
         validate_activity(version.document())
         validate_branding(version.document(), actor_id=self.actor_id)
+        validate_credentials(version.document())
         from parishkit.stewardship.campaigns.admission import validate_installation
 
         validate_installation(
@@ -426,6 +428,11 @@ def _install_request(store, *, request, correlation_id, admit_campaign=None):
                 validate_branding(
                     intent.candidate.document(), actor_id=request.actor_id
                 )
+                from .integration_selection import (
+                    validate_installation as validate_credentials,
+                )
+
+                validate_credentials(intent.candidate.document())
             except ConfigError:
                 failure_code = "invalid_candidate"
             if not failure_code:

@@ -94,6 +94,7 @@ def test_csp_blocks_an_unrelated_form_destination(page, component_origin):
         "/integration-preview",
         "/credential-replace",
         "/credential-status",
+        "/credential-selection",
         "/branding-settings",
         "/branding-preview",
     ],
