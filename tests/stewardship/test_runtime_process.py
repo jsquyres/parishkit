@@ -33,12 +33,20 @@ def test_web_process_settings_keep_finite_reserved_headroom(tmp_path, production
     assert options["post_worker_init"] is runtime_process.admitted_worker_started
 
 
+@pytest.mark.parametrize(
+    ("role", "entry"),
+    [
+        (ServiceRole.WEB, "serve_web"),
+        (ServiceRole.WORKER, "serve_background"),
+        (ServiceRole.SCHEDULER, "serve_background"),
+    ],
+)
 def test_runtime_dispatch_holds_real_online_lease_until_runner_exits(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, role, entry
 ):
     """Offline migration cannot start even before the runtime opens its web port."""
     configuration, _ = bootstrap_fixture(tmp_path)
-    configuration = replace(configuration, service_role=ServiceRole.WEB)
+    configuration = replace(configuration, service_role=role)
     monkeypatch.setattr(runtime_process, "load_deployment", lambda path: configuration)
     monkeypatch.setattr(runtime_process, "configure_logging", lambda: None)
     called = []
@@ -51,7 +59,7 @@ def test_runtime_dispatch_holds_real_online_lease_until_runner_exits(
             pass
         return 0
 
-    monkeypatch.setattr(runtime_process, "serve_web", runner)
+    monkeypatch.setattr(runtime_process, entry, runner)
     assert main(["runtime", "--config", "operator-input.yaml"]) == 0
     assert called == [configuration]
     from parishkit.stewardship.runtime_paths import RuntimeLayout

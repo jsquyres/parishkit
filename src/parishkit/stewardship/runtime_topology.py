@@ -3,7 +3,8 @@
 The renderer is non-mutating. An operator command writes its documents only to
 explicit private configuration targets. Images and process counts are concrete;
 there are no compose-time secret substitutions, broad credential mounts or
-readiness-based proxy removal. Later-phase workers remain explicitly pending.
+readiness-based proxy removal. Only the compiled source task registry is enabled;
+later-phase delivery, publication and backup workers remain explicitly pending.
 """
 
 import re
@@ -108,7 +109,7 @@ def _service_config(configuration, role, *, target=None):
         valkey=replace(
             configuration.valkey,
             password_file=layout.valkey_password(role.value)
-            if role is ServiceRole.WEB
+            if role in {ServiceRole.WEB, ServiceRole.WORKER, ServiceRole.SCHEDULER}
             else None,
         ),
     )
@@ -148,11 +149,12 @@ def _online_mounts(configuration):
             result.append(bind(path.parent, read_only=False))
         else:
             result.append(bind(path))
-    if role is ServiceRole.WEB:
+    if role in {ServiceRole.WEB, ServiceRole.WORKER, ServiceRole.SCHEDULER}:
         if configuration.valkey.password_file is None:
-            raise ConfigError("The web limiter needs its individual Valkey credential.")
+            raise ConfigError("The service needs its individual Valkey credential.")
+        result.append(bind(configuration.valkey.password_file))
+    if role is ServiceRole.WEB:
         result += [
-            bind(configuration.valkey.password_file),
             bind(configuration.postgres.download_password_file),
             *(
                 bind(configuration.paths[name], read_only=False)
@@ -184,8 +186,8 @@ def render_runtime(configuration, *, image, checkout=None):
     if budget.replicas != 1:
         raise ConfigError("Operational runtime requires one web container.")
     targets = sorted(SECRET_NAMES - {"handoff_private"})
-    # Reserve concrete SQL slots even before source handlers enable these
-    # services: configuration/target installers + worker main/renewal + scheduler.
+    # Configuration/target installers + worker main/renewal + scheduler each
+    # retain their own reserved SQL slots, independent of interactive headroom.
     budget.validate_topology(background_processes=1 + len(targets) + 3)
     image = _image(image, configuration.profile)
     if checkout is not None and (
@@ -194,7 +196,12 @@ def render_runtime(configuration, *, image, checkout=None):
     ):
         raise ConfigError("Source mounts require an explicit development checkout.")
     services, documents = {}, {}
-    roles = [(ServiceRole.WEB, None), (ServiceRole.CONFIG_INSTALLER, None)]
+    roles = [
+        (ServiceRole.WEB, None),
+        (ServiceRole.CONFIG_INSTALLER, None),
+        (ServiceRole.WORKER, None),
+        (ServiceRole.SCHEDULER, None),
+    ]
     roles += [(ServiceRole.CREDENTIAL_INSTALLER, target) for target in targets]
     roles += [
         (role, None)
@@ -244,8 +251,9 @@ def render_runtime(configuration, *, image, checkout=None):
                 "timeout": "4s",
                 "retries": 3,
             }
-            if role is ServiceRole.WEB:
+            if role in {ServiceRole.WEB, ServiceRole.WORKER}:
                 service["networks"]["application-egress"] = {}
+            if role is ServiceRole.WEB:
                 service["healthcheck"] = {
                     "test": ["CMD", "pk-stewardship", "healthcheck"],
                     "interval": "10s",

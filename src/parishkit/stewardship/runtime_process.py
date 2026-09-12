@@ -333,6 +333,8 @@ def execute_runtime(args):
             ServiceRole.WEB: serve_web,
             ServiceRole.CONFIG_INSTALLER: serve_configuration_installer,
             ServiceRole.CREDENTIAL_INSTALLER: serve_credential_installer,
+            ServiceRole.WORKER: serve_background,
+            ServiceRole.SCHEDULER: serve_background,
         }
         runner = runners.get(configuration.service_role)
         if runner is None:

@@ -821,6 +821,19 @@ fixture stalled reproducibly before the final navigation; two separate 63-case
 subsets passed. Per-scenario browser process isolation resolves the complete
 suite without retries, skipped assertions or longer navigation timeouts.
 
+### Source runtime topology wiring (in progress)
+
+The operational dispatcher and rendered Compose topology now include the source
+worker and metadata-only scheduler. Each has its own SQL and Valkey credentials,
+read-only configuration selection and retained offline-exclusion lease. Only the
+worker has ParishSoft credentials and external network access; neither receives
+mail-dispatch private keys or Workspace credentials. The source-only handler
+registry remains closed, and Production source effects still require BG-06's
+suppression owner. Missing required credentials continue to fail startup closed.
+The focused topology/process/composition/provisioning run passes 57 tests. This
+does not yet establish the empty-wizard credential path or a running Compose
+demonstration; those remain Phase 2 acceptance work.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later
