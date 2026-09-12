@@ -73,7 +73,14 @@ Scope and dependencies: [ADM-04 work package](../../plans/stewardship/admin-port
 - [ ] ADM-04.05 — Build atomic schedule reconciliation previews.
 - [ ] ADM-04.06 — Test campaign editing, previews, and schedule races.
 
-Evidence: Not started.
+Evidence: In progress. New-draft creation and structural editing now use
+actor/configuration/source/runtime-bound exact previews and Applied receipts.
+The editor covers dates, timezone, modules, current Ministry/fund selections,
+financial/comparison periods, additional information and structural read-only
+states. Combined form/editor/navigation tests pass 85 cases with 98% focused
+coverage; the expanded browser suite passes 135 cases across three engines.
+Cloning, share-option editing, content/templates, schedule reconciliation and
+readiness-test emails remain open. See [Phase 2 evidence](../../guides/stewardship-phase-2.md).
 
 ## ADM-05: Production transition and pre-start withdrawal
 

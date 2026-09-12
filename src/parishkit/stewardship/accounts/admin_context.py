@@ -51,6 +51,15 @@ def portal_chrome(request):
         navigation.append(
             (reverse("admin:family_codes", args=[campaign.pk]), _("Family codes"))
         )
+    if admin:
+        navigation.append(
+            (
+                reverse("admin:campaign_settings", args=[campaign.pk])
+                if campaign
+                else reverse("admin:campaign_new"),
+                _("Campaign settings") if campaign else _("New campaign"),
+            )
+        )
     now = database_now()
     counts = None
     if allows(actor, Capability.BACKGROUND_WORK):

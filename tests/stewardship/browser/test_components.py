@@ -70,6 +70,14 @@ def test_csp_blocks_an_unrelated_form_destination(page, component_origin):
         "/codes",
         "/availability",
         "/denied",
+        "/ministries",
+        "/ministry-preview",
+        "/parish-settings",
+        "/parish-preview",
+        "/configuration-request",
+        "/background",
+        "/campaign-settings",
+        "/campaign-preview",
     ],
 )
 @pytest.mark.parametrize("width", [320, 1280])
@@ -213,5 +221,64 @@ def test_javascript_disabled_retains_admin_form_and_family_explanation(
         page.goto(component_origin + "/family")
         assert page.locator("noscript").is_visible()
         assert "enable JavaScript" in page.locator("noscript").inner_text()
+    finally:
+        context.close()
+
+
+def test_parish_editor_retains_native_form_validation_and_timezone_scope(
+    page, component_origin
+):
+    """Profile forms retain native validation and prospective timezone guidance."""
+    page.goto(component_origin + "/parish-settings")
+    assert "Existing campaign timezones" in page.locator("main").inner_text()
+    name = page.get_by_label("Parish name")
+    name.fill("")
+    assert not name.evaluate("field => field.checkValidity()")
+    name.fill("A renamed parish")
+    assert name.evaluate("field => field.checkValidity()")
+    assert page.get_by_role("button", name="Preview changes").is_visible()
+
+
+def test_ministry_preview_preserves_operational_indicators(page, component_origin):
+    """Configuration pages do not replace the persistent Admin navigation/header."""
+    for path in ("/ministries", "/ministry-preview", "/configuration-request"):
+        page.goto(component_origin + path)
+        assert page.locator("[data-background-indicator]").is_visible()
+        assert page.get_by_role("complementary", name="Testing mode").is_visible()
+
+
+def test_campaign_modules_hide_and_disable_unselected_fields(page, component_origin):
+    """Conditional groups cannot accidentally post data from a disabled module."""
+    page.goto(component_origin + "/campaign-settings")
+    ministry = page.get_by_role("group", name="Ministry selections")
+    financial = page.get_by_role("group", name="Financial periods and funds")
+    assert not ministry.is_visible() and not financial.is_visible()
+    page.get_by_label("Ministry stewardship").check()
+    assert ministry.is_visible()
+    assert page.get_by_label("Included Ministries").input_value() == "4"
+    page.get_by_label("Financial stewardship").check()
+    assert financial.is_visible()
+    page.get_by_label("Upcoming financial period start").fill("2027-01-01")
+    page.get_by_label("Financial stewardship").uncheck()
+    posted = page.locator("[data-campaign-form]").evaluate(
+        "form => Array.from(new FormData(form).keys())"
+    )
+    assert "financial_start" not in posted and "fund_duids" not in posted
+    assert "ministry_duids" in posted
+
+
+def test_campaign_modules_remain_usable_without_javascript(
+    browser_engine, component_origin
+):
+    """Server validation remains available when progressive enhancement is absent."""
+    context = browser_engine.new_context(java_script_enabled=False)
+    try:
+        page = context.new_page()
+        page.goto(component_origin + "/campaign-settings")
+        assert page.get_by_role(
+            "group", name="Financial periods and funds"
+        ).is_visible()
+        assert page.get_by_label("Upcoming financial period start").is_enabled()
+        assert page.get_by_role("button", name="Preview changes").is_visible()
     finally:
         context.close()

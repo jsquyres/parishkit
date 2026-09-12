@@ -30,6 +30,30 @@
     });
   });
 
+  // Optional modules remain ordinary accessible fieldsets without JavaScript.
+  // Hidden fields are disabled, not silently copied into submitted data. The
+  // server independently rejects stray data for every disabled module.
+  document.querySelectorAll("[data-campaign-form]").forEach((form) => {
+    form.querySelectorAll("[data-campaign-module]").forEach((group) => {
+      const toggle = document.getElementById(group.dataset.campaignModule);
+      if (!toggle) return;
+      let initialized = toggle.checked || !form.hasAttribute("data-new-campaign");
+      function update() {
+        group.hidden = !toggle.checked;
+        group.disabled = !toggle.checked;
+        if (toggle.checked && !initialized) {
+          const ministries = group.querySelector('select[name="ministry_duids"]');
+          if (ministries) Array.from(ministries.options).forEach((item) => {
+            item.selected = true;
+          });
+          initialized = true;
+        }
+      }
+      toggle.addEventListener("change", update);
+      update();
+    });
+  });
+
   const session = document.querySelector("[data-family-session], [data-admin-session]");
   if (!session) return;
   const warning = document.getElementById("session-warning");

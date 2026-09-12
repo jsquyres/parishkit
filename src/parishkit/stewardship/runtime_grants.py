@@ -16,6 +16,8 @@ WEB_READ_TABLES = frozenset(
         "stewardship_source_current",
         "stewardship_snapshot_ministry",
         "stewardship_source_ministry",
+        "stewardship_snapshot_fund",
+        "stewardship_source_fund",
         "django_migrations",
         "django_session",
         "socialaccount_socialapp",

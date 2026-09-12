@@ -679,6 +679,33 @@ The complete PostgreSQL regression run after this storage increment passed
 campaign-editor work was still in progress, so these results do not represent
 the final Phase 2 acceptance gate.
 
+### Draft campaign editor (in progress)
+
+The Admin can create the sole draft or edit its structural configuration through
+exact signed previews and the existing configuration installer. Confirmation
+pins source, applied YAML, lifecycle versions and active work gates. Source
+promotion or going live invalidates an earlier preview even when its YAML digest
+did not change. Identical confirmation retries return the original receipt;
+acceptance alone never claims activation. Existing and historical locked
+campaigns render structural fields read-only. New drafts copy the Parish
+timezone, and later draft changes never alter the Parish default.
+
+Forms validate module-dependent inputs, financial/comparison whole-year periods,
+explicit source fund IDs, overlap acknowledgment and current Ministry choices.
+Locally inactive Ministries are unavailable for new selection; retained
+selection does not reactivate them. HTML previews use readable names, dates and
+comma-formatted DUIDs rather than storage UUIDs or object representations.
+Progressive module hiding disables unselected fields; server validation still
+rejects stray values, and ordinary forms remain usable without JavaScript.
+
+The combined form/editor/profile/navigation run passed 85 tests with 98% line
+coverage across the three new campaign modules. All 135 Chromium/Firefox/WebKit
+browser cases passed, including mobile/desktop accessibility, module behavior
+and no-JavaScript forms. The expanded fixtures also caught and fixed a Ministry
+page header override that had hidden the persistent background-work indicator.
+Cloning, editable share options, immutable content/templates, combined schedule
+reconciliation and readiness-test mail are still required before ADM-04 closes.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later

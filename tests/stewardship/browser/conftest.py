@@ -5,11 +5,15 @@ from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
+from uuid import uuid4
 
 import pytest
 from django.contrib.staticfiles import finders
 from django.template.loader import render_to_string
 
+from parishkit.stewardship.accounts.campaign_forms import CampaignForm
+from parishkit.stewardship.accounts.parish_views import ParishForm
+from parishkit.stewardship.campaigns.domain import Percentage
 from parishkit.stewardship.web.security import CSP
 
 NOW = datetime(2026, 9, 10, 12, tzinfo=UTC)
@@ -53,6 +57,27 @@ def component_origin():
         "absolute_deadline": NOW + timedelta(hours=4),
         "csrf_token": "a" * 64,
     }
+    admin = {
+        "admin": True,
+        "parish_name": "Sample Parish",
+        "navigation": [
+            {"url": "/home", "label": "Home"},
+            {"url": "/parish-settings", "label": "Parish settings"},
+            {"url": "/ministries", "label": "Ministry activity"},
+        ],
+        "testing": True,
+        "testing_recipient": "testing@example.org",
+        "background": {"total": 1, "running": 1},
+        "server_now": NOW,
+        "idle_deadline": NOW + timedelta(hours=1),
+        "absolute_deadline": NOW + timedelta(hours=12),
+    }
+    ministry = {
+        "duid": 12345,
+        "name": "Community outreach",
+        "active": True,
+        "included": True,
+    }
     responses = {
         "/login": ("text/html", render_to_string("stewardship/login.html", context)),
         "/family-login": (
@@ -74,7 +99,11 @@ def component_origin():
         ),
     }
     for path, template, extra in (
-        ("/home", "home", {"configuration": {"mode": "testing"}}),
+        (
+            "/home",
+            "home",
+            {"configuration": {"mode": "testing"}, "admin_chrome": admin},
+        ),
         (
             "/codes",
             "codes",
@@ -95,6 +124,132 @@ def component_origin():
         responses[path] = (
             "text/html",
             render_to_string(f"stewardship/{template}.html", {**context, **extra}),
+        )
+    for path, template, extra in (
+        (
+            "/campaign-settings",
+            "campaign-settings",
+            {
+                "editable": True,
+                "form": CampaignForm(
+                    initial={
+                        "name": "Sample campaign",
+                        "timezone": "America/New_York",
+                        "start_date": "2026-10-01",
+                        "end_date": "2026-10-31",
+                        "census": True,
+                        "base_digest": "a" * 64,
+                    },
+                    ministries=[("4", "Community outreach")],
+                    funds=[("9", "Offertory")],
+                ),
+            },
+        ),
+        (
+            "/campaign-preview",
+            "campaign-preview",
+            {
+                "creating": True,
+                "preview": "synthetic-signed-intent",
+                "changes": [
+                    {
+                        "label": "Campaign timezone",
+                        "before": None,
+                        "after": "America/New_York",
+                    }
+                ],
+            },
+        ),
+        ("/ministries", "ministries", {"ministries": [ministry], "state": "all"}),
+        (
+            "/ministry-preview",
+            "ministry-preview",
+            {
+                "ministry": ministry,
+                "new_active": False,
+                "preview": "synthetic-signed-intent",
+                "seeded_count": 2,
+                "manual_count": 1,
+            },
+        ),
+        (
+            "/parish-settings",
+            "parish-settings",
+            {
+                "configuration": {
+                    "mode": "testing",
+                    "testing_recipient": "testing@example.org",
+                },
+                "form": ParishForm(
+                    initial={
+                        "name": "Sample Parish",
+                        "website": "https://example.org",
+                        "timezone": "America/New_York",
+                        "phone": "+12125551234",
+                        "base_digest": "a" * 64,
+                    }
+                ),
+            },
+        ),
+        (
+            "/parish-preview",
+            "parish-preview",
+            {
+                "changes": [
+                    {
+                        "label": "Parish timezone",
+                        "before": "America/New_York",
+                        "after": "America/Los_Angeles",
+                    }
+                ],
+                "timezone_changed": True,
+                "preview": "synthetic-signed-intent",
+            },
+        ),
+        (
+            "/configuration-request",
+            "configuration-request",
+            {
+                "receipt": {"state": "staged", "request_id": uuid4()},
+            },
+        ),
+        (
+            "/background",
+            "background",
+            {
+                "work": {
+                    "counts": {
+                        "active": 1,
+                        "queued": 0,
+                        "retry_wait": 0,
+                        "abandoned": 0,
+                    },
+                    "tasks": [
+                        {
+                            "id": str(uuid4()),
+                            "type": "source_refresh",
+                            "state": "running",
+                            "heartbeat_at": NOW.isoformat(),
+                            "progress": {
+                                "phase": "fetching",
+                                "current": 1000,
+                                "total": 3000,
+                                "display": Percentage(1000, 3000),
+                            },
+                        }
+                    ],
+                },
+                "states": ("nonterminal", "all", "succeeded", "failed"),
+                "selected_state": "nonterminal",
+            },
+        ),
+    ):
+        responses[path] = (
+            "text/html",
+            render_to_string(
+                f"stewardship/{template}.html",
+                context | {"admin_chrome": admin} | extra,
+            ),
         )
     for name, kind in (("css", "text/css"), ("js", "application/javascript")):
         asset = f"stewardship/ui-v1.{name}"

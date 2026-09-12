@@ -45,7 +45,7 @@ def editable_configuration(service):
     return value
 
 
-def form_action(parameters, *, preview_fields):
+def form_action(parameters, *, preview_fields, multiple_fields=frozenset()):
     """Reject hidden, repeated and cross-action fields before constructing intent."""
     fields = {
         "preview": {"action", "csrfmiddlewaretoken", *preview_fields},
@@ -55,7 +55,10 @@ def form_action(parameters, *, preview_fields):
     if (
         action not in fields
         or set(parameters) - fields[action]
-        or any(len(values) != 1 for _, values in parameters.lists())
+        or any(
+            len(values) != 1 and not (action == "preview" and name in multiple_fields)
+            for name, values in parameters.lists()
+        )
     ):
         raise ValueError("Invalid configuration action or fields.")
     return action

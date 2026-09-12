@@ -6,6 +6,7 @@ from . import views
 from .accounts import (
     access_gate,
     authentication,
+    campaign_views,
     code_reports,
     family_authentication,
     ministry_views,
@@ -23,6 +24,12 @@ family_patterns = [
     path("logout", family_authentication.logout, name="logout"),
 ]
 admin_patterns = [
+    path("campaign/new", campaign_views.campaign_settings, name="campaign_new"),
+    path(
+        "campaign/<uuid:campaign_id>/settings",
+        campaign_views.campaign_settings,
+        name="campaign_settings",
+    ),
     path("configuration/parish", parish_views.parish_settings, name="parish_settings"),
     path(
         "configuration/ministries", ministry_views.ministry_activity, name="ministries"
