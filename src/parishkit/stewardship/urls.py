@@ -11,6 +11,7 @@ from .accounts import (
     family_authentication,
     ministry_views,
     parish_views,
+    presence,
     share_views,
 )
 from .jobs import views as job_views
@@ -20,11 +21,13 @@ public_patterns = [
     path("access/<str:token>", family_authentication.access, name="access"),
 ]
 family_patterns = [
+    path("presence", presence.heartbeat, name="presence"),
     path("", family_authentication.portal, name="entry"),
     path("keepalive", family_authentication.keepalive, name="keepalive"),
     path("logout", family_authentication.logout, name="logout"),
 ]
 admin_patterns = [
+    path("presence", presence.active_families, name="presence"),
     path(
         "campaign/<uuid:campaign_id>/share-options",
         share_views.share_settings,
@@ -46,6 +49,11 @@ admin_patterns = [
         name="configuration_request",
     ),
     path("background", job_views.background_page, name="background"),
+    path(
+        "background/task/<uuid:task_id>",
+        job_views.task_page,
+        name="background_task_page",
+    ),
     path("background/tasks", job_views.task_list, name="background_tasks"),
     path(
         "background/tasks/<uuid:task_id>",

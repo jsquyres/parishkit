@@ -78,6 +78,10 @@ def test_csp_blocks_an_unrelated_form_destination(page, component_origin):
         "/background",
         "/campaign-settings",
         "/campaign-preview",
+        "/share-settings",
+        "/share-preview",
+        "/presence",
+        "/background-task",
     ],
 )
 @pytest.mark.parametrize("width", [320, 1280])
@@ -282,3 +286,71 @@ def test_campaign_modules_remain_usable_without_javascript(
         assert page.get_by_role("button", name="Preview changes").is_visible()
     finally:
         context.close()
+
+
+def test_family_presence_is_visible_only_bounded_and_carries_no_answers(
+    page, component_origin
+):
+    """Presence posts neither answers nor activity claims and stops after expiry."""
+    page.clock.install(time=NOW)
+    requests = []
+
+    def observe(route):
+        """Record the exact wire contract and finish its bounded passive request."""
+        requests.append(route.request)
+        route.fulfill(
+            status=200, content_type="application/json", body='{"recorded":true}'
+        )
+
+    page.route("**/family/presence", observe)
+    page.goto(component_origin + "/family")
+    page.wait_for_load_state("networkidle")
+    assert len(requests) == 1 and requests[0].post_data == "section=welcome"
+    page.clock.fast_forward(29000)
+    assert len(requests) == 1
+    page.evaluate(
+        "Object.defineProperty(document, 'hidden', {configurable:true, get:()=>true})"
+    )
+    page.clock.fast_forward(31000)
+    assert len(requests) == 1
+    page.evaluate(
+        "Object.defineProperty(document, 'hidden', {configurable:true, get:()=>false})"
+    )
+    with page.expect_response("**/family/presence"):
+        page.clock.fast_forward(30000)
+    page.wait_for_load_state("networkidle")
+    assert len(requests) == 2
+    page.clock.fast_forward(5 * 60 * 60 * 1000)
+    assert len(requests) == 2
+
+
+def test_admin_presence_poll_is_passive_and_shows_service_failure(
+    page, component_origin
+):
+    """Header polling is read-only and a failure is not represented as zero presence."""
+    page.clock.install(time=NOW)
+    requests = []
+
+    def observe(route):
+        """First return a count, then a retriable failure without private error text."""
+        requests.append(route.request)
+        route.fulfill(
+            status=200 if len(requests) == 1 else 503,
+            content_type="application/json",
+            body='{"count":1234}',
+        )
+
+    page.route("**/admin/presence?format=count", observe)
+    page.goto(component_origin + "/home")
+    with page.expect_request("**/admin/presence?format=count"):
+        page.clock.fast_forward(30000)
+    page.wait_for_function(
+        "() => document.querySelector('[data-presence-count]').textContent === '1,234'"
+    )
+    assert requests[0].method == "GET" and not requests[0].post_data
+    with page.expect_request("**/admin/presence?format=count"):
+        page.clock.fast_forward(30000)
+    page.wait_for_function(
+        "() => !document.querySelector('[data-presence-unavailable]').hidden"
+    )
+    assert page.locator("[data-presence-count]").inner_text() == "1,234"

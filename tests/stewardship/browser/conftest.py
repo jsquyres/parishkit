@@ -13,6 +13,10 @@ from django.template.loader import render_to_string
 
 from parishkit.stewardship.accounts.campaign_forms import CampaignForm
 from parishkit.stewardship.accounts.parish_views import ParishForm
+from parishkit.stewardship.accounts.share_forms import (
+    ShareOptions,
+    default_share_options,
+)
 from parishkit.stewardship.campaigns.domain import Percentage
 from parishkit.stewardship.web.security import CSP
 
@@ -126,6 +130,87 @@ def component_origin():
             render_to_string(f"stewardship/{template}.html", {**context, **extra}),
         )
     for path, template, extra in (
+        (
+            "/background-task",
+            "background-task",
+            {
+                "task": {
+                    "id": uuid4(),
+                    "type": "source_refresh",
+                    "state": "running",
+                    "active": True,
+                    "created_at": NOW.isoformat(),
+                    "attempt": 1,
+                    "retry_sequence": 0,
+                    "progress": {
+                        "phase": "fetching",
+                        "current": 1000,
+                        "total": 4000,
+                        "display": Percentage(1000, 4000),
+                    },
+                },
+                "work": {
+                    "events": [
+                        {
+                            "version": 2,
+                            "at": NOW.isoformat(),
+                            "action": "progress",
+                            "state": "running",
+                            "progress": {
+                                "phase": "fetching",
+                                "current": 1000,
+                                "total": 4000,
+                                "display": Percentage(1000, 4000),
+                            },
+                        }
+                    ]
+                },
+            },
+        ),
+        (
+            "/presence",
+            "presence",
+            {
+                "presence": {
+                    "count": 1,
+                    "as_of": NOW,
+                    "sessions": [
+                        {
+                            "name": "Sample Family",
+                            "duid": 12345,
+                            "started_at": NOW,
+                            "last_activity_at": NOW,
+                            "presence_at": NOW,
+                            "section": "welcome",
+                        }
+                    ],
+                }
+            },
+        ),
+        (
+            "/share-settings",
+            "share-settings",
+            {
+                "campaign": {
+                    "pk": uuid4(),
+                    "active_configuration": {"name": "Sample campaign"},
+                },
+                "base_digest": "a" * 64,
+                "formset": ShareOptions(
+                    prefix="options", previous=default_share_options()
+                ),
+            },
+        ),
+        (
+            "/share-preview",
+            "share-preview",
+            {
+                "campaign": {"pk": uuid4()},
+                "preview": "synthetic-signed-intent",
+                "before": [],
+                "after": default_share_options(),
+            },
+        ),
         (
             "/campaign-settings",
             "campaign-settings",

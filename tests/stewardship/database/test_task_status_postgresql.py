@@ -60,6 +60,7 @@ def test_only_current_admin_sees_operational_tasks(
             "action",
             "version",
             "attempt",
+            "initiator_id",
             "progress",
             "created_at",
             "updated_at",
@@ -194,3 +195,23 @@ def test_detail_missing_identity_and_unsupported_methods_do_not_change_tasks(
     response = browser.post(BASE, HTTP_X_CSRFTOKEN=browser.cookies["csrftoken"].value)
     assert response.status_code == 405
     assert not TaskRun.objects.exists()
+
+
+def test_task_html_detail_is_bounded_passive_and_preserves_history_filters(
+    auth_service, google
+):
+    """The rendered task page uses exactly the authenticated API's closed metadata."""
+    task = act(
+        act(new(), "claim"), "progress", progress=(1000, 4000), phase=TaskPhase.FETCHING
+    )
+    browser, _ = signed_in()
+    before = PortalSession.objects.get().last_activity_at
+    path = f"/admin/background/task/{task.run_id}"
+    response = browser.get(path, {"page": 1, "size": 1})
+    assert response.status_code == 200 and response["Cache-Control"] == "no-store"
+    assert b"1,000 out of 4,000 (25%)" in response.content
+    assert b"Task history (newest first)" in response.content
+    assert b"page=2&amp;size=1" in response.content
+    assert PortalSession.objects.get().last_activity_at == before
+    assert browser.get(f"/admin/background/task/{uuid4()}").status_code == 404
+    assert Client().get(path).status_code == 403

@@ -85,6 +85,7 @@ def _task(row, instant):
         "action": row.action,
         "version": row.version,
         "attempt": row.attempt,
+        "initiator_id": str(row.initiated_by_id) if row.initiated_by_id else None,
         "progress": _progress(row),
         "created_at": row.created_at,
         "updated_at": row.updated_at,
@@ -219,6 +220,31 @@ def background_page(request):
             "next_query": following.urlencode(),
             "selected_state": request.GET.get("state", "nonterminal"),
             "states": ("nonterminal", "all", *TASK_STATES),
+        },
+    )
+    response["Cache-Control"] = "no-store"
+    return response
+
+
+@require_safe
+def task_page(request, task_id):
+    """Render bounded chronological task history without exposing worker payloads."""
+    result = _read(request, task_id)
+    if result.status_code != 200:
+        return result
+    work = json.loads(result.content)
+    for item in [work["task"], *work["events"]]:
+        progress = item["progress"]
+        progress["display"] = Percentage(progress["current"], progress["total"])
+    following = request.GET.copy()
+    following["page"] = str(work["page"] + 1)
+    response = render(
+        request,
+        "stewardship/background-task.html",
+        {
+            "work": work,
+            "task": work["task"],
+            "next_query": following.urlencode(),
         },
     )
     response["Cache-Control"] = "no-store"

@@ -57,9 +57,10 @@ Evidence: In progress. The Ministry activity and Parish profile editors use
 signed exact previews and durable Applying/Applied configuration requests;
 42 PostgreSQL cases cover required fields, source/configuration changes,
 permissions, restricted web grants, installation, retry, and campaign-timezone
-isolation. Navigation, Testing banners and background-work HTML are under
-validation. Branding, integration replacement, complete operational indicators
-and the remaining dashboard acceptance are not complete. See
+isolation. Navigation, Testing banners, passive Family-presence/background
+indicators and HTML task history now pass PostgreSQL and three-engine browser
+tests. Branding, integration replacement and the remaining full acceptance
+checks are not complete. See
 [Phase 2 evidence](../../guides/stewardship-phase-2.md#worker-composition-and-initial-admin-editors-in-progress).
 
 ## ADM-04: Campaign editor, content, schedules, and previews

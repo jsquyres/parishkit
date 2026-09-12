@@ -715,6 +715,32 @@ configuration scope and remains unavailable once structural settings lock.
 Its combined form/campaign/share integration run passed 92 tests with 98% share
 module coverage; the browser expansion passed 147 checks across three engines.
 
+### Passive operational indicators and task details
+
+Family sessions now record a separate presence timestamp and closed form-section
+name. The browser sends at most one heartbeat per thirty seconds while visible,
+never answers or credentials. PostgreSQL stamps its own time, enforces the rate
+limit, and rejects attempts to combine presence with idle/absolute renewal.
+Admin reads filter the current campaign, eligibility, mode/rehearsal/restore
+epochs and session deadlines; observations expire after ninety seconds.
+Family names come only from the current configured tenant's source snapshot.
+
+The persistent Admin header polls a count-only presence endpoint and bounded
+background metadata. It exposes explicit unavailable-state messages rather than
+claiming a failed read means zero activity. Neither polling endpoint renews the
+Admin's session. Authorized detail lists show names/DUIDs/times/section, never
+answers, codes, access tokens or session cookies. Task details now have an HTML
+history/progress view with bounded pagination, initiator identity and browser-
+local timestamps; the original JSON metadata API remains available.
+
+The presence/authentication/navigation run passed 46 tests with 93% presence
+module coverage. The final task/presence/navigation run passed 50 cases, and all
+165 browser cases passed across Chromium, Firefox and WebKit. Browser tests
+exercise visible/hidden tabs, thirty-second request limits, expiration, passive
+count polling, service failures, accessibility and mobile layout. The ordinary
+suite passed 3,470 tests with 1,765 explicit opt-in skips and two existing
+warnings. A fresh complete PostgreSQL regression run is still in progress.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later

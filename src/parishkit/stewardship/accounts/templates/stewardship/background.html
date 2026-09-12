@@ -15,7 +15,7 @@
 <section class="panel">
   <h2>{{ task.type }}</h2>
   <p>{% translate "State:" %} {{ task.state }} · {% translate "Phase:" %} {{ task.progress.phase }}</p>
-  <p>{% translate "Task:" %} <a href="{% url 'admin:background_task' task.id %}">{{ task.id }}</a></p>
+  <p>{% translate "Task:" %} <a href="{% url 'admin:background_task_page' task.id %}">{{ task.id }}</a></p>
   {% if task.progress.total %}
   <p>{{ task.progress.display|out_of }}</p>
   <progress value="{{ task.progress.current }}" max="{{ task.progress.total }}" aria-label="{% translate 'Task progress' %}"></progress>

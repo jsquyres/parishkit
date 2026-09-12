@@ -54,6 +54,55 @@
     });
   });
 
+  // Presence is observational: these requests never count as user activity.
+  // Timers skip hidden tabs and never overlap requests or catch up missed ticks.
+  const presenceIndicator = document.querySelector("[data-presence-indicator]");
+  let presencePending = false;
+  async function refreshPresence() {
+    if (document.hidden || presencePending || !presenceIndicator) return;
+    presencePending = true;
+    const unavailable = document.querySelector("[data-presence-unavailable]");
+    try {
+      const response = await fetch("/admin/presence?format=count", {
+        credentials: "same-origin", cache: "no-store"
+      });
+      if (!response.ok) throw new Error("Presence unavailable");
+      const result = await response.json();
+      if (!Number.isSafeInteger(result.count) || result.count < 0) throw new Error("Invalid count");
+      presenceIndicator.querySelector("[data-presence-count]").textContent = result.count.toLocaleString("en-US");
+      if (unavailable) unavailable.hidden = true;
+    } catch {
+      if (unavailable) unavailable.hidden = false;
+    } finally { presencePending = false; }
+  }
+  if (presenceIndicator) window.setInterval(refreshPresence, 30000);
+
+  const backgroundIndicator = document.querySelector("[data-background-indicator]");
+  let backgroundPending = false;
+  async function refreshBackground() {
+    if (document.hidden || backgroundPending || !backgroundIndicator) return;
+    backgroundPending = true;
+    const unavailable = document.querySelector("[data-background-unavailable]");
+    try {
+      const response = await fetch("/admin/background/tasks?size=1", {
+        credentials: "same-origin", cache: "no-store"
+      });
+      if (!response.ok) throw new Error("Background work unavailable");
+      const result = await response.json();
+      const values = ["queued", "running", "retry_wait", "abandoned", "active"].map(
+        (key) => result.counts[key]);
+      if (values.some((value) => !Number.isSafeInteger(value) || value < 0)) throw new Error("Invalid counts");
+      const total = values.slice(0, 4).reduce((sum, value) => sum + value, 0);
+      if (!Number.isSafeInteger(total)) throw new Error("Invalid total");
+      backgroundIndicator.querySelector("[data-background-total]").textContent = total.toLocaleString("en-US");
+      backgroundIndicator.querySelector("[data-background-running]").textContent = values[4].toLocaleString("en-US");
+      if (unavailable) unavailable.hidden = true;
+    } catch {
+      if (unavailable) unavailable.hidden = false;
+    } finally { backgroundPending = false; }
+  }
+  if (backgroundIndicator) window.setInterval(refreshBackground, 30000);
+
   const session = document.querySelector("[data-family-session], [data-admin-session]");
   if (!session) return;
   const warning = document.getElementById("session-warning");
@@ -66,6 +115,27 @@
   let pending = false;
   let lastAttempt = Date.now();
   if (![offset, deadline, absolute].every(Number.isFinite)) return;
+
+  let familyPresencePending = false;
+  async function familyPresence() {
+    if (!session.hasAttribute("data-family-session") || document.hidden ||
+        familyPresencePending || !csrf ||
+        Date.now() + offset >= Math.min(deadline, absolute)) return;
+    familyPresencePending = true;
+    try {
+      await fetch("/family/presence", {
+        method: "POST", credentials: "same-origin", cache: "no-store",
+        headers: {"X-CSRFToken": csrf.value, "Content-Type": "application/x-www-form-urlencoded"},
+        body: new URLSearchParams({section: session.dataset.presenceSection || "welcome"})
+      });
+    } catch {
+      // Presence failure neither renews the session nor replays any form values.
+    } finally { familyPresencePending = false; }
+  }
+  if (session.hasAttribute("data-family-session")) {
+    familyPresence();
+    window.setInterval(familyPresence, 30000);
+  }
 
   // Polling, focus and visibility do not imply activity. The empty server-side
   // keepalive is explicitly an untrusted claim, capped there too at five minutes.

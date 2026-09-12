@@ -56,6 +56,7 @@ class Action(StrEnum):
     SOURCE_FALLBACK = "source_fallback_requested"
     BACKGROUND_VIEWED = "background_viewed"
     DASHBOARD_VIEWED = "dashboard_viewed"
+    PRESENCE_VIEWED = "family_presence_viewed"
 
 
 FIELDS = {

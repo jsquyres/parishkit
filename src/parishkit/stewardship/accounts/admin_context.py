@@ -11,6 +11,7 @@ from parishkit.stewardship.campaigns.credential_models import CampaignCredential
 from parishkit.stewardship.jobs.models import NONTERMINAL_STATES, TaskRun
 
 from .policy import Capability, Principal, allows
+from .presence import visible_sessions
 from .runtime_models import SystemConfiguration
 from .sessions import ADMIN_IDLE, database_now
 
@@ -93,6 +94,9 @@ def portal_chrome(request):
             "go_live": go_live,
             "critical_count": critical_count,
             "background": counts,
+            "presence_count": visible_sessions(configuration, now).count()
+            if admin
+            else None,
             "server_now": now,
             "absolute_deadline": session.expires_at,
             "idle_deadline": min(
