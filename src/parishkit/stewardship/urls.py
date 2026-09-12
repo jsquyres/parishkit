@@ -13,6 +13,7 @@ from .accounts import (
     ministry_views,
     parish_views,
     presence,
+    schedule_views,
     share_views,
 )
 from .jobs import views as job_views
@@ -28,6 +29,11 @@ family_patterns = [
     path("logout", family_authentication.logout, name="logout"),
 ]
 admin_patterns = [
+    path(
+        "campaign/<uuid:campaign_id>/schedules",
+        schedule_views.schedule_settings,
+        name="schedule_settings",
+    ),
     path(
         "campaign/<uuid:campaign_id>/content",
         content_views.content_settings,

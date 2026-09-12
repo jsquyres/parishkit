@@ -2,11 +2,14 @@
 
 import hashlib
 import json
+from urllib.parse import urlencode
 from uuid import uuid4
 
 from django.core import signing
 from django.db import DatabaseError
+from django.http import HttpResponseRedirect
 from django.shortcuts import render
+from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_http_methods
 
@@ -200,6 +203,33 @@ def _preview(request, service, actor, state, campaign, form):
     if not changed:
         form.add_error(None, _("No settings have changed."))
         return _page(request, configuration, campaign, form, editable=True, status=400)
+    window_fields = {"start_date", "end_date", "timezone"}
+    if (
+        campaign
+        and window_fields.intersection(changed)
+        and any(
+            row["values"]["campaign_id"] == str(campaign.pk)
+            for row in configuration.active_configuration.canonical_document[
+                "sections"
+            ].get("schedules", [])
+        )
+    ):
+        if set(changed) - window_fields:
+            form.add_error(
+                None,
+                _(
+                    "No settings have been saved. Reconcile dates and mail schedules "
+                    "first using the schedule editor, then save other draft settings."
+                ),
+            )
+            return _page(
+                request, configuration, campaign, form, editable=True, status=400
+            )
+        return HttpResponseRedirect(
+            reverse("admin:schedule_settings", args=[campaign.pk])
+            + "?"
+            + urlencode({name: values[name] for name in sorted(window_fields)})
+        )
     patch = [
         {
             "operation": "update" if campaign else "add",

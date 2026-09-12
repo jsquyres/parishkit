@@ -4,6 +4,7 @@
 <h1>{% if campaign %}{% translate "Campaign settings" %}{% else %}{% translate "Create campaign draft" %}{% endif %}</h1>
 {% if campaign %}<p>{{ campaign.active_configuration.name }} — {{ campaign.state|capfirst }}</p>{% endif %}
 {% if campaign %}<p><a href="{% url 'admin:content_catalog' campaign.pk %}">{% translate "Edit campaign pages and email templates" %}</a></p>{% endif %}
+{% if campaign %}<p><a href="{% url 'admin:schedule_settings' campaign.pk %}">{% translate "Edit mail schedules and reconcile campaign dates" %}</a></p>{% endif %}
 <p class="notice">{% translate "These are structural settings. They lock when the campaign goes live or is scheduled for Production. Dates and mail schedules use this campaign's timezone, not your browser timezone." %}</p>
 {% if not campaign %}<p>{% translate "A new draft starts with the Parish timezone. Its timezone can be changed after the draft is created. Creating a successor ends the opportunity to purge earlier campaigns until the next Return to Testing." %}</p>{% endif %}
 {% if editable %}

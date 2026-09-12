@@ -14,12 +14,15 @@ from django.template.loader import render_to_string
 from parishkit.stewardship.accounts.campaign_forms import CampaignForm
 from parishkit.stewardship.accounts.content_forms import ContentForm
 from parishkit.stewardship.accounts.parish_views import ParishForm
+from parishkit.stewardship.accounts.schedule_forms import Schedules, ScheduleWindow
 from parishkit.stewardship.accounts.share_forms import (
     ShareOptions,
     default_share_options,
 )
 from parishkit.stewardship.campaigns.domain import Percentage
 from parishkit.stewardship.web.security import CSP
+
+from ..campaign_factory import campaign, schedule
 
 NOW = datetime(2026, 9, 10, 12, tzinfo=UTC)
 
@@ -62,6 +65,8 @@ def page(browser_engine):
 @pytest.fixture(scope="module")
 def component_origin():
     """An exact response allowlist avoids exposing source files through the server."""
+    mail_campaign = campaign()
+    mail = schedule(mail_campaign["id"])
     context = {
         "server_now": NOW,
         "deadline": NOW + timedelta(hours=1),
@@ -110,6 +115,57 @@ def component_origin():
         ),
     }
     for path, template, extra in (
+        (
+            "/schedule-settings",
+            "schedule-settings",
+            {
+                "campaign": {
+                    "pk": mail_campaign["id"],
+                    "active_configuration": mail_campaign["values"],
+                },
+                "window": ScheduleWindow(
+                    previous=mail_campaign["values"], editable=True, prefix="window"
+                ),
+                "schedules": Schedules(
+                    previous=[mail],
+                    templates=[],
+                    campaign_id=mail_campaign["id"],
+                    campaign=mail_campaign["values"],
+                    prefix="schedules",
+                ),
+                "base_digest": "a" * 64,
+                "editable": True,
+            },
+        ),
+        (
+            "/schedule-preview",
+            "schedule-preview",
+            {
+                "campaign": {
+                    "pk": mail_campaign["id"],
+                    "active_configuration": mail_campaign["values"],
+                },
+                "changes": [
+                    {
+                        "label": "Reminder",
+                        "operation": "remove",
+                        "before": mail["values"],
+                        "after": None,
+                        "impact": {
+                            "delivered": 1234,
+                            "blocking": 0,
+                            "occurrences": 3456,
+                            "cancellable": 2222,
+                            "outboxes": 0,
+                            "failed": 0,
+                        },
+                    }
+                ],
+                "window_changes": {},
+                "blocking": 0,
+                "preview": "synthetic-preview",
+            },
+        ),
         (
             "/content-settings",
             "content-settings",

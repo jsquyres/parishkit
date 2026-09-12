@@ -149,7 +149,17 @@ def validate_installation(document, *, request_id=None):
         old = (
             definition.current_revision.values if definition.current_revision else None
         )
-        if proposed == old:
+        owner = str(definition.campaign_id)
+        from .configuration import schedule_window_changed
+
+        changed_window = (
+            owner in existing
+            and owner in candidates
+            and schedule_window_changed(
+                existing[owner].active_configuration.values, candidates[owner]["values"]
+            )
+        )
+        if proposed == old and (old is None or not changed_window):
             continue
         if runtime is not None and runtime.restore_review_required:
             raise CampaignAdmissionUnavailable(

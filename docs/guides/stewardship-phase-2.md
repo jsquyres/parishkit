@@ -775,9 +775,51 @@ Browser tests cover HTML editing, inert paste/source, sample previews, accessibi
 and mobile layout; the complete three-engine run passes 180 cases. The ordinary
 suite passes 3,512 tests with 1,801 explicit opt-in skips and two existing
 warnings. Ruff, formatting, selected Markdown and migration-drift checks pass.
-Complete PostgreSQL regression and review evidence will follow before Phase 2
-is declared complete. Schedule editing, cloning, readiness-test mail, staged
+The schema-stable complete PostgreSQL regression after content editing passed
+1,582 tests in 16 minutes, 50 seconds. Review evidence will follow before Phase 2
+is declared complete. Cloning, readiness-test mail, staged
 wizard finalization and the remaining integration/runtime work are still open.
+
+### Combined mail schedule and draft-date reconciliation
+
+The schedule editor owns initial invitations, repeatable reminders, daily/weekly
+digest times and independent template selections. Every saved row retains its
+logical ID and type; removal is explicit. Times have whole seconds and no offset,
+with all civil values resolved in the campaign timezone. Subjects come from the
+selected immutable email revision. Unresolved legacy templates remain visible
+but cannot be newly assigned or count as readiness evidence.
+
+Date/timezone edits in the structural editor transfer to reconciliation whenever
+the campaign has schedules; no edit is saved by that transfer. The combined
+candidate must resolve every out-of-interval mailing and preserve the initial/
+reminder ordering. Mixed structural/date edits remain on the original form with
+an explanation rather than silently discarding fields. Live structural changes
+stay with their dedicated lifecycle owner; this editor does not bypass that lock.
+
+The exact preview includes current-revision work, successful semantic coverage,
+safely cancellable occurrences, failed work and blocking in-flight/uncertain work.
+Aggregate monotonic occurrence/task versions invalidate stale previews without
+loading per-Family records. Current outbox-linked pending work remains blocked
+until its delivery owner can prove atomic reconciliation. SQL repeats the
+replacement guard and supersedes safely cancellable work in the same transaction.
+
+Changing the campaign timezone now selects new schedule revisions even when their
+own civil fields are identical; their UTC time cannot remain pinned to the old
+zone. Date-only changes preserve in-range mail's cadence and work; affected
+out-of-interval mail still needs explicit replacement/removal. Fulfillment carries
+across revisions, and populated downgrade cannot weaken the cadence guard.
+
+The combined form/editor/schedule run passes 70 tests with 94% coverage of the
+three schedule UI modules. Three additional SQL tests cover timezone-only
+in-flight blocking, bypassed Python admission, rollback and empty/populated
+migration reversal. All twelve new mobile/desktop accessibility cases passed
+across the three browser engines. The subsequent 62-case focused rerun passes
+after template revision labels and overlap acknowledgment previews were added.
+The ordinary suite passes 3,535 tests (1,824 opt-in skips); the complete browser
+suite passes 192 tests in three minutes, two seconds. The shared-process WebKit
+fixture stalled reproducibly before the final navigation; two separate 63-case
+subsets passed. Per-scenario browser process isolation resolves the complete
+suite without retries, skipped assertions or longer navigation timeouts.
 
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge

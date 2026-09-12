@@ -84,6 +84,8 @@ def test_csp_blocks_an_unrelated_form_destination(page, component_origin):
         "/background-task",
         "/content-settings",
         "/content-preview",
+        "/schedule-settings",
+        "/schedule-preview",
     ],
 )
 @pytest.mark.parametrize("width", [320, 1280])

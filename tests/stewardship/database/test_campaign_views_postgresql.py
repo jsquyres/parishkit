@@ -99,10 +99,18 @@ def test_draft_can_change_timezone_without_changing_parish_default(
     add_draft(store, store.active(), uuid4())
     row = Campaign.objects.get()
     browser, _ = signed_in()
-    proposal = token(
-        post(browser, url(row), fields(store, row, timezone="America/Los_Angeles"))
+    response = post(
+        browser, url(row), fields(store, row, timezone="America/Los_Angeles")
     )
-    apply(store, post(browser, url(row), {"action": "confirm", "preview": proposal}))
+    assert response.status_code == 302
+    assert browser.get(response["Location"]).status_code == 200
+    from .test_schedule_views_postgresql import fields as schedule_fields
+
+    data, _ = schedule_fields(store, row)
+    data["window-timezone"] = "America/Los_Angeles"
+    path = response["Location"].split("?", 1)[0]
+    proposal = token(post(browser, path, data))
+    apply(store, post(browser, path, {"action": "confirm", "preview": proposal}))
     row.refresh_from_db()
     assert row.active_configuration.timezone == "America/Los_Angeles"
     assert (
@@ -155,7 +163,7 @@ def test_live_lock_invalidates_preview_without_a_yaml_change(auth_service, googl
     row = Campaign.objects.get()
     browser, _ = signed_in()
     proposal = token(
-        post(browser, url(row), fields(store, row, timezone="America/Los_Angeles"))
+        post(browser, url(row), fields(store, row, name="Changed campaign name"))
     )
     prior = store.active().digest
     command(row, uuid4(), Action.ACTIVATE)
@@ -258,13 +266,14 @@ def test_noop_bad_signature_missing_target_and_query_are_closed(auth_service, go
 
 
 def test_campaign_edit_cannot_strand_existing_initial_mail(auth_service, google):
-    """Combined schema validation rejects unresolved out-of-interval schedules."""
+    """A proposed window transfers to reconciliation without changing any data."""
     store = auth_service.store
     add_draft(store, store.active(), uuid4())
     row = Campaign.objects.get()
     browser, _ = signed_in()
     response = post(browser, url(row), fields(store, row, start_date="2026-10-02"))
-    assert (
-        response.status_code == 400
-        and b"reminder times must remain" in response.content
-    )
+    assert response.status_code == 302
+    assert "/schedules?" in response["Location"]
+    assert "start_date=2026-10-02" in response["Location"]
+    row.refresh_from_db()
+    assert row.active_configuration.start_date.isoformat() == "2026-10-01"
