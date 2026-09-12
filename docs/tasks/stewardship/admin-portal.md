@@ -91,6 +91,13 @@ The private provider/helper tests and ephemeral Workspace-transfer primitives
 are implemented; actual relay/runtime/web integration and setup activation
 remain open. No whole ADM-02 task or phase review gate is closed by this checkpoint.
 
+The subsequent [mail integration checkpoint](../../guides/stewardship-phase-2-reviews.md#setup-mail-runtime-and-web-integration)
+implements the persisted isolated Workspace relay, maintained worker execution,
+evidence-based no-retry recovery and original-Admin send/status UI. It passes
+41 combined PostgreSQL/pure tests with 95% focused coverage and 21 selected
+browser checks. Slack readiness, initial mounts/ACKs and atomic finalization
+remain necessary before ADM-02 can close.
+
 ## ADM-03: Navigation, dashboard, indicators, and configuration
 
 Scope and dependencies: [ADM-03 work package](../../plans/stewardship/admin-portal.md#adm-03-navigation-dashboard-indicators-and-configuration).

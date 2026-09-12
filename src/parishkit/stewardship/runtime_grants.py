@@ -384,7 +384,12 @@ def admit_runtime_database(configuration):
         admit_installer_database(configuration.credential_target)
     elif role is ServiceRole.CONFIG_INSTALLER:
         admit_configuration_database()
-    elif role in {ServiceRole.WEB, ServiceRole.WORKER, ServiceRole.SCHEDULER}:
+    elif role in {
+        ServiceRole.WEB,
+        ServiceRole.WORKER,
+        ServiceRole.SCHEDULER,
+        ServiceRole.MAIL_DISPATCH,
+    }:
         _identity(login_name(role))
         tables, columns = runtime_grants(role)
         allowed = {table: set(grants) for table, grants in tables.items()}

@@ -83,12 +83,15 @@ def test_background_assembly_binds_exact_keys_role_and_closed_registry(
     try:
         assert calls == ["mounts", "lifecycle", "django", "grants", "coherence"]
         assert runtime.broker.service is role and runtime.broker.stop is stop
-        assert set(runtime.handlers) == {
+        expected = {
             "source_refresh",
             "branding_cleanup",
             "setup_source_load",
             "setup_source_cleanup",
         }
+        if role is ServiceRole.SCHEDULER:
+            expected.add("setup_mail_test")
+        assert set(runtime.handlers) == expected
         assert runtime.handlers["source_refresh"].pulse is pulse
         assert set(runtime.receipts) == set(configuration.secrets)
         if role is ServiceRole.WORKER:
@@ -151,10 +154,102 @@ def test_scheduler_registry_is_metadata_only():
         "branding_cleanup",
         "setup_source_load",
         "setup_source_cleanup",
+        "setup_mail_test",
     }
     for handler in handlers.values():
         with pytest.raises(PermissionError):
             handler.execute(None)
+
+
+@pytest.mark.parametrize(
+    "bootstrap,installed", [(True, False), (False, False), (False, True)]
+)
+def test_mail_runtime_requires_working_key_except_for_coherent_bootstrap(
+    admitted_configuration, monkeypatch, bootstrap, installed
+):
+    """The setup relay does not weaken configured-service credential requirements."""
+    from parishkit.stewardship.accounts.cryptography import Key, TokenPrivateKeyring
+    from parishkit.stewardship.accounts.key_files import (
+        serialize_keyring,
+        write_private,
+    )
+
+    configuration, _ = admitted_configuration
+    private = configuration.secrets["token_public"].with_name("token_private")
+    write_private(
+        private,
+        serialize_keyring(TokenPrivateKeyring([Key("t1", "active", b"t" * 32)])),
+    )
+    secrets = {
+        "token_private": private,
+        "token_public": configuration.secrets["token_public"],
+    }
+    if installed:
+        secrets["google_workspace"] = private.with_name("google_workspace")
+        write_private(secrets["google_workspace"], b"synthetic-installed-workspace")
+    configuration = replace(
+        configuration, service_role=ServiceRole.MAIL_DISPATCH, secrets=secrets
+    )
+    active = SimpleNamespace(
+        mode="testing",
+        restore_review_required=False,
+        current_campaign_id=None,
+        active_configuration=SimpleNamespace(
+            validation_schema=(
+                "bootstrap-policy-v1" if bootstrap else "campaign-content-v5"
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        "parishkit.stewardship.accounts.configuration_installation.coherent_configuration",
+        lambda _: active,
+    )
+    if not bootstrap and not installed:
+        with pytest.raises(ConfigError, match="installed Workspace"):
+            background.configure_background(
+                configuration, stop=Event(), heartbeat=lambda: None
+            )
+        return
+    runtime = background.configure_background(
+        configuration, stop=Event(), heartbeat=lambda: None
+    )
+    try:
+        assert set(runtime.handlers) == {"setup_mail_test"}
+        assert runtime.broker.service is ServiceRole.MAIL_DISPATCH
+        assert set(runtime.receipts) == set(secrets)
+    finally:
+        runtime.broker.app.close()
+
+
+def test_mail_runtime_rejects_mismatched_public_private_key_inventories(
+    admitted_configuration,
+):
+    """The mail service cannot acknowledge an unrelated link-decryption key."""
+    from parishkit.stewardship.accounts.cryptography import Key, TokenPrivateKeyring
+    from parishkit.stewardship.accounts.key_files import (
+        serialize_keyring,
+        write_private,
+    )
+
+    configuration, calls = admitted_configuration
+    private = configuration.secrets["token_public"].with_name("token_private")
+    write_private(
+        private,
+        serialize_keyring(TokenPrivateKeyring([Key("t1", "active", b"x" * 32)])),
+    )
+    configuration = replace(
+        configuration,
+        service_role=ServiceRole.MAIL_DISPATCH,
+        secrets={
+            "token_private": private,
+            "token_public": configuration.secrets["token_public"],
+        },
+    )
+    with pytest.raises(ConfigError, match="inventories differ"):
+        background.configure_background(
+            configuration, stop=Event(), heartbeat=lambda: None
+        )
+    assert "django" not in calls
 
 
 @pytest.mark.parametrize("bootstrap", [True, False])

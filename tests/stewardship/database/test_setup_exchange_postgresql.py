@@ -41,7 +41,7 @@ pytestmark = pytest.mark.django_db(transaction=True)
 @contextmanager
 def target_login(target="parishsoft"):
     """Use the exact provisioned target grants, not a broad test-table bypass."""
-    assert target in {"parishsoft", "slack"}
+    assert target in {"parishsoft", "slack", "google_workspace"}
     role = "pk_stewardship_credential_" + target
     with connection.cursor() as cursor:
         cursor.execute(f'CREATE ROLE "{role}" LOGIN NOINHERIT')

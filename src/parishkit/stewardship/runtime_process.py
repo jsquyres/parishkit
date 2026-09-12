@@ -256,6 +256,11 @@ def serve_credential_installer(configuration, lease):
 
             lease.check()
             relay_pending(installer.files.private)
+        elif configuration.credential_target == "google_workspace":
+            from .accounts.setup_mail_exchange import relay_pending
+
+            lease.check()
+            relay_pending(installer.files.private)
         installer.run_once()
 
     return serve_installer_loop(run_once, lease)
@@ -289,6 +294,7 @@ def serve_background(configuration, lease):
     from uuid import uuid4
 
     from .accounts.branding_cleanup import produce_cleanup
+    from .accounts.setup_mail import recover_pending as recover_setup_mail
     from .accounts.setup_staging import produce_setup_expiry
     from .consumer_runtime import publish_single_process_receipts
     from .installer_health import publish_heartbeat
@@ -317,7 +323,10 @@ def serve_background(configuration, lease):
         assembled = configure_background(configuration, stop=stop, heartbeat=heartbeat)
         publish_single_process_receipts(configuration, assembled.receipts)
         emit(Event.STARTUP_VALIDATED)
-        if configuration.service_role is ServiceRole.WORKER:
+        if configuration.service_role in {
+            ServiceRole.WORKER,
+            ServiceRole.MAIL_DISPATCH,
+        }:
             return serve_consumer(
                 assembled.broker, lease=lease, stop=stop, heartbeat=heartbeat
             )
@@ -332,6 +341,8 @@ def serve_background(configuration, lease):
             """
             produce_setup_expiry(guard)
             matching_authority(assembled.store)
+            guard.check()
+            recover_setup_mail()
             return (
                 *producer(guard),
                 *produce_cleanup(guard),
@@ -370,6 +381,7 @@ def execute_runtime(args):
             ServiceRole.CREDENTIAL_INSTALLER: serve_credential_installer,
             ServiceRole.WORKER: serve_background,
             ServiceRole.SCHEDULER: serve_background,
+            ServiceRole.MAIL_DISPATCH: serve_background,
         }
         runner = runners.get(configuration.service_role)
         if runner is None:

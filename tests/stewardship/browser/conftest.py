@@ -27,6 +27,7 @@ from parishkit.stewardship.accounts.setup_campaign_views import SetupCampaignFor
 from parishkit.stewardship.accounts.setup_content_views import SetupContentForm
 from parishkit.stewardship.accounts.setup_credential_views import SetupCredentialForm
 from parishkit.stewardship.accounts.setup_forms import FORMS, STEPS
+from parishkit.stewardship.accounts.setup_mail_views import SetupMailForm
 from parishkit.stewardship.accounts.setup_schedule_views import SetupScheduleWindow
 from parishkit.stewardship.accounts.share_forms import (
     ShareOptions,
@@ -370,6 +371,32 @@ def component_origin():
                 "formset": ShareOptions(
                     prefix="options", previous=default_share_options()
                 ),
+            },
+        ),
+        (
+            "/setup-mail-test",
+            "setup-mail",
+            {
+                "draft": setup_draft,
+                "testing_recipient": "testing@example.org",
+                "pending": True,
+                "unknown": False,
+                "form": SetupMailForm(
+                    initial={
+                        "preview_token": "synthetic-preview",
+                        "request_key": uuid4(),
+                        "slot": "initial",
+                    }
+                ),
+                "items": [
+                    {
+                        "id": "synthetic-delivery",
+                        "state": "queued",
+                        "label": "Awaiting mail worker",
+                        "created_at": NOW.isoformat(),
+                        "current": True,
+                    }
+                ],
             },
         ),
         (

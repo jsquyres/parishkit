@@ -410,3 +410,42 @@ The actual persisted Workspace relay, worker startup/consumer mounting, web
 send controls, optional Slack delivery and atomic setup finalizer remain open.
 This is an internal implementation checkpoint, not phase completion or one of
 the three required complete Phase 2 review/fix rounds.
+
+### Setup mail runtime and web integration
+
+The actual Workspace installer relays its sealed candidate to the exact live
+mail worker's ephemeral recipient. PostgreSQL enforces original draft/key/Task
+bindings and one reply per recipient; replacement workers cannot recover the
+private key. Cancellation scrubs relay ciphertext, and unrelated workers and
+installers cannot read it. The Workspace target cannot read message bodies or
+Family source data. No working credential file is installed by this relay.
+
+The maintained mail handler commits its submission marker before invoking the
+finite helper. Recovery derives completion from the retained journal and never
+creates a retry. A failure before submission is retired by the scheduler even
+when the setup attempt remains live, allowing a later explicit test. The actual
+runtime admits mail dispatch with matching public/private key inventories and
+allows a missing working Workspace file only in coherent bootstrap Testing
+state. Consumer process receipts now support the single-process mail owner;
+initial installation/mount recreation and SQL ACK integration remain open.
+
+The original Admin can select a named fictional sample and explicitly request
+delivery. Passive GET status polling does not extend login idle expiry. An
+uncertain result requires visible acknowledgement before another request. Stale,
+denied or mismatched status disables sending until reload. Real HTTP checks
+cover CSRF, duplicate/unknown fields, exact preview invalidation, other-login
+denial, replay and cancellation. The SQL-role fixture preserves the restricted
+web login after error middleware closes a connection.
+
+The combined mail journal/relay/Task/HTTP suite passes 41 cases with 95% focused
+coverage: journal 96%, relay 95%, handler 93% and views 100%. The composed test
+uses real encryption, SQL roles and maintained execution, substituting only the
+external provider call. All 15 browser behavior cases and six responsive/axe
+checks pass across Chromium, Firefox and WebKit. The runtime/process/consumer
+suite passes 111 cases. The baseline before the last five added composition/
+recovery cases passes 3,971 tests with 2,348 explicit profile skips and two
+existing warnings. No real provider credentials or outbound messages are used.
+
+Optional Slack notification, final credential installation/ACK coordination,
+selected financial-window loading and atomic configured-marker activation still
+prevent Phase 2 acceptance. This is not a completed full-phase review round.

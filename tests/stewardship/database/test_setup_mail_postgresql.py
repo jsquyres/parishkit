@@ -197,8 +197,12 @@ def age_delivery(identifier, *, task=False):
                     sql.SQL("UPDATE {} SET {}={}- %s WHERE id=%s").format(
                         name, sql.Identifier(field), sql.Identifier(field)
                     ),
-                    [timedelta(minutes=3), row.run_id if task else row.pk],
+                    [
+                        timedelta(minutes=3),
+                        (row.run_id or row.task_id) if task else row.pk,
+                    ],
                 )
+                assert cursor.rowcount == 1
         finally:
             cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
             cursor.execute(sql.SQL("ALTER TABLE {} ENABLE TRIGGER USER").format(name))

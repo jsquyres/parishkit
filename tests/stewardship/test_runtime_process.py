@@ -156,7 +156,9 @@ def test_gunicorn_worker_receipt_hook_sanitizes_private_failures(monkeypatch):
     assert error.value.__suppress_context__
 
 
-@pytest.mark.parametrize("target", ["metrics", "parishsoft"])
+@pytest.mark.parametrize(
+    "target", ["metrics", "parishsoft", "google_workspace", "slack"]
+)
 def test_credential_service_publishes_only_after_admission(
     tmp_path, monkeypatch, target
 ):
@@ -195,6 +197,10 @@ def test_credential_service_publishes_only_after_admission(
     monkeypatch.setattr(
         "parishkit.stewardship.source.setup_exchange.relay_pending", relay
     )
+    mail_relay = Mock()
+    monkeypatch.setattr(
+        "parishkit.stewardship.accounts.setup_mail_exchange.relay_pending", mail_relay
+    )
 
     def serve(run_once, actual_lease):
         """Queue processing cannot race ahead of the advertised encryption key."""
@@ -208,13 +214,20 @@ def test_credential_service_publishes_only_after_admission(
             assert lease.check.call_count == 2
         else:
             relay.assert_not_called()
+        if target == "google_workspace":
+            mail_relay.assert_called_once_with(installer.files.private)
+            assert lease.check.call_count == 2
+        else:
+            mail_relay.assert_not_called()
         return 0
 
     monkeypatch.setattr(runtime_process, "serve_installer_loop", serve)
     assert runtime_process.serve_credential_installer(configuration, lease) == 0
 
 
-@pytest.mark.parametrize("role", [ServiceRole.WORKER, ServiceRole.SCHEDULER])
+@pytest.mark.parametrize(
+    "role", [ServiceRole.WORKER, ServiceRole.SCHEDULER, ServiceRole.MAIL_DISPATCH]
+)
 @pytest.mark.parametrize("fail", [False, True])
 def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
     tmp_path, monkeypatch, role, fail
@@ -267,6 +280,10 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
     monkeypatch.setattr(
         "parishkit.stewardship.accounts.setup_staging.produce_setup_expiry", expiry
     )
+    mail_recovery = Mock(return_value=0)
+    monkeypatch.setattr(
+        "parishkit.stewardship.accounts.setup_mail.recover_pending", mail_recovery
+    )
     monkeypatch.setattr(
         "parishkit.stewardship.source.setup_cleanup.produce_setup_cleanup",
         Mock(return_value=("setup-cleanup-receipt",)),
@@ -298,7 +315,10 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
         producer.assert_called_once_with(guard)
         cleanup.assert_called_once_with(guard)
         expiry.assert_called_once_with(guard)
+        mail_recovery.assert_called_once_with()
+        guard.check.assert_called_once_with()
     else:
+        mail_recovery.assert_not_called()
         cleanup.assert_not_called()
         expiry.assert_not_called()
 

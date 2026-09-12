@@ -33,6 +33,10 @@ def installer_permissions(target):
     tables = {table: set(names) for table, names in INSTALLER_GRANTS.items()}
     metadata = {table: set(names) for table, names in INSTALLER_METADATA.items()}
     extend_installer_permissions(target, tables, metadata)
+    if target == "google_workspace":
+        from .setup_mail_grants import extend_workspace_permissions
+
+        extend_workspace_permissions(tables, metadata)
     return tables, metadata
 
 

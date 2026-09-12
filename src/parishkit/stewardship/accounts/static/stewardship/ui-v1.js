@@ -30,6 +30,74 @@
     });
   });
 
+  // Readiness status is a passive GET, never the source-load idle-renewal
+  // exception. No message content, key or answer is retained by this poller.
+  document.querySelectorAll("[data-setup-mail]").forEach((panel) => {
+    const button = panel.querySelector("[data-mail-send]");
+    const warning = panel.querySelector("[data-mail-status-error]");
+    const uncertain = panel.querySelector("[data-mail-uncertain]");
+    const acknowledgement = uncertain?.querySelector("input");
+    const states = new Set([
+      "queued", "submitting", "accepted", "not_sent", "delivery_unknown", "cancelled"
+    ]);
+    if (!button || !warning || !uncertain || !acknowledgement) return;
+    acknowledgement.required = !uncertain.hidden;
+    let pending = panel.dataset.mailPending === "true";
+    let inFlight = false;
+    let stopped = false;
+    let activeRequest = null;
+    async function refresh() {
+      if (!pending || inFlight || stopped || document.hidden) return;
+      inFlight = true;
+      const controller = new AbortController();
+      activeRequest = controller;
+      const timeout = window.setTimeout(() => controller.abort(), 10000);
+      try {
+        const response = await fetch(panel.dataset.mailStatusUrl, {
+          method: "GET", credentials: "same-origin", cache: "no-store",
+          headers: {"Accept": "application/json"}, signal: controller.signal
+        });
+        if (!response.ok) throw new Error("status unavailable");
+        const data = await response.json();
+        if (!Number.isSafeInteger(data.revision) ||
+            String(data.revision) !== panel.dataset.mailRevision ||
+            typeof data.pending !== "boolean" || typeof data.unknown !== "boolean" ||
+            !Array.isArray(data.items) || data.items.length > 25) {
+          throw new Error("status changed");
+        }
+        const nodes = new Map([...panel.querySelectorAll("[data-mail-id]")]
+          .map((node) => [node.dataset.mailId, node.querySelector("[data-mail-state]")]));
+        for (const item of data.items) {
+          if (!states.has(item.state) || typeof item.label !== "string" ||
+              item.label.length > 512 || !nodes.get(item.id)) {
+            throw new Error("status changed");
+          }
+        }
+        for (const item of data.items) nodes.get(item.id).textContent = item.label;
+        pending = data.pending;
+        button.disabled = pending;
+        uncertain.hidden = !data.unknown;
+        acknowledgement.required = data.unknown;
+      } catch {
+        stopped = true;
+        button.disabled = true;
+        warning.hidden = false;
+      } finally {
+        window.clearTimeout(timeout);
+        activeRequest = null;
+        inFlight = false;
+      }
+    }
+    const timer = window.setInterval(refresh, 5000);
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("pagehide", () => {
+      stopped = true;
+      window.clearInterval(timer);
+      activeRequest?.abort();
+    });
+    refresh();
+  });
+
   // Only the exact source-progress page posts this renewal exception. The
   // server checks the original login, task/source leases and five-minute limit;
   // visibility and local deadlines merely stop unnecessary browser requests.

@@ -75,6 +75,8 @@ def scheduler_handlers():
     """Compiled metadata admission only; accidental provider/file execution refuses."""
     from .accounts.branding_cleanup import TASK_TYPE as BRANDING_CLEANUP
     from .accounts.branding_cleanup import cleanup_handler
+    from .accounts.setup_mail import TASK_TYPE as SETUP_MAIL
+    from .accounts.setup_mail_tasks import setup_mail_handler
     from .campaigns.work_locks import work_transaction
     from .jobs.dispatch import Handler
     from .jobs.queues import WorkQueue
@@ -93,6 +95,7 @@ def scheduler_handlers():
     return {
         BRANDING_CLEANUP: cleanup_handler(),
         SETUP_CLEANUP: setup_cleanup_handler(scheduler=True),
+        SETUP_MAIL: setup_mail_handler(scheduler=True),
         SETUP_LOAD: Handler(
             queue=WorkQueue.GENERAL,
             admit=admit_setup_task,
@@ -121,7 +124,8 @@ def configure_background(configuration, *, stop, heartbeat):
 
     role = configuration.service_role
     if (
-        role not in {ServiceRole.WORKER, ServiceRole.SCHEDULER}
+        role
+        not in {ServiceRole.WORKER, ServiceRole.SCHEDULER, ServiceRole.MAIL_DISPATCH}
         or not isinstance(stop, Event)
         or not callable(heartbeat)
     ):
@@ -129,11 +133,11 @@ def configure_background(configuration, *, stop, heartbeat):
     if admit_online_service(configuration) is not role:
         raise ConfigError("Background service admission differs from its profile.")
     admit_lifecycle_mounts(configuration)
-    required = (
-        {"general_encryption", "family_code_mac", "token_public"}
-        if role is ServiceRole.WORKER
-        else {"token_public"}
-    )
+    required = {
+        ServiceRole.WORKER: {"general_encryption", "family_code_mac", "token_public"},
+        ServiceRole.SCHEDULER: {"token_public"},
+        ServiceRole.MAIL_DISPATCH: {"token_private", "token_public"},
+    }[role]
     if not required <= configuration.secrets.keys():
         raise ConfigError("Background credential mounts are incomplete.")
     loaded = {name: read_private(path) for name, path in configuration.secrets.items()}
@@ -141,6 +145,13 @@ def configure_background(configuration, *, stop, heartbeat):
         name: parse_keyring(loaded[name], name) for name in required - {"parishsoft"}
     }
     independent_keyrings(*rings.values())
+    if role is ServiceRole.MAIL_DISPATCH:
+        derived = rings["token_private"].public()
+        published = rings["token_public"]
+        if derived.active != published.active or any(
+            derived.keys.get(name) != key for name, key in published.keys.items()
+        ):
+            raise ConfigError("Mail private/public key inventories differ.")
     if role is ServiceRole.WORKER and "parishsoft" in loaded:
         from .source.credentials import SourceCredential
 
@@ -178,6 +189,19 @@ def configure_background(configuration, *, stop, heartbeat):
 
     if role is ServiceRole.SCHEDULER:
         handlers = scheduler_handlers()
+    elif role is ServiceRole.MAIL_DISPATCH:
+        if "google_workspace" not in loaded and (
+            active is None
+            or active.mode != "testing"
+            or active.restore_review_required
+            or active.current_campaign_id is not None
+            or active.active_configuration.validation_schema != "bootstrap-policy-v1"
+        ):
+            raise ConfigError("An installed Workspace credential is required.")
+        from .accounts.setup_mail import TASK_TYPE as SETUP_MAIL
+        from .accounts.setup_mail_tasks import setup_mail_handler
+
+        handlers = {SETUP_MAIL: setup_mail_handler()}
     else:
         from .accounts.branding_cleanup import TASK_TYPE as BRANDING_CLEANUP
         from .accounts.branding_cleanup import cleanup_handler

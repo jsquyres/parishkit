@@ -24,6 +24,7 @@ from .accounts import (
     setup_cancellation_views,
     setup_content_views,
     setup_credential_views,
+    setup_mail_views,
     setup_preview_views,
     setup_progress_views,
     setup_schedule_views,
@@ -182,6 +183,12 @@ admin_patterns = [
     path("setup/campaign", setup_campaign_views.setup_campaign, name="setup_campaign"),
     path("setup/shares", setup_share_views.setup_shares, name="setup_shares"),
     path("setup/preview", setup_preview_views.setup_preview, name="setup_preview"),
+    path("setup/mail-test", setup_mail_views.setup_mail, name="setup_mail"),
+    path(
+        "setup/mail-test/status",
+        setup_mail_views.setup_mail_status,
+        name="setup_mail_status",
+    ),
     path(
         "setup/schedules", setup_schedule_views.setup_schedules, name="setup_schedules"
     ),
