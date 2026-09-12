@@ -75,7 +75,10 @@
       if (unavailable) unavailable.hidden = false;
     } finally { presencePending = false; }
   }
-  if (presenceIndicator) window.setInterval(refreshPresence, 30000);
+  if (presenceIndicator) {
+    refreshPresence();
+    window.setInterval(refreshPresence, 30000);
+  }
 
   const backgroundIndicator = document.querySelector("[data-background-indicator]");
   let backgroundPending = false;

@@ -7,6 +7,6 @@
 <span class="help" data-background-unavailable hidden>{% translate "Background status unavailable; open the list to retry." %}</span>
 {% endif %}
 {% if admin_chrome.admin %}
-<a href="{% url 'admin:presence' %}" data-presence-indicator>{% translate "Active Families:" %} <span data-presence-count>{{ admin_chrome.presence_count|default:0|number }}</span></a>
+<a href="{% url 'admin:presence' %}" data-presence-indicator>{% translate "Active Families:" %} <span data-presence-count>{% if admin_chrome.presence_count is not None %}{{ admin_chrome.presence_count|number }}{% else %}—{% endif %}</span></a>
 <span class="help" data-presence-unavailable hidden>{% translate "Presence status unavailable; open the list to retry." %}</span>
 {% endif %}
