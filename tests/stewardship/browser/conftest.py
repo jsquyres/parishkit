@@ -22,6 +22,8 @@ from parishkit.stewardship.accounts.integration_forms import (
 )
 from parishkit.stewardship.accounts.parish_views import ParishForm
 from parishkit.stewardship.accounts.schedule_forms import Schedules, ScheduleWindow
+from parishkit.stewardship.accounts.setup_branding_views import SetupLogoForm
+from parishkit.stewardship.accounts.setup_forms import FORMS, STEPS
 from parishkit.stewardship.accounts.share_forms import (
     ShareOptions,
     default_share_options,
@@ -102,6 +104,13 @@ def component_origin():
         "included": True,
     }
     branding_asset = {"pk": uuid4(), "label": "large", "width": 1024, "height": 512}
+    setup_draft = {
+        "status": {"attempt_id": uuid4(), "state": "collecting", "version": 2},
+        "sections": {},
+        "idle_at": NOW + timedelta(minutes=30),
+        "absolute_at": NOW + timedelta(hours=12),
+        "watchdog_at": None,
+    }
     responses = {
         "/login": ("text/html", render_to_string("stewardship/login.html", context)),
         "/family-login": (
@@ -382,12 +391,44 @@ def component_origin():
                 "next_page": 3,
             },
         ),
+        (
+            "/setup",
+            "setup",
+            {
+                "draft": setup_draft,
+                "steps": [
+                    {"key": key, "label": label, "saved": False}
+                    for key, label in STEPS.items()
+                ],
+            },
+        ),
+        (
+            "/setup-branding",
+            "setup-branding",
+            {"draft": setup_draft, "form": SetupLogoForm(), "assets": []},
+        ),
         ("/availability", "availability", {"setup": True, "admin": True}),
         ("/denied", "denied", {"retry_path": "/admin/login"}),
     ):
         responses[path] = (
             "text/html",
             render_to_string(f"stewardship/{template}.html", {**context, **extra}),
+        )
+    for step, form_type in FORMS.items():
+        if step == "branding":
+            continue
+        responses["/setup-" + step] = (
+            "text/html",
+            render_to_string(
+                "stewardship/setup-step.html",
+                context
+                | {
+                    "draft": setup_draft,
+                    "form": form_type(),
+                    "step": step,
+                    "step_label": STEPS[step],
+                },
+            ),
         )
     for path, template, extra in (
         (

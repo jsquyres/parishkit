@@ -74,3 +74,39 @@ class SetupAttempt(MutableRecord):
                 name="setup_expiry_shape",
             ),
         ]
+
+
+class SetupDraftSection(MutableRecord):
+    """Temporary public settings, scrubbed atomically when their attempt expires."""
+
+    immutable_fields = MutableRecord.immutable_fields + ("attempt_id", "step")
+    write_once_fields = ("scrubbed_at",)
+    attempt = models.ForeignKey(SetupAttempt, on_delete=models.PROTECT)
+    step = models.CharField(max_length=24)
+    values = models.JSONField()
+    scrubbed_at = UTCDateTimeField(null=True)
+
+    class Meta(MutableRecord.Meta):
+        db_table = "stewardship_setup_draft_section"
+        constraints = MutableRecord.Meta.constraints + [
+            models.UniqueConstraint(
+                fields=["attempt", "step"], name="setup_one_draft_per_step"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    step__in=[
+                        "parish",
+                        "branding",
+                        "access",
+                        "mail",
+                        "slack",
+                        "testing",
+                    ]
+                ),
+                name="setup_public_step",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(scrubbed_at__isnull=True) | models.Q(values={}),
+                name="setup_scrubbed_values_empty",
+            ),
+        ]

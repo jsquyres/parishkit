@@ -116,7 +116,6 @@ def test_background_grants_exclude_web_secrets_and_campaign_write_authority(role
     tables, columns = runtime_grants(role)
     for table in (
         "stewardship_secret_request",
-        "stewardship_portal_session",
         "stewardship_family_session",
     ):
         assert table not in tables and table not in columns
@@ -126,7 +125,19 @@ def test_background_grants_exclude_web_secrets_and_campaign_write_authority(role
     assert tables["stewardship_audit_event"] == {"INSERT"}
     if role is ServiceRole.WORKER:
         assert tables["stewardship_task_run"] == {"SELECT", "INSERT", "UPDATE"}
+        assert "stewardship_portal_session" not in tables
+        assert "stewardship_portal_session" not in columns
     else:
+        assert "stewardship_portal_session" not in tables
+        assert columns["stewardship_portal_session"] == {
+            "SELECT": {
+                "id",
+                "principal_id",
+                "revoked_at",
+                "expires_at",
+                "last_activity_at",
+            }
+        }
         assert tables["stewardship_task_run"] == {"SELECT", "INSERT"}
         from parishkit.stewardship.source.grants import SCHEDULER_CANCEL_COLUMNS
 

@@ -1,0 +1,25 @@
+{% extends 'stewardship/base.html' %}{% load i18n %}
+{% block title %}{% translate "Initial setup" %}{% endblock %}
+{% block content %}
+<h1>{% translate "Initial setup" %}</h1>
+<p class="notice">{% translate "Testing mode. Settings saved here are temporary and are not active configuration. No campaign is open to parishioners." %}</p>
+{% if expired %}
+<h2>{% translate "This setup attempt has ended" %}</h2>
+<p>{% translate "Your temporary settings have been cleared. Sign out and sign in again to start a new setup attempt." %}</p>
+{% elif draft %}
+{% include 'stewardship/setup-deadlines.html' %}
+<h2>{% translate "Setup sections" %}</h2>
+<ul>{% for item in steps %}<li><a href="{% url 'admin:setup_step' item.key %}">{{ item.label }}</a> — {% if item.saved %}{% translate "Saved temporarily" %}{% else %}{% translate "Not yet entered" %}{% endif %}</li>{% endfor %}</ul>
+<p>{% translate "The original bootstrap Administrator is preserved. Additional access rules do not take effect until setup completes." %}</p>
+<p>{% translate "Provider credentials, source loading, delivery checks and the final readiness confirmation must also complete before this system can be configured." %}</p>
+<form method="post" class="panel">{% csrf_token %}
+<input type="hidden" name="action" value="cancel"><input type="hidden" name="attempt" value="{{ draft.status.attempt_id }}">
+<p>{% translate "Cancel permanently ends this attempt and clears its temporary settings. A new login is required to restart." %}</p>
+<button type="submit">{% translate "Cancel setup and clear temporary settings" %}</button>
+</form>
+{% else %}
+<p>{% translate "Complete the Parish and first campaign setup using this login. Another login cannot resume your temporary settings. Closing the browser stops any source-load renewal; idle and absolute timeouts still apply." %}</p>
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="start"><button type="submit">{% translate "Start setup" %}</button></form>
+{% endif %}
+<form method="post" action="{% url 'admin:logout' %}">{% csrf_token %}<button type="submit">{% translate "Sign out" %}</button></form>
+{% endblock %}

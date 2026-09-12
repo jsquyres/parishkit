@@ -1016,6 +1016,33 @@ scheduler-role tests. This supplies the runtime expiry fence; removal of all
 remaining staged settings, source and credentials stays with the wizard's
 target-specific cleanup owners.
 
+### Original-login public setup forms
+
+The initial setup route now provides an explicit CSRF-protected start, a passive
+overview and editable Parish profile, additional login rules, public mail/Slack
+settings, Testing recipient and private logo upload. GET/HEAD does not create a
+draft or extend idle expiry. The original bootstrap Admin remains active while
+staged additional rules have no effect. These controls never accept a credential,
+active fingerprint, deployment path or Production switch.
+
+Temporary sections belong to the original attempt/login and use the entire
+attempt's version to reject conflicting tabs. SQL independently checks the
+original live Admin, bootstrap base, declared field vocabulary and lifecycle.
+Cancellation or scheduler expiry clears all public values in the same database
+transaction; retained tombstones cannot be repopulated or deleted. The scheduler
+has scrub-only columns and cannot read the staged settings. Normalized setup
+logos use original-login-only, non-cacheable image URLs and the existing durable
+bundle/cleanup owner. They are never public merely because they are ready.
+
+The ordinary suite passes 3,724 tests with 2,078 explicit opt-in skips and two
+existing warnings; Ruff, formatting, edited Markdown and migration checks pass.
+The focused forms, HTTP, SQL-grant, routing and expiry run passes 73 cases with
+98% coverage of the new forms/services/views. Forty-two new browser cases pass
+across three engines at mobile/desktop widths. This replaces the placeholder
+with real public staging; sealed setup credential intake, staged source loading,
+campaign preparation, provider delivery checks and configured-marker finalization
+remain incomplete. No Phase 2 acceptance or review-gate completion is implied.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later

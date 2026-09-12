@@ -19,6 +19,8 @@ from .accounts import (
     parish_views,
     presence,
     schedule_views,
+    setup_branding_views,
+    setup_views,
     share_views,
 )
 from .jobs import views as job_views
@@ -148,7 +150,14 @@ admin_patterns = [
         job_views.task_detail,
         name="background_task",
     ),
-    path("setup", access_gate.setup, name="setup"),
+    path("setup", setup_views.setup, name="setup"),
+    path("setup/branding", setup_branding_views.setup_branding, name="setup_branding"),
+    path(
+        "setup/branding/assets/<uuid:asset_id>.png",
+        setup_branding_views.setup_branding_asset,
+        name="setup_branding_asset",
+    ),
+    path("setup/<str:step>", setup_views.setup_step, name="setup_step"),
     path("maintenance", access_gate.maintenance, name="maintenance"),
     path(
         "campaign/<uuid:campaign_id>/family-codes",

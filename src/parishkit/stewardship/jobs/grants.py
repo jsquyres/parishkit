@@ -100,4 +100,14 @@ def task_runtime_grants(role):
                 "version",
             }
         }
+        columns["stewardship_setup_draft_section"] = {
+            "SELECT": {"attempt_id", "scrubbed_at", "version"},
+            "UPDATE": {
+                "values",
+                "scrubbed_at",
+                "actor_id",
+                "correlation_id",
+                "version",
+            },
+        }
     return tables, columns

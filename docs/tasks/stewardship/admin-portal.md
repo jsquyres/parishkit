@@ -37,8 +37,11 @@ Scope and dependencies: [ADM-02 work package](../../plans/stewardship/admin-port
 - [ ] ADM-02.06 — Test wizard aborts, concurrency, and installer recovery.
 
 Evidence: Bootstrap and independent keyring preparation are implemented and
-covered by Phase 2 offline/database tests. Session-isolated wizard staging,
-worker credential handoff and final configured-marker activation remain open.
+covered by Phase 2 offline/database tests. Original-login public wizard forms
+and private logo staging now pass 73 focused cases with 98% coverage and 42 new
+browser cases. Scheduler expiry clears public values atomically and fences
+original-session artifacts. Sealed setup credential intake, staged source work,
+delivery checks and final configured-marker activation remain open.
 See [Phase 2 evidence](../../guides/stewardship-phase-2.md).
 
 ## ADM-03: Navigation, dashboard, indicators, and configuration
