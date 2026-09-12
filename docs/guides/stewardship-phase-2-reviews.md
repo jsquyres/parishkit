@@ -486,3 +486,27 @@ skips and two existing warnings. Ruff, formatting, migration drift and whitespac
 checks pass. All inputs/providers remain synthetic; no real Slack notification
 or email was sent. Initial installation/consumer ACKs, selected financial-window
 coverage and atomic configured-marker finalization remain open.
+
+### Exact confirmation intake
+
+The internal original-Admin confirmation service now commits the exact v7
+configuration request, frozen attempt and immutable readiness binding together.
+It requires accepted mail, accepted Slack when enabled, no pending tests and
+the original validated catalog. Readiness binds the reviewed revision/digest,
+current credential revisions and Testing recipient; it does not invent selected
+financial coverage. PostgreSQL independently checks the original live Admin,
+frozen request, source identity and accepted delivery receipts.
+
+Replayed confirmation returns the same original receipt without renewing login
+idle expiry. A failed final binding insert rolls back the request and freeze.
+Changed public settings invalidate prior readiness even when the credential
+itself still works. No authority file, configured marker, source pointer or
+Family code is activated here, and the configuration activation guard remains
+closed. The service is deliberately internal until the complete initial
+installation/consumer/final-activation workflow can consume it.
+
+Ten PostgreSQL tests pass with 98% service coverage. The earlier eight-case
+confirmation run combined with existing setup cancellation/abort tests passes
+25 cases. Ruff, formatting and migration drift checks pass. This checkpoint
+does not complete ADM-02, expose a product completion control, or count as a
+complete Phase 2 review round.

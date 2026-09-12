@@ -24,7 +24,10 @@ journal, finite private delivery helper, persisted ephemeral Workspace relay,
 maintained mail dispatch and passive original-Admin delivery UI now have focused
 tests. Optional Slack test delivery and its passive original-Admin UI are also
 implemented and tested. Initial credential installation/consumer mounting,
-selected financial-window loading and atomic setup finalization remain open. No Phase 2
+selected financial-window loading and atomic setup finalization remain open.
+The internal exact-confirmation transaction now pins readiness and freezes one
+configuration request, but no final confirmation UI is exposed before its
+installation/activation consumer is complete. No Phase 2
 PR exists yet, and the three complete phase review/fix rounds are not complete.
 The chronological checkpoints below record partial progress, not phase exit.
 

@@ -105,6 +105,13 @@ the provider/helper suite passes 85 cases and selected browser checks pass 36.
 Initial mounting/consumer ACKs, financial coverage and atomic activation remain
 open, so these checkpoints do not close ADM-02 or Phase 2.
 
+The [confirmation-intake checkpoint](../../guides/stewardship-phase-2-reviews.md#exact-confirmation-intake)
+pins accepted readiness and source receipts with one frozen configuration
+request. Ten PostgreSQL cases pass with 98% service coverage; the combined
+existing cancellation regression passes 25 cases before the final two added
+confirmation tests. The internal service is not exposed as a finish button;
+installation/ACK and atomic activation ownership are still required.
+
 ## ADM-03: Navigation, dashboard, indicators, and configuration
 
 Scope and dependencies: [ADM-03 work package](../../plans/stewardship/admin-portal.md#adm-03-navigation-dashboard-indicators-and-configuration).

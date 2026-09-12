@@ -329,6 +329,8 @@ def runtime_grants(role, *, target=None):
         add_setup_mail_cleanup_grants(tables, columns)
         tables["stewardship_setup_mail_delivery"].add("INSERT")
         tables["stewardship_setup_slack_delivery"].add("INSERT")
+        tables["stewardship_setup_config_intent"].add("INSERT")
+        tables["stewardship_setup_readiness_binding"] = {"SELECT", "INSERT"}
     return tables, columns
 
 
