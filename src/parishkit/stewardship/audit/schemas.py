@@ -55,6 +55,7 @@ class Action(StrEnum):
     SOURCE_SUPERSEDED = "source_superseded"
     SOURCE_FALLBACK = "source_fallback_requested"
     BACKGROUND_VIEWED = "background_viewed"
+    DASHBOARD_VIEWED = "dashboard_viewed"
 
 
 FIELDS = {

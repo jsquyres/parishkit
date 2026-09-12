@@ -3,7 +3,14 @@
 from django.urls import include, path
 
 from . import views
-from .accounts import access_gate, authentication, code_reports, family_authentication
+from .accounts import (
+    access_gate,
+    authentication,
+    code_reports,
+    family_authentication,
+    ministry_views,
+    parish_views,
+)
 from .jobs import views as job_views
 
 public_patterns = [
@@ -16,6 +23,16 @@ family_patterns = [
     path("logout", family_authentication.logout, name="logout"),
 ]
 admin_patterns = [
+    path("configuration/parish", parish_views.parish_settings, name="parish_settings"),
+    path(
+        "configuration/ministries", ministry_views.ministry_activity, name="ministries"
+    ),
+    path(
+        "configuration/requests/<uuid:request_id>",
+        ministry_views.configuration_request,
+        name="configuration_request",
+    ),
+    path("background", job_views.background_page, name="background"),
     path("background/tasks", job_views.task_list, name="background_tasks"),
     path(
         "background/tasks/<uuid:task_id>",

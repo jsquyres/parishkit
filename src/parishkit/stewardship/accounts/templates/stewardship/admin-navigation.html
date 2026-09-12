@@ -1,0 +1,7 @@
+{% load i18n stewardship %}
+<nav aria-label="{% translate 'Administration navigation' %}">
+  <ul>{% for item in admin_chrome.navigation %}<li><a href="{{ item.url }}">{{ item.label }}</a></li>{% endfor %}</ul>
+</nav>
+{% if admin_chrome.background %}
+<a href="{% url 'admin:background' %}" data-background-indicator>{% translate "Background work:" %} {{ admin_chrome.background.total|number }} ({% translate "running:" %} {{ admin_chrome.background.running|number }})</a>
+{% endif %}

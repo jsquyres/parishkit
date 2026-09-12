@@ -13,6 +13,9 @@ from .deployment import ServiceRole
 # Explicit snapshot/read vocabulary; no wildcard over future application tables.
 WEB_READ_TABLES = frozenset(
     [
+        "stewardship_source_current",
+        "stewardship_snapshot_ministry",
+        "stewardship_source_ministry",
         "django_migrations",
         "django_session",
         "socialaccount_socialapp",
@@ -220,6 +223,8 @@ def runtime_grants(role, *, target=None):
     # guard rejects an id-only update, and the actual stream is READ ONLY.
     columns = {"stewardship_download_policy": {"UPDATE": {"id"}}}
     if role is ServiceRole.WEB:
+        # Dashboard timestamps need no source cursor, validation or payload access.
+        columns["stewardship_source_snapshot"] = {"SELECT": {"id", "promoted_at"}}
         # Login holds these current-epoch/credential rows against rotation and
         # cleanup. PostgreSQL requires an UPDATE privilege for a row lock;
         # id-only grants permit locking, not guarded credential mutation.

@@ -11,10 +11,11 @@
 <body>
   <a class="skip-link" href="#main" tabindex="0">{% translate "Skip to content" %}</a>
   <header class="site-header">
-    {% block branding %}<p class="brand">{{ parish_name|default:_("Parish campaign") }}</p>{% endblock %}
-    {% block navigation %}{% endblock %}
+    {% block branding %}<p class="brand">{% if admin_chrome.parish_name %}{{ admin_chrome.parish_name }}{% else %}{{ parish_name|default:_("Parish campaign") }}{% endif %}</p>{% endblock %}
+    {% block navigation %}{% if admin_chrome %}{% include 'stewardship/admin-navigation.html' %}{% endif %}{% endblock %}
   </header>
   <main id="main" tabindex="-1">
+    {% if admin_chrome %}{% include 'stewardship/admin-banners.html' %}{% endif %}
     {% block banners %}{% endblock %}
     {% include 'stewardship/components/errors.html' %}
     {% block content %}{% endblock %}

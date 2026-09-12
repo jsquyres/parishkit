@@ -36,7 +36,10 @@ Scope and dependencies: [ADM-02 work package](../../plans/stewardship/admin-port
 - [ ] ADM-02.05 — Finalize secrets, YAML, source, and campaign setup coherently.
 - [ ] ADM-02.06 — Test wizard aborts, concurrency, and installer recovery.
 
-Evidence: Not started.
+Evidence: Bootstrap and independent keyring preparation are implemented and
+covered by Phase 2 offline/database tests. Session-isolated wizard staging,
+worker credential handoff and final configured-marker activation remain open.
+See [Phase 2 evidence](../../guides/stewardship-phase-2.md).
 
 ## ADM-03: Navigation, dashboard, indicators, and configuration
 
@@ -50,7 +53,14 @@ Scope and dependencies: [ADM-03 work package](../../plans/stewardship/admin-port
 - [ ] ADM-03.06 — Build branding previews and variant handling.
 - [ ] ADM-03.07 — Test configuration UI, Ministry activity, concurrency, and timezone isolation.
 
-Evidence: Not started.
+Evidence: In progress. The Ministry activity and Parish profile editors use
+signed exact previews and durable Applying/Applied configuration requests;
+42 PostgreSQL cases cover required fields, source/configuration changes,
+permissions, restricted web grants, installation, retry, and campaign-timezone
+isolation. Navigation, Testing banners and background-work HTML are under
+validation. Branding, integration replacement, complete operational indicators
+and the remaining dashboard acceptance are not complete. See
+[Phase 2 evidence](../../guides/stewardship-phase-2.md#worker-composition-and-initial-admin-editors-in-progress).
 
 ## ADM-04: Campaign editor, content, schedules, and previews
 

@@ -588,6 +588,63 @@ whitespace checks pass. No Phase 2 review round has started.
 This checkpoint does not complete the Admin screen, confirmed-seeding workflow,
 complete worker wiring or later Family-form activity enforcement.
 
+### Worker composition and initial Admin editors (in progress)
+
+The next increment gives worker and scheduler identities explicit source and
+configuration-read grants. Workers can publish source and Family effects but
+cannot create confirmed Chair seeds, edit Family activity, read sealed email
+links, or rewrite source payloads. Scheduler cancellation has a SQL guard that
+requires the scheduler/work locks and a waiting source task; it cannot use a
+known worker identifier to heartbeat or cancel running work. Restricted-role
+source and background tests pass 37 cases without skips.
+
+Runtime assembly binds every refresh admission to fresh YAML/database coherence,
+loads purpose-specific keys once, and records process-start-bound consumer
+fingerprints. Long-running task renewal updates process health only after the
+lease renewal commits. The focused runtime/receipt/grant suites pass 88 cases.
+This is not yet enabled in the Compose service registry: empty-deployment wizard
+staging and the worker's initial ParishSoft credential handoff remain required.
+The provisional pre-delivery suppression adapter explicitly permits only
+Testing and refuses Production; BG-06 must replace it with the durable provider
+suppression owner before live delivery. It never supplies implicit empty
+Production suppression evidence.
+
+The Ministry activity screen now supports sorted/searchable/filterable catalog
+rows, an actor/source/configuration-bound signed impact preview, CSRF-protected
+confirmation, durable Applying/Applied receipts, and reactivation preserving the
+original override identity. Shared Admin request admission rechecks authorization
+and exact scope inside intake's transaction. Passive receipt reads do not renew
+idle time. Its 24 PostgreSQL tests cover actual restricted web grants, rejected
+stray inputs, preview expiry, stale source/configuration, installer activation,
+and retry idempotency.
+
+The Parish profile editor uses that same request boundary and renders a complete
+before/after preview. Existing campaign timezone, boundaries, schedules and
+branding survive profile edits unchanged. Required-field, forbidden URL, role,
+stale-form and real web-grant tests pass. The combined editor suite passes
+42 cases without skips. Role-filtered navigation, persistent Testing indicators
+and the background-work HTML view are under active validation; broader wizard,
+credential/branding, campaign-content and preview acceptance remains open.
+
+The expanded home page shows the current campaign, latest promoted source time,
+next planned Family mailing, Staff/Admin participation aggregates, and Admin-only
+recent failed tasks. The Testing indicator names the redirected recipient only
+for Admins; leaders receive neither Family-code links nor Family aggregates.
+Critical-event, restore, delivery-pause and go-live-preparation warnings are
+persistent and do not expose private log context. Status-page pagination retains
+its filters and presents exact count/percentage formatting. Dashboard reads are
+audited and recheck authorization after querying.
+
+Current validation passes 100 focused PostgreSQL/pure integration cases with
+96% combined line coverage across the seven new source/runtime/editor/context
+modules. Another 49-case run covers dashboard, navigation, Google authentication
+and restricted web grants. The runtime lifecycle suite exercises signal
+restoration, consumer receipts and cleanup after both successful and failed
+startup/drain. The ordinary baseline passes 3,379 tests with 1,607 explicit
+opt-in cases skipped and two existing warnings. These are incremental results,
+not a substitute for the final complete PostgreSQL, browser, Compose and review
+gates.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later
