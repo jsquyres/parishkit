@@ -703,8 +703,17 @@ coverage across the three new campaign modules. All 135 Chromium/Firefox/WebKit
 browser cases passed, including mobile/desktop accessibility, module behavior
 and no-JavaScript forms. The expanded fixtures also caught and fixed a Ministry
 page header override that had hidden the persistent background-work indicator.
-Cloning, editable share options, immutable content/templates, combined schedule
+Cloning, immutable content/templates, combined schedule
 reconciliation and readiness-test mail are still required before ADM-04 closes.
+
+The financial share-option editor now supports the configurable default labels,
+stable saved IDs, explicit additions/deletions, and numeric ordering. Submitted
+management counts, missing/foreign/repeated identities and out-of-range fields
+are rejected rather than silently dropped. Only Parish/pronoun substitutions
+are allowed in option labels. Confirmation uses the same exact runtime/source/
+configuration scope and remains unavailable once structural settings lock.
+Its combined form/campaign/share integration run passed 92 tests with 98% share
+module coverage; the browser expansion passed 147 checks across three engines.
 
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge

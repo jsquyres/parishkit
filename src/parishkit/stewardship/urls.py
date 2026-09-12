@@ -11,6 +11,7 @@ from .accounts import (
     family_authentication,
     ministry_views,
     parish_views,
+    share_views,
 )
 from .jobs import views as job_views
 
@@ -24,6 +25,11 @@ family_patterns = [
     path("logout", family_authentication.logout, name="logout"),
 ]
 admin_patterns = [
+    path(
+        "campaign/<uuid:campaign_id>/share-options",
+        share_views.share_settings,
+        name="share_settings",
+    ),
     path("campaign/new", campaign_views.campaign_settings, name="campaign_new"),
     path(
         "campaign/<uuid:campaign_id>/settings",

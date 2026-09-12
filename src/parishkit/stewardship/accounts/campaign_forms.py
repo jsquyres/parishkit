@@ -14,6 +14,8 @@ from parishkit.config import ConfigError
 from parishkit.stewardship.campaigns.configuration import campaign_values
 from parishkit.stewardship.schema_primitives import timezone_names
 
+from .share_forms import default_share_options
+
 
 class SourceChoices(forms.MultipleChoiceField):
     """Accept only distinct catalog IDs, with deterministic integer serialization."""
@@ -87,6 +89,9 @@ class CampaignForm(forms.Form):
         """Do not trust posted source labels or let fields replace saved content."""
         super().__init__(*args, **kwargs)
         self.previous = deepcopy(previous or {})
+        self.share_options = deepcopy(self.previous.get("share_options", []))
+        if "financial" not in self.previous.get("modules", []):
+            self.share_options = default_share_options()
         self.fields["timezone"].choices = [
             (zone, zone) for zone in sorted(timezone_names())
         ]
@@ -171,9 +176,7 @@ class CampaignForm(forms.Form):
             "modules": modules,
             "ministry_duids": data["ministry_duids"],
             "financial": financial,
-            "share_options": deepcopy(self.previous.get("share_options", []))
-            if financial
-            else [],
+            "share_options": deepcopy(self.share_options) if financial else [],
             "content_versions": {
                 key: value
                 for key, value in self.previous.get("content_versions", {}).items()
