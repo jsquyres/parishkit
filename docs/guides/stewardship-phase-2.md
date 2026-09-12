@@ -821,6 +821,30 @@ fixture stalled reproducibly before the final navigation; two separate 63-case
 subsets passed. Per-scenario browser process isolation resolves the complete
 suite without retries, skipped assertions or longer navigation timeouts.
 
+### Archived campaign cloning
+
+Admins can now start empty or clone an archived campaign after the existing
+Return-to-Testing/single-current guards admit a successor. The clone receives
+fresh deterministic child identities for content, share options and schedules;
+all campaign/financial/one-time mail dates, names and fund selections start
+empty. Current locally active Ministries are offered instead of importing stale
+selections. Digest civil times/weekdays and inert content are retained. No
+Family identity, response, delivery or workflow records are copied.
+
+The preview shows the complete new structure and fictional rendered content.
+Both the form seed and final preview are actor/base-bound and expire after
+15 minutes. Confirmation repeats source/lifecycle/configuration admission;
+installation adds the campaign, content and schedules in one YAML transaction.
+The new-campaign content allowance cannot modify an archived source's text.
+Normal 100-record/request and bounded preview limits still apply explicitly.
+
+The combined clone/campaign/content run passes 44 tests with 91% focused line
+coverage (100% cloning helper, 90% HTTP workflow). Tests include actual archive
+and Return-to-Testing transitions, installer application, historical preservation,
+fresh identities, stale/expired forms, forbidden roles and hidden fields. All
+18 selected three-engine browser cases pass, including the twelve new clone
+accessibility/mobile cases and the shared campaign fields' module behavior.
+
 ### Source runtime topology wiring (in progress)
 
 The operational dispatcher and rendered Compose topology now include the source

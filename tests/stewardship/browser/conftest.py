@@ -116,6 +116,59 @@ def component_origin():
     }
     for path, template, extra in (
         (
+            "/clone-settings",
+            "clone-settings",
+            {
+                "source": {
+                    "pk": mail_campaign["id"],
+                    "active_configuration": mail_campaign["values"],
+                },
+                "form": CampaignForm(
+                    initial={
+                        "timezone": "America/New_York",
+                        "census": True,
+                        "base_digest": "a" * 64,
+                    }
+                ),
+                "schedules": Schedules(
+                    previous=[mail],
+                    templates=[],
+                    campaign_id=mail_campaign["id"],
+                    campaign=mail_campaign["values"],
+                    prefix="schedules",
+                ),
+                "clone_seed": "synthetic-seed",
+            },
+        ),
+        (
+            "/clone-preview",
+            "clone-preview",
+            {
+                "source": {
+                    "pk": mail_campaign["id"],
+                    "active_configuration": mail_campaign["values"],
+                },
+                "changes": [
+                    {
+                        "label": "Campaign dates",
+                        "after": "2027-10-01 through 2027-10-31",
+                    }
+                ],
+                "schedules": [mail["values"]],
+                "preview": "synthetic-preview",
+                "content_previews": [
+                    {
+                        "label": "Welcome",
+                        "rendered": {
+                            "subject": None,
+                            "html": "<p>Welcome, Sample Family.</p>",
+                            "text": "Welcome, Sample Family.",
+                        },
+                    }
+                ],
+            },
+        ),
+        (
             "/schedule-settings",
             "schedule-settings",
             {

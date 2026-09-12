@@ -7,6 +7,7 @@ from .accounts import (
     access_gate,
     authentication,
     campaign_views,
+    clone_views,
     code_reports,
     content_views,
     family_authentication,
@@ -29,6 +30,11 @@ family_patterns = [
     path("logout", family_authentication.logout, name="logout"),
 ]
 admin_patterns = [
+    path(
+        "campaign/<uuid:campaign_id>/clone",
+        clone_views.campaign_clone,
+        name="campaign_clone",
+    ),
     path(
         "campaign/<uuid:campaign_id>/schedules",
         schedule_views.schedule_settings,

@@ -168,6 +168,13 @@ def _page(request, configuration, campaign, form, *, editable, status=200):
             "campaign": campaign,
             "form": form,
             "editable": editable,
+            "clone_sources": list(
+                Campaign.objects.filter(state="archived")
+                .select_related("active_configuration")
+                .order_by("active_configuration__name", "id")
+            )
+            if campaign is None
+            else [],
         },
         status=status,
     )

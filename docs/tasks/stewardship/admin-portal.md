@@ -86,8 +86,10 @@ existing template consumers and preserve immutable YAML/projection history;
 content form/view integration coverage is 92%. Combined schedule/draft-date
 reconciliation now passes 70 tests with 94% schedule-module coverage; exact
 work previews, explicit removals and timezone-bound revisions preserve SQL
-admission. Cloning and readiness-test mail remain open, along with complete
-integration/regression/review acceptance.
+admission. Archived campaign cloning now has exact previews, fresh child IDs and
+explicit new-date/current-fund entry; its combined run passes 44 tests with 91%
+focused coverage and eighteen selected browser cases. Readiness-test mail and
+complete integration/regression/review acceptance remain open.
 See [Phase 2 evidence](../../guides/stewardship-phase-2.md#immutable-content-and-template-editing).
 
 ## ADM-05: Production transition and pre-start withdrawal
