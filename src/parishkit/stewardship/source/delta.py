@@ -13,7 +13,7 @@ from parishkit.parishsoft_households import load_family_slice
 from parishkit.parishsoft_source import CoherentParishSoftClient
 
 from .canonical import InvalidSourcePayload
-from .corpus import KINDS, normalize_core
+from .corpus import KINDS, _scalar, normalize_core
 from .cursors import delta_dates
 from .loading import SourceLoad, validate_count_trend
 from .windows import RefreshWindow
@@ -159,7 +159,9 @@ def load_delta_source(
         groups = load_family_groups(client) if households else {}
         if households:
             for family in base["family"].values():
-                if family.get("family_group") != groups.get(family.get("famGroupID")):
+                if family.get("family_group") != _scalar(
+                    groups.get(family.get("famGroupID"))
+                ):
                     raise ChangeFeedIncomplete(
                         "Changed Family group definitions require full refresh."
                     )

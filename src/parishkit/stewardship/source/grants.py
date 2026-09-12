@@ -63,7 +63,12 @@ SCHEDULER_CANCEL_COLUMNS = frozenset(
 
 
 def add_configuration_reads(tables):
-    """Allow startup to verify YAML/SQL projection parity, without config writes."""
+    """Read complete public projections for startup parity, without config writes.
+
+    Parish and login-rule fields are part of the selected canonical document
+    these roles already read. Do not describe them as column-restricted; private
+    identity/session, source payload and credential grants are separate below.
+    """
     for table in (
         "stewardship_parish",
         "stewardship_applied_integration",
@@ -99,7 +104,6 @@ def add_refresh_scheduler_grants(tables, columns):
         "stewardship_source_refresh_tick",
     ):
         tables[table].add("INSERT")
-    columns["stewardship_parish"]["SELECT"].add("timezone")
     # A separate SQL trigger limits these columns to waiting-source cancellation;
     # knowing a worker UUID cannot let this login impersonate its live claim.
     columns["stewardship_task_run"] = {"UPDATE": set(SCHEDULER_CANCEL_COLUMNS)}
@@ -136,7 +140,6 @@ def add_refresh_worker_grants(tables, columns):
     ):
         tables[table].add("UPDATE")
     columns["stewardship_credential_deployment"] = {"UPDATE": {"id"}}
-    columns["stewardship_parish"]["SELECT"].add("timezone")
     # Existing sealed links are only tested for membership. The general worker
     # has the public sealing key, not private decryption or token-read authority.
     columns["stewardship_family_token"] = {

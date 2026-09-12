@@ -155,6 +155,21 @@ def test_changed_global_family_group_definition_requires_full_refresh(tmp_path):
         load_delta_source(connection, **arguments())
 
 
+@pytest.mark.parametrize("group", [" Active ", "\u00a0Active\u00a0", "Cafe\u0301"])
+def test_group_comparison_uses_the_full_load_canonicalization(tmp_path, group):
+    """Whitespace and Unicode-equivalent labels do not force perpetual full loads."""
+    options = arguments()
+    data = source()
+    data.family_groups[7] = group
+    options["base"] = normalize_core(data, as_of=BEFORE)
+    connection = client(
+        tmp_path,
+        [[indication()], *household(), [{"famGroupID": 7, "famGroup": group}]],
+    )
+    result = load_delta_source(connection, **options)
+    assert result.corpus == options["base"]
+
+
 def test_unavailable_family_requires_full_without_a_partial_corpus(tmp_path):
     """Missing source identity is not permission to delete a Family via delta."""
     connection = client(tmp_path, [[indication()], {}])
