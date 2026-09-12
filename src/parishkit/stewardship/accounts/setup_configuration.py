@@ -33,8 +33,8 @@ def build_setup_candidate(base, patch, *, candidate_id):
 
     This format deliberately permits only additions. Even a valid configured
     document cannot act as a base, and existing bootstrap identities cannot be
-    edited or replaced. The 300-record ceiling accommodates the wizard's five
-    bounded access lists alongside its parish, integration and campaign records.
+    edited or replaced. The 400-record ceiling accommodates five bounded access
+    lists, 100 schedules and all named content slots, plus core records.
     Historical v1-v6 parsers and their smaller patch limits remain unchanged.
     """
     from .request_patch import PatchedConfiguration
@@ -46,7 +46,7 @@ def build_setup_candidate(base, patch, *, candidate_id):
     document = base.document()
     if parse_version(document, validate_sections=validate_bootstrap_sections) != base:
         _invalid()
-    if type(patch) is not list or not 1 <= len(patch) <= 300:
+    if type(patch) is not list or not 1 <= len(patch) <= 400:
         _invalid()
     # Parse detached bytes before returning. No caller-owned mutable object is
     # retained in either the candidate or the canonical retry payload.

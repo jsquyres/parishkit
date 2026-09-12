@@ -373,6 +373,31 @@ def component_origin():
             },
         ),
         (
+            "/setup-preview",
+            "setup-preview",
+            {
+                "draft": setup_draft,
+                "parish": {
+                    "name": "Sample Parish",
+                    "website": "https://example.invalid/",
+                    "phone": "+12025550123",
+                },
+                "campaign": mail_campaign["values"],
+                "testing_recipient": "testing@example.org",
+                "candidate_digest": "a" * 64,
+                "document": '{"sections": {"campaigns": []}}',
+                "samples": [
+                    {
+                        "label": "Family welcome",
+                        "sample": {
+                            "html": "<p>Hello Sample Family</p>",
+                            "text": "Hello Sample Family",
+                        },
+                    }
+                ],
+            },
+        ),
+        (
             "/setup-schedules",
             "setup-schedules",
             {

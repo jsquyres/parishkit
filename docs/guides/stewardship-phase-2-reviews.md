@@ -335,3 +335,32 @@ passes 3,855 tests, with 2,285 explicit profile skips and two existing warnings.
 Final setup preview, target delivery checks, installer/consumer coordination
 and atomic configured-marker activation remain open. This is an implementation
 checkpoint, not one of the three required complete Phase 2 review rounds.
+
+### Exact public setup preview checkpoint
+
+The original Admin can now review the complete proposed public configuration,
+its digest, private staged branding and every enabled named content slot using
+fictional samples. Compilation preserves bootstrap Admin records unchanged,
+merges additional domain/address roles, retains campaign/content/share/schedule
+identities and derives selected page references. Current sealed credential
+metadata must match the draft's mailbox, sender, reply address, Testing recipient
+and optional Slack channel. Disabled Slack/content staging remains inert.
+
+A compact signed binding pins the original attempt revision, base, candidate
+and request key. Verification recompiles under original-login/source/logo checks;
+any edit makes the old preview stale. Passive preview reads do not extend idle
+expiry or freeze setup. It exposes no completion action or provider-success
+claim. The additive setup parser's record ceiling is increased from 300 to 400
+so five allowed fifty-row access lists can coexist with 100 schedules and all
+named content slots; canonical interpretation of previously valid intents is
+unchanged.
+
+The compiler/parser suite passes 50 pure cases with 99% compiler coverage.
+The original-owner preview passes three PostgreSQL cases with 99% service/view
+coverage; its combined cancellation/credential regression passes 40 cases.
+Six additional browser accessibility cases pass across the three engines and
+mobile/desktop widths. The baseline passes 3,879 tests, with 2,294 explicit
+profile skips and two existing warnings. Provider delivery checks, initial
+mount/consumer coordination and atomic source/Family/configured-marker
+activation remain open; the finalizer must also cover the chosen financial
+window rather than treating the earlier catalog load as giving-history evidence.

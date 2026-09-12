@@ -37,10 +37,10 @@ pytestmark = pytest.mark.django_db(transaction=True)
 CANDIDATE = b"synthetic-wizard-key-not-a-live-credential"
 
 
-def publish(target):
+def publish(target, *, material=b"s" * 32):
     """Fixture publishes real derived public bytes; no decrypting key enters web."""
     assert target in {"parishsoft", "google_workspace", "slack"}
-    private = key(target)
+    private = key(target, material=material)
     role = "pk_stewardship_credential_" + target
     with connection.cursor() as cursor:
         cursor.execute("SELECT 1 FROM pg_roles WHERE rolname=%s", [role])

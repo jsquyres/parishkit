@@ -19,8 +19,8 @@ The active package is ADM-02: completing initial setup end to end. Source
 refresh, staged initial loading, ephemeral credential exchange, public setup
 forms and the preparation editors are implemented with focused test evidence.
 Expired source cleanup and first-campaign structural/content/share/schedule
-staging are implemented. Provider delivery checks, final setup preview and atomic
-setup finalization remain open. No Phase 2
+staging and the exact public setup preview are implemented. Provider delivery
+checks and atomic setup finalization remain open. No Phase 2
 PR exists yet, and the three complete phase review/fix rounds are not complete.
 The chronological checkpoints below record partial progress, not phase exit.
 

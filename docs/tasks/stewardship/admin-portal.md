@@ -78,6 +78,12 @@ implements temporary content, share and schedule editing, with 73 combined
 PostgreSQL regressions, 96% focused wizard coverage and 36 selected browser cases.
 Final preview, target delivery checks and atomic activation remain open.
 
+The [exact public preview checkpoint](../../guides/stewardship-phase-2-reviews.md#exact-public-setup-preview-checkpoint)
+now covers original-login deterministic compilation and private fictional
+previews. It passes 50 pure cases, 40 combined PostgreSQL cases and six browser
+cases. Target delivery checks, consumer coordination and atomic activation
+still prevent closing ADM-02.
+
 ## ADM-03: Navigation, dashboard, indicators, and configuration
 
 Scope and dependencies: [ADM-03 work package](../../plans/stewardship/admin-portal.md#adm-03-navigation-dashboard-indicators-and-configuration).
