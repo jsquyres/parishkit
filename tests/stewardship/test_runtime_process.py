@@ -3,6 +3,7 @@
 from dataclasses import replace
 from threading import Event
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
@@ -145,3 +146,94 @@ def test_gunicorn_worker_receipt_hook_sanitizes_private_failures(monkeypatch):
         runtime_process.admitted_worker_started(SimpleNamespace(pid=1))
     assert "private" not in str(error.value)
     assert error.value.__suppress_context__
+
+
+@pytest.mark.parametrize("role", [ServiceRole.WORKER, ServiceRole.SCHEDULER])
+@pytest.mark.parametrize("fail", [False, True])
+def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
+    tmp_path, monkeypatch, role, fail
+):
+    """Restore signals and close broker/SQL after normal or failed drainage."""
+    import signal
+
+    from parishkit.stewardship import runtime_background
+
+    configuration = replace(configuration_at(tmp_path), service_role=role)
+    previous = {sig: signal.getsignal(sig) for sig in (signal.SIGINT, signal.SIGTERM)}
+    broker, lease, closes, receipts, healthy = Mock(), Mock(), Mock(), Mock(), Mock()
+    assembled = SimpleNamespace(broker=broker, store=object(), handlers={}, receipts={})
+    stops = []
+
+    def configure(config, *, stop, heartbeat):
+        """Retain the common stop event and exercise the actual health callback."""
+        assert config is configuration
+        stops.append(stop)
+        heartbeat()
+        return assembled
+
+    def serve(actual, *, lease, stop, heartbeat, **kwargs):
+        """Substitute the external process loop, not runtime lifecycle logic."""
+        assert actual is broker and stop is stops[0]
+        if role is ServiceRole.SCHEDULER:
+            kwargs["produce"](Mock())
+        signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
+        assert stop.is_set()
+        if fail:
+            raise RuntimeError("synthetic startup failure")
+        return 0
+
+    producer, matching = Mock(), Mock()
+    monkeypatch.setattr(runtime_background, "configure_background", configure)
+    monkeypatch.setattr(runtime_background, "matching_authority", matching)
+    monkeypatch.setattr(
+        "parishkit.stewardship.source.production.SourceProducer", lambda _: producer
+    )
+    monkeypatch.setattr("parishkit.stewardship.jobs.processes.serve_consumer", serve)
+    monkeypatch.setattr("parishkit.stewardship.jobs.processes.serve_scheduler", serve)
+    monkeypatch.setattr(
+        "parishkit.stewardship.consumer_runtime.publish_single_process_receipts",
+        receipts,
+    )
+    monkeypatch.setattr(
+        "parishkit.stewardship.installer_health.publish_heartbeat", healthy
+    )
+    monkeypatch.setattr("django.db.connections.close_all", closes)
+    if fail:
+        with pytest.raises(RuntimeError):
+            runtime_process.serve_background(configuration, lease)
+    else:
+        assert runtime_process.serve_background(configuration, lease) == 0
+    assert stops[0].is_set()
+    assert {sig: signal.getsignal(sig) for sig in previous} == previous
+    receipts.assert_called_once_with(configuration, assembled.receipts)
+    healthy.assert_called_once()
+    assert lease.check.call_count == 2
+    broker.app.close.assert_called_once()
+    closes.assert_called_once()
+    if role is ServiceRole.SCHEDULER:
+        matching.assert_called_once_with(assembled.store)
+        producer.assert_called_once()
+
+
+def test_background_failed_admission_restores_signals_without_publishing_receipts(
+    tmp_path, monkeypatch
+):
+    """Partial assembly is never advertised as a loaded consumer or left running."""
+    import signal
+
+    previous = signal.getsignal(signal.SIGTERM)
+    receipts, closes = Mock(), Mock()
+    monkeypatch.setattr(
+        "parishkit.stewardship.runtime_background.configure_background",
+        Mock(side_effect=ConfigError("Invalid assembly")),
+    )
+    monkeypatch.setattr(
+        "parishkit.stewardship.consumer_runtime.publish_single_process_receipts",
+        receipts,
+    )
+    monkeypatch.setattr("django.db.connections.close_all", closes)
+    with pytest.raises(ConfigError):
+        runtime_process.serve_background(configuration_at(tmp_path), Mock())
+    assert signal.getsignal(signal.SIGTERM) == previous
+    receipts.assert_not_called()
+    closes.assert_called_once()

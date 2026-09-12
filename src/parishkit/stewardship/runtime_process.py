@@ -262,6 +262,66 @@ def serve_installer_loop(run_once, lease):
     return 0
 
 
+def serve_background(configuration, lease):
+    """Assemble one admitted queue process and retain exclusion through final drain."""
+    from uuid import uuid4
+
+    from .consumer_runtime import publish_single_process_receipts
+    from .installer_health import publish_heartbeat
+    from .jobs.processes import serve_consumer, serve_scheduler
+    from .runtime_background import configure_background, matching_authority
+    from .source.production import SourceProducer
+
+    stop = StopEvent()
+
+    def heartbeat():
+        """Long task renewal and idle loop progress both retain lifecycle evidence."""
+        lease.check()
+        publish_heartbeat()
+
+    def stopping(signum, frame):
+        """Signals request drainage; no provider work or SQL runs in this handler."""
+        stop.set()
+
+    previous = {
+        sig: signal.signal(sig, stopping) for sig in (signal.SIGTERM, signal.SIGINT)
+    }
+    assembled = None
+    try:
+        lease.check()
+        assembled = configure_background(configuration, stop=stop, heartbeat=heartbeat)
+        publish_single_process_receipts(configuration, assembled.receipts)
+        emit(Event.STARTUP_VALIDATED)
+        if configuration.service_role is ServiceRole.WORKER:
+            return serve_consumer(
+                assembled.broker, lease=lease, stop=stop, heartbeat=heartbeat
+            )
+        producer = SourceProducer(uuid4())
+
+        def produce(guard):
+            """A later YAML/SQL mismatch cannot enqueue or cancel scheduled work."""
+            matching_authority(assembled.store)
+            return producer(guard)
+
+        return serve_scheduler(
+            assembled.broker,
+            handlers=assembled.handlers,
+            lease=lease,
+            stop=stop,
+            heartbeat=heartbeat,
+            produce=produce,
+        )
+    finally:
+        stop.set()
+        for sig, handler in previous.items():
+            signal.signal(sig, handler)
+        if assembled is not None:
+            assembled.broker.app.close()
+        from django.db import connections
+
+        connections.close_all()
+
+
 def execute_runtime(args):
     """Admit the operator-rendered profile and retain exclusion until final exit."""
     configure_logging()

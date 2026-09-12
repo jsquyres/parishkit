@@ -94,6 +94,11 @@ def renew_once(execution):
                 execution.heartbeat()
                 if control.source_claim is not None:
                     renew_source(control.source_claim)
+        # A long finite source read blocks Celery's solo-loop timer. Publish
+        # process liveness only after successful independent SQL renewal, never
+        # from an unconditional heartbeat thread or inside its transaction.
+        if execution.handler.pulse is not None:
+            execution.handler.pulse()
 
 
 def _renewal_loop(execution, done):
