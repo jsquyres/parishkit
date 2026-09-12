@@ -267,3 +267,23 @@ counts overlap earlier evidence and are not a full PostgreSQL or Compose rerun.
 Abandoned source-row cleanup, initial Compose mount orchestration, staged first
 campaign, provider delivery checks, final installer coordination and atomic
 configuration/source/Family activation remain required before Phase 2 acceptance.
+
+### Expired setup source disposal checkpoint
+
+The scheduler now queues one idempotent cleanup Task for each expired original
+setup that started a source load. The worker waits for source ownership and the
+retained provider-request drain deadline, rejects only that attempt's unpromoted
+manifests and removes at most 500 memberships per transaction. SQL restricts its
+DELETE authority to those exact expired-setup rows. Payloads shared with another
+snapshot survive; interrupted batches roll back both payload and membership
+deletions. Immutable manifests and result/audit metadata remain. Original queued
+loads are cancelled, while genuinely live old workers retain normal fenced
+expiry/recovery rather than being impersonated.
+
+The combined setup-disposal, loader, ordinary worker, snapshot and retention
+regression passes 55 PostgreSQL tests in 1 minute, 46 seconds with 85% focused
+cleanup coverage. One integration case waits for the actual finite provider
+drain instead of changing clocks or disabling guards. Runtime composition passes
+31 tests; the baseline passes 3,827 tests with 2,237 explicit profile skips and
+two existing warnings. This closes the source-row disposal slice, not all of
+ADM-02: staged campaign and final installer/activation integration remain open.

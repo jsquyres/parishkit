@@ -15,7 +15,17 @@ refreshed `origin/main` tip.
 
 ## Active checkpoint
 
-DAT-03 storage is complete; BG-01 is the next dependency-ready package. The
+The active package is ADM-02: completing initial setup end to end. Source
+refresh, staged initial loading, ephemeral credential exchange, public setup
+forms and the preparation editors are implemented with focused test evidence.
+Expired source cleanup is implemented; staged first-campaign preparation,
+provider delivery checks and atomic setup finalization remain open. No Phase 2
+PR exists yet, and the three complete phase review/fix rounds are not complete.
+The chronological checkpoints below record partial progress, not phase exit.
+
+## Historical implementation checkpoints
+
+DAT-03 storage was the first package, followed by BG-01. The
 first internal checkpoint implements normalized
 content-addressed payload tables and snapshot membership maps, server-clock
 task/source fencing, bounded staging, database-verified completeness and
@@ -1102,6 +1112,13 @@ loader and atomic staging completion. Its 62-case PostgreSQL suite passes with
 bootstrap-only registry without an installed ParishSoft file. Continue with
 abandoned source-row cleanup and the remaining staged campaign/finalization
 owners. This is not the empty-to-configured demonstration or phase completion.
+
+The [source-disposal checkpoint](stewardship-phase-2-reviews.md#expired-setup-source-disposal-checkpoint)
+adds scheduler-owned cleanup after the real source-drain deadline, exact SQL
+deletion restrictions, bounded rollback-safe batches and shared-payload
+preservation. Its combined PostgreSQL regression passes 55 tests with 85%
+focused cleanup coverage. The next setup work is staged first-campaign
+preparation and installer finalization; full Phase 2 acceptance remains open.
 
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge

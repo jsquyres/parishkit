@@ -295,6 +295,7 @@ def serve_background(configuration, lease):
     from .jobs.processes import serve_consumer, serve_scheduler
     from .runtime_background import configure_background, matching_authority
     from .source.production import SourceProducer
+    from .source.setup_cleanup import produce_setup_cleanup
 
     stop = StopEvent()
 
@@ -331,7 +332,11 @@ def serve_background(configuration, lease):
             """
             produce_setup_expiry(guard)
             matching_authority(assembled.store)
-            return (*producer(guard), *produce_cleanup(guard))
+            return (
+                *producer(guard),
+                *produce_cleanup(guard),
+                *produce_setup_cleanup(guard),
+            )
 
         return serve_scheduler(
             assembled.broker,

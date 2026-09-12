@@ -241,7 +241,11 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
         """Substitute the external process loop, not runtime lifecycle logic."""
         assert actual is broker and stop is stops[0]
         if role is ServiceRole.SCHEDULER:
-            assert kwargs["produce"](guard) == ("source-receipt", "cleanup-receipt")
+            assert kwargs["produce"](guard) == (
+                "source-receipt",
+                "cleanup-receipt",
+                "setup-cleanup-receipt",
+            )
         signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
         assert stop.is_set()
         if fail:
@@ -262,6 +266,10 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
     )
     monkeypatch.setattr(
         "parishkit.stewardship.accounts.setup_staging.produce_setup_expiry", expiry
+    )
+    monkeypatch.setattr(
+        "parishkit.stewardship.source.setup_cleanup.produce_setup_cleanup",
+        Mock(return_value=("setup-cleanup-receipt",)),
     )
     monkeypatch.setattr("parishkit.stewardship.jobs.processes.serve_consumer", serve)
     monkeypatch.setattr("parishkit.stewardship.jobs.processes.serve_scheduler", serve)

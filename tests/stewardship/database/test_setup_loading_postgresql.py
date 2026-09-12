@@ -50,7 +50,7 @@ from .test_source_refreshing_postgresql import fake_provider
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-def prepared(service):
+def prepared(service, *, with_request=False):
     """Set up original-login public input and a real target-isolated key exchange."""
     SourceCurrent.objects.get_or_create(singleton=True)
     request, attempt, receipt, private = staged(service)
@@ -77,12 +77,13 @@ def prepared(service):
     handler = Handler(
         WorkQueue.GENERAL, admit_setup_task, lambda _: None, scope=work_transaction
     )
-    return (
+    values = (
         Execution(claim, handler, TaskRun.objects.get(pk=task.run_id).correlation_id),
         source,
         recipient,
         exchange_id,
     )
+    return (values, request) if with_request else values
 
 
 def run(execution, source, recipient, exchange_id, *, credential=None, complete=False):

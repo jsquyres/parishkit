@@ -130,7 +130,9 @@ def add_refresh_worker_grants(tables, columns):
         "contribution",
     ):
         for prefix in ("stewardship_source_", "stewardship_snapshot_"):
-            tables[prefix + entity] = {"SELECT", "INSERT"}
+            # DELETE is separately SQL-guarded to expired setup's exact source
+            # Task/fence. Ordinary refresh/retention cannot use this authority.
+            tables[prefix + entity] = {"SELECT", "INSERT", "DELETE"}
     for table in (
         "stewardship_source_current",
         "stewardship_source_lease",

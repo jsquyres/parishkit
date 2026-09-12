@@ -87,6 +87,7 @@ def test_background_assembly_binds_exact_keys_role_and_closed_registry(
             "source_refresh",
             "branding_cleanup",
             "setup_source_load",
+            "setup_source_cleanup",
         }
         assert runtime.handlers["source_refresh"].pulse is pulse
         assert set(runtime.receipts) == set(configuration.secrets)
@@ -145,7 +146,12 @@ def test_background_assembly_does_not_accept_other_profiles(tmp_path, role):
 def test_scheduler_registry_is_metadata_only():
     """Both compiled types refuse even direct provider/file execution attempts."""
     handlers = background.scheduler_handlers()
-    assert set(handlers) == {"source_refresh", "branding_cleanup", "setup_source_load"}
+    assert set(handlers) == {
+        "source_refresh",
+        "branding_cleanup",
+        "setup_source_load",
+        "setup_source_cleanup",
+    }
     for handler in handlers.values():
         with pytest.raises(PermissionError):
             handler.execute(None)
@@ -189,7 +195,11 @@ def test_only_bootstrap_worker_can_omit_installed_source_key(
         configuration, stop=Event(), heartbeat=lambda: None
     )
     try:
-        assert set(runtime.handlers) == {"setup_source_load", "branding_cleanup"}
+        assert set(runtime.handlers) == {
+            "setup_source_load",
+            "branding_cleanup",
+            "setup_source_cleanup",
+        }
         assert "parishsoft" not in runtime.receipts
     finally:
         runtime.broker.app.close()

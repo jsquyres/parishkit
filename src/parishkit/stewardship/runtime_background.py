@@ -83,6 +83,8 @@ def scheduler_handlers():
     from .source.setup_admission import TASK_TYPE as SETUP_LOAD
     from .source.setup_admission import admit_setup_task
     from .source.setup_admission import recovery_plan as setup_recovery
+    from .source.setup_cleanup import cleanup_handler as setup_cleanup_handler
+    from .source.setup_disposal import TASK_TYPE as SETUP_CLEANUP
 
     def unavailable(execution):
         """A scheduler cannot become a provider worker by calling a registry value."""
@@ -90,6 +92,7 @@ def scheduler_handlers():
 
     return {
         BRANDING_CLEANUP: cleanup_handler(),
+        SETUP_CLEANUP: setup_cleanup_handler(scheduler=True),
         SETUP_LOAD: Handler(
             queue=WorkQueue.GENERAL,
             admit=admit_setup_task,
@@ -182,10 +185,13 @@ def configure_background(configuration, *, stop, heartbeat):
         from .source.execution import refresh_handler
         from .source.requests import TASK_TYPE
         from .source.setup_admission import TASK_TYPE as SETUP_LOAD
+        from .source.setup_cleanup import cleanup_handler as setup_cleanup_handler
+        from .source.setup_disposal import TASK_TYPE as SETUP_CLEANUP
         from .source.setup_execution import setup_source_handler
 
         handlers = {
             BRANDING_CLEANUP: cleanup_handler(configuration.paths["media"]),
+            SETUP_CLEANUP: setup_cleanup_handler(),
             SETUP_LOAD: setup_source_handler(),
         }
         if "parishsoft" in loaded:
