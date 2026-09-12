@@ -41,6 +41,9 @@ def installer_permissions(target):
         from .setup_notification_grants import extend_slack_permissions
 
         extend_slack_permissions(tables, metadata)
+    from .setup_install_grants import extend_initial_permissions
+
+    extend_initial_permissions(target, tables, metadata)
     return tables, metadata
 
 

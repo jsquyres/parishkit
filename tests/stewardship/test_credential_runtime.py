@@ -171,21 +171,22 @@ def test_acknowledgement_cli_never_echoes_private_input(
     assert "acknowledgement refused" in output.err
 
 
+@pytest.mark.parametrize("role", [ServiceRole.WEB, ServiceRole.MAIL_DISPATCH])
 def test_acknowledgement_cli_success_requires_lifecycle_lease(
-    tmp_path, monkeypatch, capsys
+    tmp_path, monkeypatch, capsys, role
 ):
     """A shared real lease covers the whole admitted durable acknowledgement."""
     from parishkit.stewardship.runtime_paths import RuntimeLayout
     from parishkit.stewardship.startup_interlock import StartupLease
 
     configuration, _ = bootstrap_fixture(tmp_path)
-    configuration = replace(configuration, service_role=ServiceRole.WEB)
+    configuration = replace(configuration, service_role=role)
     monkeypatch.setattr(
         credential_runtime, "load_deployment", lambda path: configuration
     )
     calls = []
 
-    def acknowledge(config, identifier):
+    def acknowledge(config, identifier, *, lease=None):
         """Migration remains excluded while this consumer confirmation is active."""
         with (
             pytest.raises(ConfigError),
@@ -195,6 +196,7 @@ def test_acknowledgement_cli_success_requires_lifecycle_lease(
         calls.append(identifier)
 
     monkeypatch.setattr(credential_runtime, "acknowledge_web", acknowledge)
+    monkeypatch.setattr(credential_runtime, "acknowledge_background", acknowledge)
     identifier = uuid4()
     assert (
         main(
@@ -214,7 +216,11 @@ def test_acknowledgement_cli_success_requires_lifecycle_lease(
 
 @pytest.mark.parametrize(
     "role,target",
-    [(ServiceRole.WORKER, "parishsoft"), (ServiceRole.SCHEDULER, "token_public")],
+    [
+        (ServiceRole.WORKER, "parishsoft"),
+        (ServiceRole.SCHEDULER, "token_public"),
+        (ServiceRole.MAIL_DISPATCH, "google_workspace"),
+    ],
 )
 @pytest.mark.parametrize("failure", [None, "admission", "cohort", "mounted", "state"])
 def test_background_ack_requires_live_original_process_and_cleans_resources(
@@ -283,10 +289,10 @@ def test_background_ack_requires_live_original_process_and_cleans_resources(
 
 
 @pytest.mark.parametrize(
-    "role", [ServiceRole.WEB, ServiceRole.MAIL_DISPATCH, ServiceRole.CONFIG_INSTALLER]
+    "role", [ServiceRole.WEB, ServiceRole.BACKUP_WORKER, ServiceRole.CONFIG_INSTALLER]
 )
 def test_background_ack_does_not_admit_unimplemented_or_wrong_runtime(admitted, role):
-    """A future delivery service cannot borrow background-consumer proof."""
+    """An unrelated or unimplemented service cannot borrow consumer proof."""
     configuration, _, _, acknowledgements, _ = admitted
     with pytest.raises(ConfigError):
         credential_runtime.acknowledge_background(

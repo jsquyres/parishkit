@@ -510,3 +510,28 @@ confirmation run combined with existing setup cancellation/abort tests passes
 25 cases. Ruff, formatting and migration drift checks pass. This checkpoint
 does not complete ADM-02, expose a product completion control, or count as a
 complete Phase 2 review round.
+
+### Initial credential installation and rollback retention
+
+Each isolated installer now atomically binds its own frozen setup credential
+to a normal installation request, preserving the sealed envelope's original
+namespace and the original Admin authentication time. PostgreSQL verifies the
+exact readiness input and ownership; failed intake leaves no partial request.
+Private bytes stay within the target installer. Other targets cannot read the
+copied ciphertext, and historical bindings cannot be rewritten.
+
+Consumer acknowledgement is an initial-readiness barrier, not permission to
+discard rollback files. Both the installer and SQL retain the predecessor until
+the configured marker exists. Original-attempt cancellation restores the old
+credential or removes a wizard-only new file. Ordinary replacement semantics
+remain unchanged. The maintained target loops consume this intake; mail-dispatch
+now supports the existing whole-service acknowledgement command and restricted
+SQL acknowledgement grants. No process gains Docker control.
+
+The combined initial-installation and ordinary credential-isolation PostgreSQL
+suite passes 22 cases, with 92% coverage of the new service. Runtime and
+acknowledgement tests pass 53 cases. Ruff, formatting, migration drift and
+whitespace checks pass. The full baseline passes 4,031 tests with 2,408 explicit
+profile skips and two existing warnings. Configuration preparation, actual initial consumer
+mount/recreation integration, selected financial coverage and atomic activation
+remain open; no whole ADM-02 task or full-phase review round is complete here.

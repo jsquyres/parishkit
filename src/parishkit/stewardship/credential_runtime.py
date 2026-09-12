@@ -64,6 +64,7 @@ def acknowledge_background(configuration, request_id, *, lease):
     if not isinstance(request_id, UUID) or configuration.service_role not in {
         ServiceRole.WORKER,
         ServiceRole.SCHEDULER,
+        ServiceRole.MAIL_DISPATCH,
     }:
         raise ConfigError("Background acknowledgement requires an isolated consumer.")
     stop = StopEvent()
@@ -127,6 +128,7 @@ def execute_acknowledgement(args):
             elif configuration.service_role in {
                 ServiceRole.WORKER,
                 ServiceRole.SCHEDULER,
+                ServiceRole.MAIL_DISPATCH,
             }:
                 acknowledge_background(configuration, identifier, lease=lease)
             else:

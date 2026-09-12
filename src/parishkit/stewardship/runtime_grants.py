@@ -331,6 +331,7 @@ def runtime_grants(role, *, target=None):
         tables["stewardship_setup_slack_delivery"].add("INSERT")
         tables["stewardship_setup_config_intent"].add("INSERT")
         tables["stewardship_setup_readiness_binding"] = {"SELECT", "INSERT"}
+        tables["stewardship_setup_credential_install"] = {"SELECT"}
     return tables, columns
 
 

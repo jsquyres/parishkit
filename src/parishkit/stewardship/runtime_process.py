@@ -250,7 +250,7 @@ def serve_credential_installer(configuration, lease):
     publish_handoff(installer.files.private)
 
     def run_once():
-        """Service one ephemeral setup relay, then the ordinary replacement queue."""
+        """Relay, stage frozen initial input, then reconcile target-owned files."""
         if configuration.credential_target == "parishsoft":
             from .source.setup_exchange import relay_pending
 
@@ -266,6 +266,15 @@ def serve_credential_installer(configuration, lease):
 
             lease.check()
             run_pending(installer.files.private, check=lease.check)
+        if configuration.credential_target in {
+            "parishsoft",
+            "google_workspace",
+            "slack",
+        }:
+            from .accounts.setup_credential_installation import stage_initial_credential
+
+            lease.check()
+            stage_initial_credential(installer.files)
         installer.run_once()
 
     return serve_installer_loop(run_once, lease)

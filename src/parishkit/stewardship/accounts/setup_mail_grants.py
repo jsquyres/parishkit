@@ -28,7 +28,10 @@ def mail_runtime_grants():
     tables["stewardship_task_event"].add("INSERT")
     tables["stewardship_audit_event"] = {"INSERT"}
     tables["stewardship_audit_context"] = {"INSERT"}
+    tables["stewardship_secret_request"] = {"SELECT"}
+    tables["stewardship_credential_consumer_ack"] = {"SELECT", "INSERT"}
     columns = {
+        "stewardship_secret_request": {"UPDATE": {"id"}},
         "stewardship_parish": {"SELECT": {"id", "configuration_id"}},
         "stewardship_setup_sealed_credential": {"SELECT": set(CANDIDATE_METADATA)},
         "stewardship_portal_session": {"SELECT": set(SESSION_COLUMNS)},

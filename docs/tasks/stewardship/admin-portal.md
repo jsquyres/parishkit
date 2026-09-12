@@ -112,6 +112,13 @@ existing cancellation regression passes 25 cases before the final two added
 confirmation tests. The internal service is not exposed as a finish button;
 installation/ACK and atomic activation ownership are still required.
 
+The [initial installation checkpoint](../../guides/stewardship-phase-2-reviews.md#initial-credential-installation-and-rollback-retention)
+binds target-isolated installation to frozen readiness and retains rollback
+through consumer acknowledgement until setup commits. Its combined PostgreSQL
+regression passes 22 cases with 92% new-service coverage; runtime tests pass 53.
+Initial consumer mounting/recreation, configuration preparation and final
+activation remain necessary before ADM-02 can close.
+
 ## ADM-03: Navigation, dashboard, indicators, and configuration
 
 Scope and dependencies: [ADM-03 work package](../../plans/stewardship/admin-portal.md#adm-03-navigation-dashboard-indicators-and-configuration).

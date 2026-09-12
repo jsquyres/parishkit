@@ -205,6 +205,11 @@ def test_credential_service_publishes_only_after_admission(
     monkeypatch.setattr(
         "parishkit.stewardship.accounts.setup_notifications.run_pending", slack_send
     )
+    stage_initial = Mock()
+    monkeypatch.setattr(
+        "parishkit.stewardship.accounts.setup_credential_installation.stage_initial_credential",
+        stage_initial,
+    )
 
     def serve(run_once, actual_lease):
         """Queue processing cannot race ahead of the advertised encryption key."""
@@ -215,21 +220,25 @@ def test_credential_service_publishes_only_after_admission(
         installer.run_once.assert_called_once()
         if target == "parishsoft":
             relay.assert_called_once_with(installer.files.private)
-            assert lease.check.call_count == 2
+            assert lease.check.call_count == 3
         else:
             relay.assert_not_called()
         if target == "google_workspace":
             mail_relay.assert_called_once_with(installer.files.private)
-            assert lease.check.call_count == 2
+            assert lease.check.call_count == 3
         else:
             mail_relay.assert_not_called()
         if target == "slack":
             slack_send.assert_called_once_with(
                 installer.files.private, check=lease.check
             )
-            assert lease.check.call_count == 2
+            assert lease.check.call_count == 3
         else:
             slack_send.assert_not_called()
+        if target == "metrics":
+            stage_initial.assert_not_called()
+        else:
+            stage_initial.assert_called_once_with(installer.files)
         return 0
 
     monkeypatch.setattr(runtime_process, "serve_installer_loop", serve)

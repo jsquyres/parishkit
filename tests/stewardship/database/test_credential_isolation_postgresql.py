@@ -69,6 +69,15 @@ def isolated_roles():
                     f'stewardship_credential_consumer_ack TO "{role}"'
                 )
                 cursor.execute(f'GRANT INSERT ON stewardship_audit_event TO "{role}"')
+                if role in {
+                    "pk_stewardship_web",
+                    "pk_stewardship_credential_slack",
+                    "pk_stewardship_credential_parishsoft",
+                }:
+                    cursor.execute(
+                        "GRANT SELECT ON stewardship_setup_credential_install "
+                        f'TO "{role}"'
+                    )
                 cursor.execute(
                     "GRANT SELECT(active_configuration_id) ON "
                     f'stewardship_system_configuration TO "{role}"'
