@@ -880,6 +880,54 @@ exemption: the eight-case discovery rerun verifies that an existing publication
 still prevents initial bootstrap adoption. Ruff, formatting and migration-drift
 checks pass.
 
+### Integration configuration and credential checks (in progress)
+
+`/admin/configuration/integrations` exposes existing ParishSoft, Workspace,
+outgoing-address and Slack settings. Non-secret edits use exact, actor-bound
+fifteen-minute previews and the existing YAML installer; they preserve the
+credential fingerprint. Replacement forms require a Google authentication less
+than five minutes old and real CSRF admission. A posted candidate is never
+redisplayed, including on a validation error, and is sealed to the advertised
+target public key before persistence. The locked intake rechecks the applied
+configuration digest. Reusing an intent cannot change either the candidate
+fingerprint or the immutable public provider scope.
+
+Each target installer can read only its own provider-context rows, not the
+complete YAML configuration. SQL permits context insertion only in the original
+request transaction, repeats closed-field/type bounds and rejects later mutation
+or populated downgrade. Web cannot select sealed ciphertext. The 93-case
+credential/context/bootstrap run passes with actual restricted SQL identities.
+
+Provider checks use one isolated child process with credentials passed over
+stdin, an empty environment, closed inherited descriptors, discarded stderr and
+only a fixed outcome on stdout. The installer closes SQL before external IO and
+reserves a maximum thirty-second check plus five-second forced drainage within
+the request expiry. Unconfirmed drainage terminates the installer. The helper
+rejects redirects and unapproved endpoints, limits response bytes, and uses
+shared ParishKit exact-tenant validation and in-memory Google credential loading.
+Workspace checks authenticate the delegated SMTP mailbox using
+[Google's XOAUTH2 protocol](https://developers.google.com/workspace/gmail/imap/xoauth2-protocol).
+Slack uses the authentication-only
+[auth.test method](https://docs.slack.dev/reference/methods/auth.test/), avoiding
+additional channel-read permissions. Neither check sends a message or attests
+to sender/channel delivery. Outages retain sealed input for bounded retry;
+rejected credentials follow the existing rollback/scrubbing protocol.
+
+The provider/context run passes 110 tests with 97% focused coverage; normal CI
+uses fake HTTP/SMTP and a no-network subprocess case. The Admin/form/grant run
+passes 45 cases with 93% focused coverage, and all thirty new Chromium, Firefox
+and WebKit accessibility/mobile cases pass. These tests cover exact retry,
+write-only errors, CSRF, stale settings/authentication, role denial and real web
+SQL grants. Request progress distinguishes checking, installation, consumer
+acknowledgement and completed/failed cleanup; it never claims that YAML or
+delivery readiness changed just because a credential was installed.
+
+Remaining integration work includes adding/removing optional configuration
+through its complete owning workflow, selecting the acknowledged credential
+fingerprint in YAML, test-only checks of an existing installed credential,
+explicit test deliveries and wizard use of these services. The setup wizard,
+branding workflow and final Compose demonstration remain incomplete.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later

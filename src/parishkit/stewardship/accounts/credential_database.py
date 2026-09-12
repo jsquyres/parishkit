@@ -7,6 +7,7 @@ from parishkit.config import ConfigError
 from .secret_models import SECRET_TARGETS
 
 INSTALLER_GRANTS = {
+    "stewardship_provider_context": {"SELECT"},
     "stewardship_public_credential_handoff": {"SELECT", "INSERT"},
     "django_migrations": {"SELECT"},
     "stewardship_secret_request": {"SELECT", "UPDATE"},

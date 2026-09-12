@@ -13,6 +13,10 @@ from django.template.loader import render_to_string
 
 from parishkit.stewardship.accounts.campaign_forms import CampaignForm
 from parishkit.stewardship.accounts.content_forms import ContentForm
+from parishkit.stewardship.accounts.integration_forms import (
+    CredentialForm,
+    IntegrationForm,
+)
 from parishkit.stewardship.accounts.parish_views import ParishForm
 from parishkit.stewardship.accounts.schedule_forms import Schedules, ScheduleWindow
 from parishkit.stewardship.accounts.share_forms import (
@@ -115,6 +119,59 @@ def component_origin():
         ),
     }
     for path, template, extra in (
+        (
+            "/integrations",
+            "integrations",
+            {
+                "integrations": [
+                    {"target": "parishsoft", "label": "ParishSoft", "configured": True}
+                ]
+            },
+        ),
+        (
+            "/integration-settings",
+            "integration-settings",
+            {
+                "target": "parishsoft",
+                "label": "ParishSoft",
+                "fingerprint": "a" * 64,
+                "latest": {"state": "staged", "updated_at": NOW},
+                "replacement_allowed": True,
+                "form": IntegrationForm(
+                    "parishsoft",
+                    initial={"organization_id": 12345, "base_digest": "a" * 64},
+                ),
+            },
+        ),
+        (
+            "/integration-preview",
+            "integration-preview",
+            {
+                "target": "parishsoft",
+                "label": "ParishSoft",
+                "preview": "synthetic-preview",
+                "changes": [
+                    {"label": "Organization ID", "before": "12345", "after": "54321"}
+                ],
+            },
+        ),
+        (
+            "/credential-replace",
+            "credential-replace",
+            {
+                "target": "parishsoft",
+                "label": "ParishSoft",
+                "form": CredentialForm(initial={"intent": "synthetic-intent"}),
+            },
+        ),
+        (
+            "/credential-status",
+            "credential-status",
+            {
+                "receipt": {"request_id": uuid4(), "state": "awaiting_ack"},
+                "pending": True,
+            },
+        ),
         (
             "/clone-settings",
             "clone-settings",

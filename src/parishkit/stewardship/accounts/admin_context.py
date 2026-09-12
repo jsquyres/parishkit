@@ -43,6 +43,7 @@ def portal_chrome(request):
         navigation.extend(
             [
                 (reverse("admin:parish_settings"), _("Parish settings")),
+                (reverse("admin:integrations"), _("Integrations")),
                 (reverse("admin:ministries"), _("Ministry activity")),
                 (reverse("admin:background"), _("Background work")),
             ]

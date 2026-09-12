@@ -59,8 +59,13 @@ signed exact previews and durable Applying/Applied configuration requests;
 permissions, restricted web grants, installation, retry, and campaign-timezone
 isolation. Navigation, Testing banners, passive Family-presence/background
 indicators and HTML task history now pass PostgreSQL and three-engine browser
-tests. Branding, integration replacement and the remaining full acceptance
-checks are not complete. See
+tests. Integration settings now use the same exact-preview protocol; fresh-Admin
+credential intake seals to the target installer, with immutable provider scope,
+bounded authentication checks and passive request progress. Its 45-case HTTP/
+form run has 93% focused coverage, and 30 new three-engine browser cases pass.
+Branding, wizard finalization, post-install configuration fingerprint selection,
+explicit delivery tests and the remaining full acceptance checks are not
+complete. See
 [Phase 2 evidence](../../guides/stewardship-phase-2.md#worker-composition-and-initial-admin-editors-in-progress).
 
 ## ADM-04: Campaign editor, content, schedules, and previews

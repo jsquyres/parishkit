@@ -227,6 +227,7 @@ def serve_credential_installer(configuration, lease):
         validate_metrics_candidate,
         validation_unavailable,
     )
+    from .provider_checks import request_validator
 
     validator = (
         validate_metrics_candidate
@@ -234,7 +235,14 @@ def serve_credential_installer(configuration, lease):
         else validation_unavailable
     )
     installer = CredentialInstaller.from_configuration(
-        configuration, validate=validator
+        configuration,
+        validate=validator,
+        validate_request=(
+            request_validator(configuration.credential_target, check=lease.check)
+            if configuration.credential_target
+            in {"parishsoft", "google_workspace", "slack"}
+            else None
+        ),
     )
     from .accounts.handoff_discovery import publish_handoff
 

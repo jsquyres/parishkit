@@ -21,6 +21,8 @@ from parishkit.stewardship.service_boundaries import ALLOWED_SECRETS
 from parishkit.stewardship.storage import StorageInvariantError, UTCDateTimeField
 
 from .cryptography import TokenPublicKeyring, envelope_header
+from .provider_context import validated_context
+from .provider_models import ProviderValidationContext
 from .secret_models import (
     MAX_STAGING_LIFETIME,
     SECRET_PENDING,
@@ -106,6 +108,7 @@ def stage_secret_request(
     required_consumers=(),
     sealed_candidate=None,
     candidate_fingerprint=None,
+    provider_settings=None,
     admit=None,
 ):
     """Record a trusted, already sealed staging reference with exact retry identity.
@@ -116,6 +119,10 @@ def stage_secret_request(
     """
     _identifiers(request_id, staging_reference, actor_id, correlation_id)
     _target(target)
+    if provider_settings is not None:
+        provider_settings = validated_context(target, provider_settings)
+        if sealed_candidate is None:
+            raise ConfigError("Provider validation requires sealed credential intake.")
     allowed_consumers = {
         role.value for role, names in ALLOWED_SECRETS.items() if target in names
     }
@@ -168,6 +175,9 @@ def stage_secret_request(
         if existing is not None:
             if any(getattr(existing, key) != value for key, value in intent.items()):
                 raise ConfigError("Secret request identity is already bound.")
+            context = ProviderValidationContext.objects.filter(request=existing).first()
+            if (context.settings if context else None) != provider_settings:
+                raise ConfigError("Secret request validation context is already bound.")
             if (
                 required_consumers
                 and not SealedCredentialStaging.objects.filter(
@@ -202,6 +212,14 @@ def stage_secret_request(
                 target=target,
                 ciphertext=sealed_candidate,
                 fingerprint=candidate_fingerprint,
+            )
+        if provider_settings is not None:
+            ProviderValidationContext.objects.create(
+                request=record,
+                target=target,
+                settings=provider_settings,
+                actor_id=actor_id,
+                correlation_id=correlation_id,
             )
         return _receipt(record)
 

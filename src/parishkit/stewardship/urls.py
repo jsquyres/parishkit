@@ -11,6 +11,7 @@ from .accounts import (
     code_reports,
     content_views,
     family_authentication,
+    integration_views,
     ministry_views,
     parish_views,
     presence,
@@ -30,6 +31,26 @@ family_patterns = [
     path("logout", family_authentication.logout, name="logout"),
 ]
 admin_patterns = [
+    path(
+        "configuration/integrations",
+        integration_views.integration_settings,
+        name="integrations",
+    ),
+    path(
+        "configuration/integrations/<str:target>",
+        integration_views.integration_settings,
+        name="integration_settings",
+    ),
+    path(
+        "configuration/integrations/<str:target>/credential",
+        integration_views.replace_credential,
+        name="replace_credential",
+    ),
+    path(
+        "configuration/credentials/<uuid:request_id>",
+        integration_views.credential_status,
+        name="credential_status",
+    ),
     path(
         "campaign/<uuid:campaign_id>/clone",
         clone_views.campaign_clone,
