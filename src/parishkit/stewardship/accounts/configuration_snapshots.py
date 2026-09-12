@@ -30,6 +30,9 @@ from .configuration_schema import (
     validate_sections,
     validator_for,
 )
+from .content_models import ContentVersion
+from .content_schema import SCHEMA as CONTENT_SCHEMA
+from .content_schema import remember_content
 from .ministry_activity import SCHEMA as MINISTRY_SCHEMA
 from .ministry_activity import remember_records
 
@@ -38,8 +41,9 @@ POLICY_SCHEMAS = {
     "campaign-foundation-v3",
     "bootstrap-policy-v1",
     MINISTRY_SCHEMA,
+    CONTENT_SCHEMA,
 }
-CAMPAIGN_SCHEMAS = {"campaign-foundation-v3", MINISTRY_SCHEMA}
+CAMPAIGN_SCHEMAS = {"campaign-foundation-v3", MINISTRY_SCHEMA, CONTENT_SCHEMA}
 HISTORY_BATCH_SIZE = 64
 
 
@@ -52,8 +56,10 @@ def _normalized(document, schema=None):
         names += ("login_rules",)
     if selected in CAMPAIGN_SCHEMAS:
         names += ("campaigns", "schedules")
-    if selected == MINISTRY_SCHEMA:
+    if selected in {MINISTRY_SCHEMA, CONTENT_SCHEMA}:
         names += ("ministries",)
+    if selected == CONTENT_SCHEMA:
+        names += ("content",)
     return {name: sections.get(name, []) for name in names}
 
 
@@ -119,7 +125,7 @@ def _stored_projections(snapshot):
         from parishkit.stewardship.campaigns.projections import stored_campaigns
 
         result.update(stored_campaigns(snapshot))
-    if snapshot.validation_schema == MINISTRY_SCHEMA:
+    if snapshot.validation_schema in {MINISTRY_SCHEMA, CONTENT_SCHEMA}:
         result["ministries"] = [
             {
                 "id": str(row.record_id),
@@ -131,6 +137,23 @@ def _stored_projections(snapshot):
             }
             for row in sorted(
                 snapshot.ministry_activity.all(), key=lambda item: str(item.record_id)
+            )
+        ]
+    if snapshot.validation_schema == CONTENT_SCHEMA:
+        result["content"] = [
+            {
+                "id": str(row.record_id),
+                "values": {
+                    "campaign_id": str(row.campaign_id),
+                    "kind": row.kind,
+                    "slot": row.slot,
+                    "subject": row.subject,
+                    "html": row.html,
+                    "text": row.text,
+                },
+            }
+            for row in sorted(
+                snapshot.content_versions.all(), key=lambda item: str(item.record_id)
             )
         ]
     return result
@@ -216,8 +239,16 @@ def _prefetch_history(rows):
         "schedule_revisions",
     )
     prefetch_related_objects(
-        [row for row in rows if row.validation_schema == MINISTRY_SCHEMA],
+        [
+            row
+            for row in rows
+            if row.validation_schema in {MINISTRY_SCHEMA, CONTENT_SCHEMA}
+        ],
         "ministry_activity",
+    )
+    prefetch_related_objects(
+        [row for row in rows if row.validation_schema == CONTENT_SCHEMA],
+        "content_versions",
     )
     if campaign_rows:
         from parishkit.stewardship.campaigns.projections import sql_boundaries_match
@@ -275,6 +306,7 @@ def _verify_history(snapshot, candidate=None):
         parish_id = None
         by_kind, by_id, policy_ids = {}, {}, {}
         ministry_ids, ministry_identities = {}, {}
+        content_ids = {}
         newer_policy = None
         newer_parish = None
         if candidate is not None:
@@ -284,6 +316,7 @@ def _verify_history(snapshot, candidate=None):
             _remember_integrations(candidate, by_kind, by_id)
             newer_policy = _remember_policy(candidate, policy_ids)
             remember_records(candidate, ministry_ids, ministry_identities)
+            remember_content(candidate, content_ids)
         for entry in _hydrated_history(snapshot):
             predecessor = entry.predecessor.digest if entry.predecessor_id else None
             version = verified_snapshot_version(entry, predecessor_digest=predecessor)
@@ -299,6 +332,7 @@ def _verify_history(snapshot, candidate=None):
             _remember_integrations(version.document(), by_kind, by_id)
             has_policy = _remember_policy(version.document(), policy_ids)
             remember_records(version.document(), ministry_ids, ministry_identities)
+            remember_content(version.document(), content_ids)
             if newer_policy is False and has_policy:
                 return False
             newer_policy = has_policy
@@ -439,6 +473,13 @@ def prepare_snapshot(version, *, actor_id, correlation_id):
         prepare_campaigns(snapshot, document, attribution)
         for record in document["sections"].get("ministries", []):
             MinistryActivity.objects.create(
+                configuration=snapshot,
+                record_id=record["id"],
+                **record["values"],
+                **attribution,
+            )
+        for record in document["sections"].get("content", []):
+            ContentVersion.objects.create(
                 configuration=snapshot,
                 record_id=record["id"],
                 **record["values"],

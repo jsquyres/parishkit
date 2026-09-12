@@ -73,6 +73,7 @@ def add_configuration_reads(tables):
         "stewardship_ministry_assignment",
         "stewardship_ministry_activity",
         "stewardship_schedule_revision",
+        "stewardship_content_version",
     ):
         tables.setdefault(table, set()).add("SELECT")
 

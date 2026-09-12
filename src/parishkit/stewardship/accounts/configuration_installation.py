@@ -388,6 +388,7 @@ def _install_request(store, *, request, correlation_id, admit_campaign=None):
                     "foundation-policy-patch-v2",
                     "campaign-foundation-patch-v3",
                     "ministry-activity-patch-v4",
+                    "campaign-content-patch-v5",
                 }:
                     from .policy_schema import validate_manual_operation
 

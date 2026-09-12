@@ -182,6 +182,7 @@ def record_request(
             POLICY_REQUEST_SCHEMA,
             "campaign-foundation-patch-v3",
             "ministry-activity-patch-v4",
+            "campaign-content-patch-v5",
         }:
             from .policy_schema import validate_manual_operation
 

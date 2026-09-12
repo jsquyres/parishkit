@@ -80,8 +80,12 @@ The editor covers dates, timezone, modules, current Ministry/fund selections,
 financial/comparison periods, additional information and structural read-only
 states. Combined form/editor/navigation tests pass 85 cases with 98% focused
 coverage; the expanded browser suite passes 135 cases across three engines.
-Cloning, content/templates, schedule reconciliation and
-readiness-test emails remain open. See [Phase 2 evidence](../../guides/stewardship-phase-2.md).
+Named page slots and independent email revisions now have visual/source/plain-text
+editors and sanitized fictional before/after previews. Exact requests reconcile
+existing template consumers and preserve immutable YAML/projection history;
+content form/view integration coverage is 92%. Cloning, schedule editing and
+readiness-test mail remain open, along with full-regression/review acceptance.
+See [Phase 2 evidence](../../guides/stewardship-phase-2.md#immutable-content-and-template-editing).
 
 ## ADM-05: Production transition and pre-start withdrawal
 

@@ -12,6 +12,7 @@ from django.contrib.staticfiles import finders
 from django.template.loader import render_to_string
 
 from parishkit.stewardship.accounts.campaign_forms import CampaignForm
+from parishkit.stewardship.accounts.content_forms import ContentForm
 from parishkit.stewardship.accounts.parish_views import ParishForm
 from parishkit.stewardship.accounts.share_forms import (
     ShareOptions,
@@ -103,6 +104,44 @@ def component_origin():
         ),
     }
     for path, template, extra in (
+        (
+            "/content-settings",
+            "content-settings",
+            {
+                "campaign": {
+                    "pk": uuid4(),
+                    "active_configuration": {"name": "Sample campaign"},
+                },
+                "label": "Family welcome",
+                "visual": "<p>Hello Sample Family</p>",
+                "placeholders": ["family_name", "parish_name"],
+                "form": ContentForm(
+                    kind="page",
+                    initial={
+                        "base_digest": "a" * 64,
+                        "html": "<p>Hello Sample Family</p>",
+                        "text": "Hello Sample Family",
+                        "generate_text": True,
+                    },
+                ),
+            },
+        ),
+        (
+            "/content-preview",
+            "content-preview",
+            {
+                "campaign": {"pk": uuid4()},
+                "label": "Family welcome",
+                "before": None,
+                "after": {
+                    "html": "<p>Hello Sample Family</p>",
+                    "text": "Hello Sample Family",
+                    "subject": None,
+                },
+                "preview": "synthetic-preview",
+                "affected": [],
+            },
+        ),
         (
             "/home",
             "home",

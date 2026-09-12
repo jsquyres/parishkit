@@ -8,6 +8,7 @@ from .accounts import (
     authentication,
     campaign_views,
     code_reports,
+    content_views,
     family_authentication,
     ministry_views,
     parish_views,
@@ -27,6 +28,21 @@ family_patterns = [
     path("logout", family_authentication.logout, name="logout"),
 ]
 admin_patterns = [
+    path(
+        "campaign/<uuid:campaign_id>/content",
+        content_views.content_settings,
+        name="content_catalog",
+    ),
+    path(
+        "campaign/<uuid:campaign_id>/content/<str:kind>/<str:slot>",
+        content_views.content_settings,
+        name="content_edit",
+    ),
+    path(
+        "campaign/<uuid:campaign_id>/content/<str:kind>/<str:slot>/<uuid:revision_id>",
+        content_views.content_settings,
+        name="content_revision",
+    ),
     path("presence", presence.active_families, name="presence"),
     path(
         "campaign/<uuid:campaign_id>/share-options",

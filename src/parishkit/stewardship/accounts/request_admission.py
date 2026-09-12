@@ -42,6 +42,7 @@ def check_historical_additions(base_id, patch):
     """
     _check_policy_additions(base_id, patch)
     _check_ministry_additions(base_id, patch)
+    _check_content_additions(base_id, patch)
     additions = [
         item
         for item in patch
@@ -88,6 +89,44 @@ def check_historical_additions(base_id, patch):
             raise ConfigError(
                 "Integration identities must remain stable across history."
             )
+
+
+def _check_content_additions(base_id, patch):
+    """Compare only matching revision payloads across retained immutable ancestry."""
+    import json
+
+    additions = [
+        item
+        for item in patch
+        if item["section"] == "content" and item["operation"] == "add"
+    ]
+    if not additions:
+        return
+    predicates, parameters = [], [base_id]
+    for item in additions:
+        predicates.append(
+            "(m.record_id=%s AND jsonb_build_object("
+            "'campaign_id', m.campaign_id, 'kind', m.kind, 'slot', m.slot, "
+            "'subject', m.subject, 'html', m.html, 'text', m.text) "
+            "IS DISTINCT FROM %s::jsonb)"
+        )
+        parameters.extend([item["id"], json.dumps(item["values"])])
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """WITH RECURSIVE chain(id, predecessor_id) AS (
+                SELECT id, predecessor_id FROM stewardship_configuration_version
+                WHERE id=%s
+                UNION
+                SELECT p.id, p.predecessor_id FROM stewardship_configuration_version p
+                JOIN chain c ON p.id=c.predecessor_id
+            ) SELECT 1 FROM stewardship_content_version m
+              JOIN chain c ON c.id=m.configuration_id WHERE """
+            + " OR ".join(predicates)
+            + " LIMIT 1",
+            parameters,
+        )
+        if cursor.fetchone() is not None:
+            raise ConfigError("Content revision identities must remain immutable.")
 
 
 def _check_ministry_additions(base_id, patch):

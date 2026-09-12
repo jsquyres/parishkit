@@ -16,6 +16,10 @@ from parishkit.config import ConfigError
 
 from .authority import ConfigurationVersion, parse_version
 from .configuration_schema import validator_for
+from .content_schema import RECOVERY_SCHEMA as CONTENT_RECOVERY_SCHEMA
+from .content_schema import REQUEST_SCHEMA as CONTENT_REQUEST_SCHEMA
+from .content_schema import SCHEMA as CONTENT_SCHEMA
+from .content_schema import validate_content_change
 from .ministry_activity import RECOVERY_SCHEMA as MINISTRY_RECOVERY_SCHEMA
 from .ministry_activity import REQUEST_SCHEMA as MINISTRY_REQUEST_SCHEMA
 from .ministry_activity import SCHEMA as MINISTRY_SCHEMA
@@ -128,6 +132,40 @@ def _build_v4_candidate(base, patch, *, candidate_id):
     by_id, by_identity = {}, {}
     remember_records(old, by_id, by_identity)
     remember_records(new, by_id, by_identity)
+    return result
+
+
+def _build_v5_candidate(base, patch, *, candidate_id):
+    """Add immutable content while retaining policy, campaign and Ministry fences."""
+    from parishkit.stewardship.campaigns.configuration import validate_campaign_change
+
+    from .policy_schema import validate_policy_change
+
+    result = _build_records(
+        base,
+        patch,
+        candidate_id=candidate_id,
+        schema=CONTENT_SCHEMA,
+        sections={
+            "parish",
+            "integrations",
+            "login_rules",
+            "campaigns",
+            "schedules",
+            "ministries",
+            "content",
+        },
+    )
+    old, new = base.document(), result.candidate.document()
+    validate_policy_change(
+        old["sections"].get("login_rules", []),
+        new["sections"].get("login_rules", []),
+    )
+    validate_campaign_change(old, new)
+    by_id, by_identity = {}, {}
+    remember_records(old, by_id, by_identity)
+    remember_records(new, by_id, by_identity)
+    validate_content_change(old, new)
     return result
 
 
@@ -289,6 +327,13 @@ def _build_recovery_ministry_candidate(base, patch, *, candidate_id):
     )
 
 
+def _build_recovery_content_candidate(base, patch, *, candidate_id):
+    """Preserve selected content during additive-only offline Admin recovery."""
+    return _build_recovery_candidate(
+        base, patch, candidate_id=candidate_id, schema=CONTENT_SCHEMA
+    )
+
+
 BUILDERS = MappingProxyType(
     {
         "parish-integrations-patch-v1": _build_v1_candidate,
@@ -296,6 +341,8 @@ BUILDERS = MappingProxyType(
         CAMPAIGN_REQUEST_SCHEMA: _build_v3_candidate,
         MINISTRY_REQUEST_SCHEMA: _build_v4_candidate,
         MINISTRY_RECOVERY_SCHEMA: _build_recovery_ministry_candidate,
+        CONTENT_REQUEST_SCHEMA: _build_v5_candidate,
+        CONTENT_RECOVERY_SCHEMA: _build_recovery_content_candidate,
         "operator-recovery-patch-v1": _build_recovery_candidate,
         "operator-recovery-patch-v2": _build_recovery_v2_candidate,
         "operator-recovery-bootstrap-v1": _build_recovery_bootstrap_candidate,
@@ -316,6 +363,16 @@ def build_candidate(base, patch, *, candidate_id, request_schema=None):
 
 def default_schema(base, patch):
     """Choose a new intent schema while keeping every stored retry discriminator."""
+    if (
+        isinstance(base, ConfigurationVersion)
+        and "content" in base.document()["sections"]
+    ) or (
+        type(patch) is list
+        and any(
+            type(item) is dict and item.get("section") == "content" for item in patch
+        )
+    ):
+        return CONTENT_REQUEST_SCHEMA
     if (
         isinstance(base, ConfigurationVersion)
         and base.document()["sections"].get("ministries")

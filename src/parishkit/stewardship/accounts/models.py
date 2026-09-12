@@ -23,6 +23,7 @@ from .configuration_models import (  # noqa: F401
     MinistryActivity,
     Parish,
 )
+from .content_models import ContentVersion  # noqa: F401
 from .policy_models import (  # noqa: F401
     AddressRoleGrant,
     AddressRule,

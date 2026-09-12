@@ -82,6 +82,8 @@ def test_csp_blocks_an_unrelated_form_destination(page, component_origin):
         "/share-preview",
         "/presence",
         "/background-task",
+        "/content-settings",
+        "/content-preview",
     ],
 )
 @pytest.mark.parametrize("width", [320, 1280])
@@ -115,6 +117,54 @@ def test_skip_link_and_error_summary_focus(page, component_origin):
     assert page.locator(":focus").get_attribute("data-error-summary") == ""
     page.get_by_role("link", name="Check the Family code.").click()
     assert page.locator(":focus").get_attribute("id") == "family-code"
+
+
+def test_visual_content_editor_never_executes_source_or_pasted_markup(
+    page, component_origin
+):
+    """Visual edits sync source; raw source waits for the server sanitizer."""
+    page.goto(component_origin + "/content-settings")
+    editor = page.locator("[data-content-editor]")
+    assert editor.is_visible()
+    editor.fill("A visual edit")
+    assert "A visual edit" in page.locator('textarea[name="html"]').input_value()
+    editor.evaluate("""node => {
+        const range = document.createRange();
+        range.selectNodeContents(
+            document.createTreeWalker(node, NodeFilter.SHOW_TEXT).nextNode()
+        );
+        const selection = window.getSelection();
+        selection.removeAllRanges(); selection.addRange(range);
+    }""")
+    page.get_by_role("button", name="Bold", exact=True).click()
+    assert (
+        "<strong>A visual edit</strong>"
+        in page.locator('textarea[name="html"]').input_value()
+    )
+    page.locator("[data-html-source] summary").click()
+    page.locator('textarea[name="html"]').fill(
+        '<img src=x onerror="window.unsafe=true">'
+    )
+    assert not editor.is_visible()
+    assert page.evaluate("window.unsafe === undefined")
+    page.reload()
+    editor = page.locator("[data-content-editor]")
+    editor.evaluate("""node => {
+        node.focus();
+        const range = document.createRange(); range.selectNodeContents(node);
+        const selection = window.getSelection();
+        selection.removeAllRanges(); selection.addRange(range);
+        // Firefox intentionally strips synthetic ClipboardEvent data. Exercise
+        // the application's paste handler with an explicit read-only fixture.
+        const event = new Event('paste', {bubbles: true, cancelable: true});
+        Object.defineProperty(event, 'clipboardData', {value: {
+            getData: type => type === 'text/plain' ? '<b>plain only</b>' :
+                '<img src=x onerror="window.unsafe=true">'
+        }});
+        node.dispatchEvent(event);
+    }""")
+    assert editor.inner_text() == "<b>plain only</b>"
+    assert editor.locator("img, b").count() == 0
 
 
 def test_timestamp_and_passive_presence_never_keep_session_alive(

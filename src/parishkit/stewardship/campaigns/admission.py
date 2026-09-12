@@ -30,6 +30,7 @@ def validate_installation(document, *, request_id=None):
 
     records = document["sections"].get("campaigns", [])
     runtime = SystemConfiguration.objects.first()
+    _validate_content_installation(document, runtime)
     candidates = {row["id"]: row for row in records}
     existing = {
         str(row.pk): row
@@ -184,3 +185,36 @@ def validate_installation(document, *, request_id=None):
     ):
         if identities[str(identifier)] != (str(campaign_id), kind):
             raise ConfigError("Logical schedule identities cannot be repurposed.")
+
+
+def _validate_content_installation(document, runtime):
+    """Content-only edits obey the same current-campaign and recovery fences."""
+    from .models import CampaignWorkGate
+
+    old = (
+        runtime.active_configuration.canonical_document["sections"].get("content", [])
+        if runtime is not None
+        else []
+    )
+    new = document["sections"].get("content", [])
+    if old == new:
+        return
+    before = {row["id"]: row for row in old}
+    after = {row["id"]: row for row in new}
+    changed = [
+        row for identifier, row in before.items() if after.get(identifier) != row
+    ] + [row for identifier, row in after.items() if before.get(identifier) != row]
+    if (
+        runtime is None
+        or runtime.current_campaign_id is None
+        or any(
+            row["values"]["campaign_id"] != str(runtime.current_campaign_id)
+            for row in changed
+        )
+    ):
+        raise ConfigError("Content can only be edited for the current campaign.")
+    if (
+        runtime.restore_review_required
+        or CampaignWorkGate.objects.filter(state__in=["preparing", "running"]).exists()
+    ):
+        raise CampaignAdmissionUnavailable("Content changes are currently held.")

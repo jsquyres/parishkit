@@ -31,6 +31,7 @@ CONFIGURATION_GRANTS = {
     "stewardship_address_grant": {"SELECT", "INSERT"},
     "stewardship_ministry_assignment": {"SELECT", "INSERT"},
     "stewardship_ministry_activity": {"SELECT", "INSERT"},
+    "stewardship_content_version": {"SELECT", "INSERT"},
     "stewardship_config_request": {"SELECT", "UPDATE"},
     "stewardship_config_checkpoint": {"SELECT", "INSERT"},
     "stewardship_config_activation": {"SELECT", "INSERT"},

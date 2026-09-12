@@ -54,6 +54,67 @@
     });
   });
 
+  // The visual editor starts with server-sanitized markup only. Raw source
+  // edits never go through innerHTML: they must round-trip through the preview
+  // sanitizer before returning to visual editing. Paste/drop are plain text.
+  document.querySelectorAll("[data-content-form]").forEach((form) => {
+    const visual = form.querySelector("[data-visual-content]");
+    const editor = form.querySelector("[data-content-editor]");
+    const source = form.querySelector('textarea[name="html"]');
+    if (!visual || !editor || !source) return;
+    visual.hidden = false;
+    form.querySelector("[data-html-source]").open = false;
+    const sync = () => { source.value = editor.innerHTML; };
+    editor.addEventListener("input", sync);
+    source.addEventListener("input", () => { visual.hidden = true; });
+    const selectedRange = () => {
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount) return null;
+      const range = selection.getRangeAt(0);
+      return editor.contains(range.commonAncestorContainer) ? range : null;
+    };
+    form.querySelectorAll("[data-content-tag]").forEach((button) => {
+      let saved = null;
+      button.addEventListener("pointerdown", (event) => {
+        saved = selectedRange();
+        event.preventDefault(); // Keep the selected text when clicking a tool.
+      });
+      button.addEventListener("click", () => {
+        const tag = button.dataset.contentTag;
+        if (!["strong", "em", "p", "h2", "ul"].includes(tag)) return;
+        const range = saved || selectedRange();
+        saved = null;
+        if (!range || !editor.contains(range.commonAncestorContainer)) return;
+        const node = document.createElement(tag);
+        const target = tag === "ul" ? node.appendChild(document.createElement("li")) : node;
+        target.appendChild(range.extractContents());
+        if (!target.hasChildNodes()) target.appendChild(document.createElement("br"));
+        range.insertNode(node);
+        const selection = window.getSelection();
+        range.selectNodeContents(target);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        editor.focus();
+        sync();
+      });
+    });
+    editor.addEventListener("paste", (event) => {
+      event.preventDefault();
+      const range = selectedRange();
+      if (!range || !event.clipboardData) return;
+      range.deleteContents();
+      const text = document.createTextNode(event.clipboardData.getData("text/plain"));
+      range.insertNode(text);
+      range.setStartAfter(text);
+      range.collapse(true);
+      sync();
+    });
+    editor.addEventListener("drop", (event) => { event.preventDefault(); });
+    editor.addEventListener("click", (event) => {
+      if (event.target.closest("a")) event.preventDefault();
+    });
+  });
+
   // Presence is observational: these requests never count as user activity.
   // Timers skip hidden tabs and never overlap requests or catch up missed ticks.
   const presenceIndicator = document.querySelector("[data-presence-indicator]");

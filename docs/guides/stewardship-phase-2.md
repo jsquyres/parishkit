@@ -739,7 +739,45 @@ module coverage. The final task/presence/navigation run passed 50 cases, and all
 exercise visible/hidden tabs, thirty-second request limits, expiration, passive
 count polling, service failures, accessibility and mobile layout. The ordinary
 suite passed 3,470 tests with 1,765 explicit opt-in skips and two existing
-warnings. A fresh complete PostgreSQL regression run is still in progress.
+warnings. A subsequent full PostgreSQL run was invalidated by adding a migration
+while migration-roundtrip tests were running; it is not passing regression
+evidence. Its separate Admin query-budget failure was fixed by loading presence
+through the passive endpoint instead of recomputing it on every page. The
+identity-performance/presence rerun passed 22 tests at the unchanged query budget.
+
+### Immutable content and template editing
+
+The current campaign has named page slots and independently selectable email
+templates. Separate reminders may use different revisions/subjects. Editing a
+revision allocates a fresh ID and atomically reconciles its referencing campaign
+slot or mail schedules; unrelated templates remain unchanged. A referenced email
+cannot be deleted until its schedules select another template. Content previews
+remain available after structural locking but are invalidated by changed runtime
+or source scope. Historical campaigns are not editable through these routes.
+
+Sanitized HTML and independently generated/edited plain text belong to canonical
+YAML under the new `campaign-content-v5` discriminator. Existing schema validators
+retain their meaning. Normalized immutable projections, ancestry verification,
+request admission, offline Admin recovery and SQL guards retain revision payloads
+and detect missing or forged projections. Installer and runtime SQL registries
+explicitly grant only their required content authority.
+
+The progressively enhanced visual editor supports text formatting and plain-text
+paste. Raw HTML source never enters the browser DOM without server sanitization.
+Before/after previews use fictional Family data and nonfunctional sample links;
+these previews do not send email or establish production readiness. Exact signed
+confirmation requests installation and returns its receipt; it does not claim
+that content is already applied.
+
+Content form/schema tests pass 42 cases. Real-session/storage tests pass 20 cases
+with 92% combined form/view coverage, plus a separate restricted-installer test.
+Browser tests cover HTML editing, inert paste/source, sample previews, accessibility
+and mobile layout; the complete three-engine run passes 180 cases. The ordinary
+suite passes 3,512 tests with 1,801 explicit opt-in skips and two existing
+warnings. Ruff, formatting, selected Markdown and migration-drift checks pass.
+Complete PostgreSQL regression and review evidence will follow before Phase 2
+is declared complete. Schedule editing, cloning, readiness-test mail, staged
+wizard finalization and the remaining integration/runtime work are still open.
 
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
