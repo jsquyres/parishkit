@@ -29,8 +29,16 @@ def status(*, pending=False, unknown=False, revision=2):
     }
 
 
+@pytest.fixture(params=["mail", "slack"])
+def delivery_channel(request):
+    """Both readiness controls use the same passive, bounded browser contract."""
+    return request.param
+
+
 @pytest.mark.parametrize("unknown", [False, True])
-def test_terminal_status_is_passive_and_never_resends(page, component_origin, unknown):
+def test_terminal_status_is_passive_and_never_resends(
+    page, component_origin, unknown, delivery_channel
+):
     """Terminal polling stops; uncertainty requires a deliberate checked form."""
     page.clock.install(time=NOW)
     requests = []
@@ -40,8 +48,8 @@ def test_terminal_status_is_passive_and_never_resends(page, component_origin, un
         requests.append(route.request)
         route.fulfill(json=status(unknown=unknown))
 
-    page.route("**/admin/setup/mail-test/status", respond)
-    page.goto(component_origin + "/setup-mail-test")
+    page.route(f"**/admin/setup/{delivery_channel}-test/status", respond)
+    page.goto(component_origin + f"/setup-{delivery_channel}-test")
     page.wait_for_function("() => !document.querySelector('[data-mail-send]').disabled")
     assert len(requests) == 1 and requests[0].method == "GET"
     assert requests[0].post_data is None
@@ -63,7 +71,7 @@ def test_terminal_status_is_passive_and_never_resends(page, component_origin, un
 
 @pytest.mark.parametrize("failure", ["revision", "unknown_row", "http"])
 def test_unavailable_status_requires_reload_not_a_blind_send(
-    page, component_origin, failure
+    page, component_origin, failure, delivery_channel
 ):
     """Stale or denied responses stop polling and leave the send button disabled."""
     page.clock.install(time=NOW)
@@ -77,8 +85,8 @@ def test_unavailable_status_requires_reload_not_a_blind_send(
             payload["items"][0]["id"] = "another-delivery"
         route.fulfill(status=403 if failure == "http" else 200, json=payload)
 
-    page.route("**/admin/setup/mail-test/status", respond)
-    page.goto(component_origin + "/setup-mail-test")
+    page.route(f"**/admin/setup/{delivery_channel}-test/status", respond)
+    page.goto(component_origin + f"/setup-{delivery_channel}-test")
     page.locator("[data-mail-status-error]").wait_for(state="visible")
     assert page.locator("[data-mail-send]").is_disabled()
     page.clock.fast_forward(60000)

@@ -22,8 +22,9 @@ Expired source cleanup and first-campaign structural/content/share/schedule
 staging and the exact public setup preview are implemented. The readiness-mail
 journal, finite private delivery helper, persisted ephemeral Workspace relay,
 maintained mail dispatch and passive original-Admin delivery UI now have focused
-tests. Optional Slack delivery, initial credential installation/consumer mounting
-and atomic setup finalization remain open. No Phase 2
+tests. Optional Slack test delivery and its passive original-Admin UI are also
+implemented and tested. Initial credential installation/consumer mounting,
+selected financial-window loading and atomic setup finalization remain open. No Phase 2
 PR exists yet, and the three complete phase review/fix rounds are not complete.
 The chronological checkpoints below record partial progress, not phase exit.
 

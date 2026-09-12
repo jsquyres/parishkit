@@ -28,6 +28,9 @@ from parishkit.stewardship.accounts.setup_content_views import SetupContentForm
 from parishkit.stewardship.accounts.setup_credential_views import SetupCredentialForm
 from parishkit.stewardship.accounts.setup_forms import FORMS, STEPS
 from parishkit.stewardship.accounts.setup_mail_views import SetupMailForm
+from parishkit.stewardship.accounts.setup_notification_views import (
+    SetupNotificationForm,
+)
 from parishkit.stewardship.accounts.setup_schedule_views import SetupScheduleWindow
 from parishkit.stewardship.accounts.share_forms import (
     ShareOptions,
@@ -371,6 +374,31 @@ def component_origin():
                 "formset": ShareOptions(
                     prefix="options", previous=default_share_options()
                 ),
+            },
+        ),
+        (
+            "/setup-slack-test",
+            "setup-notification",
+            {
+                "draft": setup_draft,
+                "channel_id": "CFIXTURE",
+                "pending": True,
+                "unknown": False,
+                "form": SetupNotificationForm(
+                    initial={
+                        "preview_token": "synthetic-preview",
+                        "request_key": uuid4(),
+                    }
+                ),
+                "items": [
+                    {
+                        "id": "synthetic-delivery",
+                        "state": "queued",
+                        "label": "Awaiting Slack installer",
+                        "created_at": NOW.isoformat(),
+                        "current": True,
+                    }
+                ],
             },
         ),
         (

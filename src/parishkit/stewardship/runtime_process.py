@@ -261,6 +261,11 @@ def serve_credential_installer(configuration, lease):
 
             lease.check()
             relay_pending(installer.files.private)
+        elif configuration.credential_target == "slack":
+            from .accounts.setup_notifications import run_pending
+
+            lease.check()
+            run_pending(installer.files.private, check=lease.check)
         installer.run_once()
 
     return serve_installer_loop(run_once, lease)
@@ -295,6 +300,7 @@ def serve_background(configuration, lease):
 
     from .accounts.branding_cleanup import produce_cleanup
     from .accounts.setup_mail import recover_pending as recover_setup_mail
+    from .accounts.setup_notifications import recover_pending as recover_setup_slack
     from .accounts.setup_staging import produce_setup_expiry
     from .consumer_runtime import publish_single_process_receipts
     from .installer_health import publish_heartbeat
@@ -343,6 +349,8 @@ def serve_background(configuration, lease):
             matching_authority(assembled.store)
             guard.check()
             recover_setup_mail()
+            guard.check()
+            recover_setup_slack()
             return (
                 *producer(guard),
                 *produce_cleanup(guard),

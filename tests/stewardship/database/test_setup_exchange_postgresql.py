@@ -8,6 +8,7 @@ from uuid import uuid4
 
 import pytest
 from django.db import DatabaseError, connection, transaction
+from django.db.backends.signals import connection_created
 from django.db.models import F
 
 from parishkit.stewardship.accounts.setup_exchange_models import SetupSourceExchange
@@ -39,12 +40,18 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 
 @contextmanager
-def target_login(target="parishsoft"):
+def target_login(target="parishsoft", *, reconnect=False):
     """Use the exact provisioned target grants, not a broad test-table bypass."""
     assert target in {"parishsoft", "slack", "google_workspace"}
     role = "pk_stewardship_credential_" + target
     with connection.cursor() as cursor:
         cursor.execute(f'CREATE ROLE "{role}" LOGIN NOINHERIT')
+
+    def restrict_connection(sender, connection, **kwargs):
+        """Reconnects after private IO retain the same restricted fixture identity."""
+        with connection.cursor() as cursor:
+            cursor.execute(f'SET SESSION AUTHORIZATION "{role}"')
+
     try:
         tables, columns = runtime_grants(
             ServiceRole.CREDENTIAL_INSTALLER, target=target
@@ -62,8 +69,11 @@ def target_login(target="parishsoft"):
                         f'GRANT {privilege} ({selected}) ON "{table}" TO "{role}"'
                     )
             cursor.execute(f'SET SESSION AUTHORIZATION "{role}"')
+        if reconnect:
+            connection_created.connect(restrict_connection, weak=False)
         yield
     finally:
+        connection_created.disconnect(restrict_connection)
         with connection.cursor() as cursor:
             cursor.execute("RESET SESSION AUTHORIZATION")
             cursor.execute(f'DROP OWNED BY "{role}"')

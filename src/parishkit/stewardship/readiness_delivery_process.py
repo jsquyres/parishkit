@@ -49,6 +49,23 @@ def submit_sample(value, settings, mail, *, seconds, check):
     ).encode("utf-8")
     if len(payload) > MAX_INPUT:
         raise ValueError("Readiness submission exceeds the private transport bound.")
+    return _submit_private(
+        payload, helper="readiness_delivery_worker", seconds=seconds, check=check
+    )
+
+
+def _submit_private(payload, *, helper, seconds, check):
+    """Share finite transport, but admit only compiled delivery-helper entry points."""
+    if (
+        helper not in {"readiness_delivery_worker", "readiness_notification_worker"}
+        or type(payload) is not bytes
+        or not 0 < len(payload) <= MAX_INPUT
+        or type(seconds) not in (int, float)
+        or not math.isfinite(seconds)
+        or not 0 < seconds <= 30
+        or not callable(check)
+    ):
+        raise ValueError("Invalid private delivery invocation.")
     process = None
     _check_owner(check)
     deadline = time.monotonic() + seconds
@@ -59,7 +76,7 @@ def submit_sample(value, settings, mail, *, seconds, check):
                     sys.executable,
                     "-I",
                     "-m",
-                    "parishkit.stewardship.readiness_delivery_worker",
+                    "parishkit.stewardship." + helper,
                 ],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,

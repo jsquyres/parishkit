@@ -58,6 +58,7 @@ from .setup_models import (  # noqa: F401
     SetupConfigurationIntent,
     SetupDraftSection,
 )
+from .setup_notification_models import SetupSlackDelivery  # noqa: F401
 from .setup_secret_models import SetupSealedCredential  # noqa: F401
 
 

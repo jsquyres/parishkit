@@ -42,6 +42,9 @@ def mail_runtime_grants():
 
 def add_setup_mail_cleanup_grants(tables, columns):
     """Expiry can erase sample content and classify stale work, never claim/send."""
+    from .setup_notification_grants import add_notification_cleanup
+
+    add_notification_cleanup(tables, columns)
     tables["stewardship_setup_mail_delivery"] = {"SELECT"}
     columns["stewardship_setup_mail_delivery"] = {
         "UPDATE": {

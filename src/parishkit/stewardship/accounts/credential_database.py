@@ -37,6 +37,10 @@ def installer_permissions(target):
         from .setup_mail_grants import extend_workspace_permissions
 
         extend_workspace_permissions(tables, metadata)
+    elif target == "slack":
+        from .setup_notification_grants import extend_slack_permissions
+
+        extend_slack_permissions(tables, metadata)
     return tables, metadata
 
 

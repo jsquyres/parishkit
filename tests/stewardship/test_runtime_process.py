@@ -201,6 +201,10 @@ def test_credential_service_publishes_only_after_admission(
     monkeypatch.setattr(
         "parishkit.stewardship.accounts.setup_mail_exchange.relay_pending", mail_relay
     )
+    slack_send = Mock()
+    monkeypatch.setattr(
+        "parishkit.stewardship.accounts.setup_notifications.run_pending", slack_send
+    )
 
     def serve(run_once, actual_lease):
         """Queue processing cannot race ahead of the advertised encryption key."""
@@ -219,6 +223,13 @@ def test_credential_service_publishes_only_after_admission(
             assert lease.check.call_count == 2
         else:
             mail_relay.assert_not_called()
+        if target == "slack":
+            slack_send.assert_called_once_with(
+                installer.files.private, check=lease.check
+            )
+            assert lease.check.call_count == 2
+        else:
+            slack_send.assert_not_called()
         return 0
 
     monkeypatch.setattr(runtime_process, "serve_installer_loop", serve)
@@ -285,6 +296,10 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
         "parishkit.stewardship.accounts.setup_mail.recover_pending", mail_recovery
     )
     monkeypatch.setattr(
+        "parishkit.stewardship.accounts.setup_notifications.recover_pending",
+        Mock(return_value=0),
+    )
+    monkeypatch.setattr(
         "parishkit.stewardship.source.setup_cleanup.produce_setup_cleanup",
         Mock(return_value=("setup-cleanup-receipt",)),
     )
@@ -316,7 +331,7 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
         cleanup.assert_called_once_with(guard)
         expiry.assert_called_once_with(guard)
         mail_recovery.assert_called_once_with()
-        guard.check.assert_called_once_with()
+        assert guard.check.call_count == 2
     else:
         mail_recovery.assert_not_called()
         cleanup.assert_not_called()

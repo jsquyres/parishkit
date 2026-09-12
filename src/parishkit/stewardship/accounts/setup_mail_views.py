@@ -42,10 +42,10 @@ class SetupMailForm(forms.Form):
     )
 
 
-def _items(draft):
+def _items(draft, *, model=SetupMailDelivery, labels=LABELS):
     """Read only this original attempt's bounded, safe journal metadata."""
     rows = (
-        SetupMailDelivery.objects.filter(attempt_id=draft.status.attempt_id)
+        model.objects.filter(attempt_id=draft.status.attempt_id)
         .order_by("-created_at", "-id")
         .values("id", "state", "created_at", "attempt_version")[:25]
     )
@@ -53,7 +53,7 @@ def _items(draft):
         {
             "id": str(row["id"]),
             "state": row["state"],
-            "label": str(LABELS[row["state"]]),
+            "label": str(labels[row["state"]]),
             "created_at": row["created_at"].isoformat(),
             "current": row["attempt_version"] == draft.status.version,
         }
@@ -61,12 +61,12 @@ def _items(draft):
     ]
 
 
-def _status_data(draft):
+def _status_data(draft, *, model=SetupMailDelivery, labels=LABELS):
     """The uncertainty acknowledgement applies even to older tests outside the list."""
-    rows = SetupMailDelivery.objects.filter(attempt_id=draft.status.attempt_id)
+    rows = model.objects.filter(attempt_id=draft.status.attempt_id)
     return {
         "revision": draft.status.version,
-        "items": _items(draft),
+        "items": _items(draft, model=model, labels=labels),
         "pending": rows.filter(state__in=["queued", "submitting"]).exists(),
         "unknown": rows.filter(state="delivery_unknown").exists(),
     }

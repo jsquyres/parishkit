@@ -203,6 +203,7 @@ def test_csp_blocks_an_unrelated_form_destination(page, component_origin):
         "/setup-schedules",
         "/setup-preview",
         "/setup-mail-test",
+        "/setup-slack-test",
         "/setup-access",
         "/setup-mail",
         "/setup-slack",

@@ -98,6 +98,13 @@ evidence-based no-retry recovery and original-Admin send/status UI. It passes
 browser checks. Slack readiness, initial mounts/ACKs and atomic finalization
 remain necessary before ADM-02 can close.
 
+The [Slack readiness checkpoint](../../guides/stewardship-phase-2-reviews.md#optional-slack-readiness-integration)
+adds the isolated target's explicit test notification, durable outcomes and
+passive original-Admin controls. The combined SQL regression passes 38 cases;
+the provider/helper suite passes 85 cases and selected browser checks pass 36.
+Initial mounting/consumer ACKs, financial coverage and atomic activation remain
+open, so these checkpoints do not close ADM-02 or Phase 2.
+
 ## ADM-03: Navigation, dashboard, indicators, and configuration
 
 Scope and dependencies: [ADM-03 work package](../../plans/stewardship/admin-portal.md#adm-03-navigation-dashboard-indicators-and-configuration).

@@ -449,3 +449,40 @@ existing warnings. No real provider credentials or outbound messages are used.
 Optional Slack notification, final credential installation/ACK coordination,
 selected financial-window loading and atomic configured-marker activation still
 prevent Phase 2 acceptance. This is not a completed full-phase review round.
+
+### Optional Slack readiness integration
+
+An original Admin can explicitly request a fixed fictional notification after
+reviewing the exact setup preview. The immutable request binds the current
+attempt revision, configuration digest and staged Slack credential revision.
+Its target-specific installer consumes a separate durable metadata queue, so
+the web and general worker never receive its private token. A SQL-owned
+submitting marker commits before provider IO. Terminal results cannot be replayed
+or rewritten; another request after uncertainty needs explicit acknowledgement.
+Changing the channel invalidates queued work rather than silently retargeting it.
+
+The private helper issues one bounded, fixed-endpoint `chat.postMessage` request
+with a fixed Testing message, no Family data, no mentions and no link previews.
+It follows the [official method contract](https://docs.slack.dev/reference/methods/chat.postMessage/).
+Only exact acceptance or documented explicit refusal produces a definite result;
+unknown errors and missing/malformed responses remain uncertain. The mail and
+Slack helpers share their finite, non-retrying pipe transport. Secrets are absent
+from process arguments, environment and diagnostics. The existing authentication-
+only connectivity helper still cannot send notifications.
+
+The original-login web page reuses passive bounded status polling. CSRF,
+unexpected/duplicate fields, signature changes, original-login isolation and
+server-side resend acknowledgement are covered by real HTTP tests. Scheduler
+and isolated-target recovery classify stale queued work and expired uncertainty
+without sending a message or exposing a completion control.
+
+The combined Slack/source-relay/mail-relay PostgreSQL regression passes 38 cases,
+with 94% focused coverage (Slack service 93%, views 96%). The combined mail/Slack
+HTTP run passes eight cases with 98% view coverage. The provider/private-helper
+suite passes 85 cases with 93% focused coverage. All 36 selected browser behavior
+and responsive/axe checks pass across three engines; the runtime/provider suite
+passes 196 cases. The full baseline passes 4,025 cases with 2,389 explicit profile
+skips and two existing warnings. Ruff, formatting, migration drift and whitespace
+checks pass. All inputs/providers remain synthetic; no real Slack notification
+or email was sent. Initial installation/consumer ACKs, selected financial-window
+coverage and atomic configured-marker finalization remain open.

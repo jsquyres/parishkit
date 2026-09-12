@@ -25,6 +25,7 @@ from .accounts import (
     setup_content_views,
     setup_credential_views,
     setup_mail_views,
+    setup_notification_views,
     setup_preview_views,
     setup_progress_views,
     setup_schedule_views,
@@ -50,6 +51,16 @@ family_patterns = [
     path("logout", family_authentication.logout, name="logout"),
 ]
 admin_patterns = [
+    path(
+        "setup/slack-test",
+        setup_notification_views.setup_notification,
+        name="setup_notification",
+    ),
+    path(
+        "setup/slack-test/status",
+        setup_notification_views.setup_notification_status,
+        name="setup_notification_status",
+    ),
     path(
         "configuration/credentials/<uuid:request_id>/select",
         integration_selection_views.select_credential,
