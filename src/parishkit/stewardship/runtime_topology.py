@@ -161,6 +161,8 @@ def _online_mounts(configuration):
                 for name in ("reports", "media")
             ),
         ]
+    if role is ServiceRole.WORKER:
+        result.append(bind(configuration.paths["media"], read_only=False))
     return result
 
 

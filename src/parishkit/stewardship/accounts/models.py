@@ -9,6 +9,7 @@ from .auth_models import (  # noqa: F401
     LimiterStoreHealth,
     OAuthStateConsumption,
 )
+from .branding_models import BrandingAsset, BrandingBundle  # noqa: F401
 from .chair_models import (  # noqa: F401
     ChairAssignmentReview,
     ChairReconciliation,

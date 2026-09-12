@@ -230,18 +230,22 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
         """Substitute the external process loop, not runtime lifecycle logic."""
         assert actual is broker and stop is stops[0]
         if role is ServiceRole.SCHEDULER:
-            kwargs["produce"](Mock())
+            assert kwargs["produce"](guard) == ("source-receipt", "cleanup-receipt")
         signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
         assert stop.is_set()
         if fail:
             raise RuntimeError("synthetic startup failure")
         return 0
 
-    producer, matching = Mock(), Mock()
+    producer, matching = Mock(return_value=("source-receipt",)), Mock()
+    guard, cleanup = Mock(), Mock(return_value=("cleanup-receipt",))
     monkeypatch.setattr(runtime_background, "configure_background", configure)
     monkeypatch.setattr(runtime_background, "matching_authority", matching)
     monkeypatch.setattr(
         "parishkit.stewardship.source.production.SourceProducer", lambda _: producer
+    )
+    monkeypatch.setattr(
+        "parishkit.stewardship.accounts.branding_cleanup.produce_cleanup", cleanup
     )
     monkeypatch.setattr("parishkit.stewardship.jobs.processes.serve_consumer", serve)
     monkeypatch.setattr("parishkit.stewardship.jobs.processes.serve_scheduler", serve)
@@ -267,7 +271,10 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
     closes.assert_called_once()
     if role is ServiceRole.SCHEDULER:
         matching.assert_called_once_with(assembled.store)
-        producer.assert_called_once()
+        producer.assert_called_once_with(guard)
+        cleanup.assert_called_once_with(guard)
+    else:
+        cleanup.assert_not_called()
 
 
 def test_background_failed_admission_restores_signals_without_publishing_receipts(

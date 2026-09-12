@@ -50,7 +50,7 @@ Scope and dependencies: [ADM-03 work package](../../plans/stewardship/admin-port
 - [ ] ADM-03.03 — Build presence and background-task indicators.
 - [ ] ADM-03.04 — Build durable configuration, Ministry activity, and credential editors.
 - [ ] ADM-03.05 — Keep Parish-timezone edits prospective.
-- [ ] ADM-03.06 — Build branding previews and variant handling.
+- [x] ADM-03.06 — Build branding previews and variant handling.
 - [ ] ADM-03.07 — Test configuration UI, Ministry activity, concurrency, and timezone isolation.
 
 Evidence: In progress. The Ministry activity and Parish profile editors use
@@ -63,7 +63,11 @@ tests. Integration settings now use the same exact-preview protocol; fresh-Admin
 credential intake seals to the target installer, with immutable provider scope,
 bounded authentication checks and passive request progress. Its 45-case HTTP/
 form run has 93% focused coverage, and 30 new three-engine browser cases pass.
-Branding, wizard finalization, post-install configuration fingerprint selection,
+Normalized logo upload, four-size preview, immutable activation and historical
+branding are implemented. Durable, bounded worker cleanup preserves all retained
+references and resumes interrupted removal; the combined branding/history run
+passes 68 cases with 95% focused coverage. Wizard finalization,
+post-install configuration fingerprint selection,
 explicit delivery tests and the remaining full acceptance checks are not
 complete. See
 [Phase 2 evidence](../../guides/stewardship-phase-2.md#worker-composition-and-initial-admin-editors-in-progress).
@@ -93,7 +97,9 @@ reconciliation now passes 70 tests with 94% schedule-module coverage; exact
 work previews, explicit removals and timezone-bound revisions preserve SQL
 admission. Archived campaign cloning now has exact previews, fresh child IDs and
 explicit new-date/current-fund entry; its combined run passes 44 tests with 91%
-focused coverage and eighteen selected browser cases. Readiness-test mail and
+focused coverage and eighteen selected browser cases. Read-only retained content
+previews preserve the campaign's selected configuration, Parish name and logo.
+Readiness-test mail and
 complete integration/regression/review acceptance remain open.
 See [Phase 2 evidence](../../guides/stewardship-phase-2.md#immutable-content-and-template-editing).
 

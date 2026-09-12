@@ -125,6 +125,10 @@ def test_rendered_foundation_enforces_individual_mounts_and_profiles(
         assert layout.credential("token_private") not in mounts
         assert layout.credential("google_workspace") not in mounts
         assert layout.credential("token_public") in mounts
+        if name == "worker":
+            assert mounts[configuration.paths["media"]]["read_only"] is False
+        else:
+            assert configuration.paths["media"] not in mounts
         assert selected["deployment"]["service_role"] == name
         assert set(background["networks"]) == (
             {"backend", "application-egress"} if name == "worker" else {"backend"}

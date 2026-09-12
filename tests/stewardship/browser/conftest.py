@@ -3,6 +3,7 @@
 import os
 from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from io import BytesIO
 from pathlib import Path
 from threading import Thread
 from uuid import uuid4
@@ -10,7 +11,9 @@ from uuid import uuid4
 import pytest
 from django.contrib.staticfiles import finders
 from django.template.loader import render_to_string
+from PIL import Image
 
+from parishkit.stewardship.accounts.branding_views import LogoForm
 from parishkit.stewardship.accounts.campaign_forms import CampaignForm
 from parishkit.stewardship.accounts.content_forms import ContentForm
 from parishkit.stewardship.accounts.integration_forms import (
@@ -98,6 +101,7 @@ def component_origin():
         "active": True,
         "included": True,
     }
+    branding_asset = {"pk": uuid4(), "label": "large", "width": 1024, "height": 512}
     responses = {
         "/login": ("text/html", render_to_string("stewardship/login.html", context)),
         "/family-login": (
@@ -119,6 +123,19 @@ def component_origin():
         ),
     }
     for path, template, extra in (
+        (
+            "/branding-settings",
+            "branding-settings",
+            {
+                "form": LogoForm(initial={"base_digest": "a" * 64}),
+                "assets": [branding_asset],
+            },
+        ),
+        (
+            "/branding-preview",
+            "branding-preview",
+            {"assets": [branding_asset], "preview": "synthetic-preview"},
+        ),
         (
             "/integrations",
             "integrations",
@@ -296,6 +313,27 @@ def component_origin():
                         "generate_text": True,
                     },
                 ),
+            },
+        ),
+        (
+            "/content-history",
+            "content-history",
+            {
+                "campaign": {
+                    "pk": uuid4(),
+                    "state": "archived",
+                    "active_configuration": {"name": "Prior campaign"},
+                },
+                "version": {"pk": uuid4()},
+                "entries": [
+                    {"id": uuid4(), "label": "Family welcome", "subject": None}
+                ],
+                "selected": True,
+                "sample": {
+                    "html": "<p>Hello Sample Family</p>",
+                    "text": "Hello Sample Family",
+                    "subject": None,
+                },
             },
         ),
         (
@@ -553,6 +591,14 @@ def component_origin():
         assert located is not None, f"Required component asset is missing: {asset}"
         responses[f"/static/{asset}"] = (kind, Path(located).read_text())
 
+    logo = BytesIO()
+    Image.new("RGB", (1024, 512), "blue").save(logo, format="PNG")
+    for prefix in ("/branding/", "/admin/configuration/branding/assets/"):
+        responses[f"{prefix}{branding_asset['pk']}.png"] = (
+            "image/png",
+            logo.getvalue(),
+        )
+
     class Handler(BaseHTTPRequestHandler):
         """Suppress raw request logging; unknown routes are intentionally empty."""
 
@@ -560,10 +606,13 @@ def component_origin():
             """Serve only exact pre-rendered component fixtures with actual CSP."""
             kind, body = responses.get(self.path, ("text/plain", ""))
             self.send_response(200 if self.path in responses else 404)
-            self.send_header("Content-Type", kind + "; charset=utf-8")
+            self.send_header(
+                "Content-Type",
+                kind if kind == "image/png" else kind + "; charset=utf-8",
+            )
             self.send_header("Content-Security-Policy", CSP)
             self.end_headers()
-            self.wfile.write(body.encode())
+            self.wfile.write(body if isinstance(body, bytes) else body.encode())
 
         def log_message(self, *args):
             """Fixture HTTP traffic must not generate private request diagnostics."""

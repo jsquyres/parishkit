@@ -84,6 +84,7 @@ def test_csp_blocks_an_unrelated_form_destination(page, component_origin):
         "/background-task",
         "/content-settings",
         "/content-preview",
+        "/content-history",
         "/schedule-settings",
         "/schedule-preview",
         "/clone-settings",
@@ -93,6 +94,8 @@ def test_csp_blocks_an_unrelated_form_destination(page, component_origin):
         "/integration-preview",
         "/credential-replace",
         "/credential-status",
+        "/branding-settings",
+        "/branding-preview",
     ],
 )
 @pytest.mark.parametrize("width", [320, 1280])
@@ -104,6 +107,11 @@ def test_components_accessible_and_responsive(
     failures = []
     page.on("pageerror", lambda error: failures.append(str(error)))
     page.goto(component_origin + path)
+    if path in {"/branding-settings", "/branding-preview"}:
+        assert page.locator(".branding-preview").evaluate_all(
+            "images => images.length > 0 && images.every("
+            "image => image.complete && image.naturalWidth > 0)"
+        )
     assert not failures
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     page.evaluate(axe_source)

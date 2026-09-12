@@ -278,6 +278,7 @@ def serve_background(configuration, lease):
     """Assemble one admitted queue process and retain exclusion through final drain."""
     from uuid import uuid4
 
+    from .accounts.branding_cleanup import produce_cleanup
     from .consumer_runtime import publish_single_process_receipts
     from .installer_health import publish_heartbeat
     from .jobs.processes import serve_consumer, serve_scheduler
@@ -313,7 +314,7 @@ def serve_background(configuration, lease):
         def produce(guard):
             """A later YAML/SQL mismatch cannot enqueue or cancel scheduled work."""
             matching_authority(assembled.store)
-            return producer(guard)
+            return (*producer(guard), *produce_cleanup(guard))
 
         return serve_scheduler(
             assembled.broker,

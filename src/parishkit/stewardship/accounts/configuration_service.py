@@ -22,6 +22,8 @@ from .credential_database import _identity, admit_grants
 # grants belong here. The current Chairperson view exposes only relationship
 # evidence needed by policy activation, not the underlying census/contact corpus.
 CONFIGURATION_GRANTS = {
+    "stewardship_branding_bundle": {"SELECT"},
+    "stewardship_branding_asset": {"SELECT"},
     "django_migrations": {"SELECT"},
     "stewardship_configuration_version": {"SELECT", "INSERT"},
     "stewardship_parish": {"SELECT", "INSERT"},

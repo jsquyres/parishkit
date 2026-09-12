@@ -135,9 +135,11 @@ class DatabaseMaterializer:
         """Commit the snapshot before its checkpoint; retry an intervening crash."""
         self._check()
         self._candidate(version)
+        from .branding_validation import validate_installation as validate_branding
         from .ministry_activity import validate_installation as validate_activity
 
         validate_activity(version.document())
+        validate_branding(version.document(), actor_id=self.actor_id)
         from parishkit.stewardship.campaigns.admission import validate_installation
 
         validate_installation(
@@ -417,6 +419,13 @@ def _install_request(store, *, request, correlation_id, admit_campaign=None):
                     or intent.payload_fingerprint != request.payload_fingerprint
                 ):
                     raise ConfigError("Configuration request metadata is inconsistent.")
+                from .branding_validation import (
+                    validate_installation as validate_branding,
+                )
+
+                validate_branding(
+                    intent.candidate.document(), actor_id=request.actor_id
+                )
             except ConfigError:
                 failure_code = "invalid_candidate"
             if not failure_code:

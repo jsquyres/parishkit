@@ -34,6 +34,14 @@ def task_runtime_grants(role):
     tables["stewardship_task_run"].add("INSERT")
     tables["stewardship_task_event"].add("INSERT")
     for table in (
+        "stewardship_branding_bundle",
+        "stewardship_branding_asset",
+        "stewardship_setup_attempt",
+        "stewardship_config_request",
+        "stewardship_config_checkpoint",
+    ):
+        tables[table] = {"SELECT"}
+    for table in (
         "stewardship_audit_event",
         "stewardship_audit_context",
         "stewardship_operational_log",
@@ -61,6 +69,7 @@ def task_runtime_grants(role):
         }
     )
     if role is ServiceRole.WORKER:
+        tables["stewardship_branding_bundle"].add("UPDATE")
         tables["stewardship_task_run"].add("UPDATE")
         from parishkit.stewardship.source.grants import add_refresh_worker_grants
 

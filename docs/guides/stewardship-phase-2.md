@@ -851,7 +851,7 @@ The operational dispatcher and rendered Compose topology now include the source
 worker and metadata-only scheduler. Each has its own SQL and Valkey credentials,
 read-only configuration selection and retained offline-exclusion lease. Only the
 worker has ParishSoft credentials and external network access; neither receives
-mail-dispatch private keys or Workspace credentials. The source-only handler
+mail-dispatch private keys or Workspace credentials. The compiled handler
 registry remains closed, and Production source effects still require BG-06's
 suppression owner. Missing required credentials continue to fail startup closed.
 The focused topology/process/composition/provisioning run passes 57 tests. This
@@ -925,8 +925,52 @@ delivery readiness changed just because a credential was installed.
 Remaining integration work includes adding/removing optional configuration
 through its complete owning workflow, selecting the acknowledged credential
 fingerprint in YAML, test-only checks of an existing installed credential,
-explicit test deliveries and wizard use of these services. The setup wizard,
-branding workflow and final Compose demonstration remain incomplete.
+explicit test deliveries and wizard use of these services. The setup wizard and
+final Compose demonstration remain incomplete.
+
+### Durable branding and retained content previews
+
+The Admin logo screen normalizes a bounded static PNG/JPEG/WebP into large,
+menu, icon and favicon PNG variants. Original filenames and image bytes never
+enter YAML or SQL. The private media store writes immutable UUID-named bundles
+with exclusive files, bounded inventories and directory/file fsync. Durable
+metadata records the original Admin/session, optional setup attempt, applied
+base, variant dimensions, length and digest. Only a complete ready bundle can
+be previewed, and a signed exact YAML request selects its four references.
+
+The web preview verifies every file against its immutable receipt. Public
+opaque image URLs require actual configuration activation, not merely staged
+or prepared data. SQL independently enforces variant bounds, original ownership,
+expiry and reference consistency. The web identity cannot delete history, and
+the configuration installer gets receipt reads without a writable media mount.
+Initial-setup uploads retain the original attempt/session binding and become
+unusable when that attempt expires or is cancelled.
+
+The closed scheduler/worker registry includes `branding_cleanup`. A bounded
+scheduler pass queues one durable root per expired, unselected bundle, including
+cancelled setup uploads. Only the worker mounts media read/write; the scheduler
+cannot mutate receipts or remove files. Any retained or prepared Parish reference
+pins its bundle. Restore review and unresolved configuration requests hold new
+cleanup. Task fences and a nonblocking media lock protect short checkpoints
+around file removal; interrupted cleanup resumes idempotently, preserving safe
+receipts. Automatic retries are bounded, and terminal failure does not produce
+a fresh retry root on every scheduling pass.
+
+`/admin/campaign/<id>/content/history` provides read-only fictional samples from
+the campaign's selected applied version. Archived previews retain that version's
+Parish name, logo and substitutions after a new global Parish edit. Revision
+lookups are campaign-scoped, writes are refused, and all responses recheck Admin
+authorization and remain non-cacheable. No real Family or provider is consulted.
+
+The combined PostgreSQL/file run passes 68 cases with 95% focused coverage,
+including real web/config-installer/worker/scheduler SQL identities. The focused
+cleanup/runtime/topology run passes 38 cases. The complete Chromium/Firefox/WebKit
+component run passes 252 cases, including actual logo loading and the retained
+content screen. Remaining Phase 2 integration acceptance is tracked separately;
+these results do not complete wizard finalization, readiness delivery or the full
+review gate. The ordinary full suite passes 3,680 tests with 1,981 explicit opt-in
+skips and two existing warnings; those skips are not PostgreSQL/browser evidence.
+Ruff, formatting, edited Markdown and migration-drift checks pass.
 
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge

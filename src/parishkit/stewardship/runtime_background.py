@@ -72,7 +72,9 @@ def pre_delivery_suppressions(scope):
 
 
 def scheduler_handlers():
-    """Only source metadata admission is available; accidental execution refuses."""
+    """Compiled metadata admission only; accidental provider/file execution refuses."""
+    from .accounts.branding_cleanup import TASK_TYPE as BRANDING_CLEANUP
+    from .accounts.branding_cleanup import cleanup_handler
     from .campaigns.work_locks import work_transaction
     from .jobs.dispatch import Handler
     from .jobs.queues import WorkQueue
@@ -84,13 +86,14 @@ def scheduler_handlers():
         raise PermissionError("The scheduler cannot execute provider work.")
 
     return {
+        BRANDING_CLEANUP: cleanup_handler(),
         TASK_TYPE: Handler(
             queue=WorkQueue.GENERAL,
             admit=admit_refresh_metadata,
             execute=unavailable,
             recover=recovery_plan,
             scope=work_transaction,
-        )
+        ),
     }
 
 
@@ -151,11 +154,14 @@ def configure_background(configuration, *, stop, heartbeat):
     if role is ServiceRole.SCHEDULER:
         handlers = scheduler_handlers()
     else:
+        from .accounts.branding_cleanup import TASK_TYPE as BRANDING_CLEANUP
+        from .accounts.branding_cleanup import cleanup_handler
         from .source.effects import refresh_reconciler
         from .source.execution import refresh_handler
         from .source.requests import TASK_TYPE
 
         handlers = {
+            BRANDING_CLEANUP: cleanup_handler(configuration.paths["media"]),
             TASK_TYPE: refresh_handler(
                 credential_path=configuration.secrets["parishsoft"],
                 reconcile=refresh_reconciler(
@@ -164,7 +170,7 @@ def configure_background(configuration, *, stop, heartbeat):
                     public=rings["token_public"],
                     suppressions=pre_delivery_suppressions,
                 ),
-            )
+            ),
         }
     handlers = bind_authority(handlers, store, heartbeat=heartbeat)
     broker = build_broker(
