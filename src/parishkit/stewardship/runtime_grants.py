@@ -206,6 +206,10 @@ def runtime_grants(role, *, target=None):
 
     role = _identity_role(role, target)
 
+    if role is ServiceRole.MAIL_DISPATCH:
+        from .accounts.setup_mail_grants import mail_runtime_grants
+
+        return mail_runtime_grants()
     if role in {ServiceRole.WORKER, ServiceRole.SCHEDULER}:
         from .jobs.grants import task_runtime_grants
 
@@ -320,6 +324,10 @@ def runtime_grants(role, *, target=None):
 
         add_exchange_cleanup_grants(columns)
         add_web_setup_catalog_grants(tables, columns)
+        from .accounts.setup_mail_grants import add_setup_mail_cleanup_grants
+
+        add_setup_mail_cleanup_grants(tables, columns)
+        tables["stewardship_setup_mail_delivery"].add("INSERT")
     return tables, columns
 
 
@@ -338,6 +346,7 @@ def login_name(role, *, target=None):
             ServiceRole.WEB,
             ServiceRole.WORKER,
             ServiceRole.SCHEDULER,
+            ServiceRole.MAIL_DISPATCH,
             ServiceRole.CONFIG_INSTALLER,
             ServiceRole.BOOTSTRAP,
             ServiceRole.ADMIN_RECOVERY,

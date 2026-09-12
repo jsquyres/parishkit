@@ -138,4 +138,9 @@ def task_runtime_grants(role):
         )
 
         add_exchange_cleanup_grants(columns)
+        from parishkit.stewardship.accounts.setup_mail_grants import (
+            add_setup_mail_cleanup_grants,
+        )
+
+        add_setup_mail_cleanup_grants(tables, columns)
     return tables, columns

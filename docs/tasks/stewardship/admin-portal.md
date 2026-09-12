@@ -84,6 +84,13 @@ previews. It passes 50 pure cases, 40 combined PostgreSQL cases and six browser
 cases. Target delivery checks, consumer coordination and atomic activation
 still prevent closing ADM-02.
 
+The [setup mail journal checkpoint](../../guides/stewardship-phase-2-reviews.md#setup-mail-journal-and-private-delivery-checkpoint)
+adds explicit draft-bound test intent, a committed one-way submission boundary,
+unknown-outcome recovery and cancellation scrubbing under restricted SQL roles.
+The private provider/helper tests and ephemeral Workspace-transfer primitives
+are implemented; actual relay/runtime/web integration and setup activation
+remain open. No whole ADM-02 task or phase review gate is closed by this checkpoint.
+
 ## ADM-03: Navigation, dashboard, indicators, and configuration
 
 Scope and dependencies: [ADM-03 work package](../../plans/stewardship/admin-portal.md#adm-03-navigation-dashboard-indicators-and-configuration).

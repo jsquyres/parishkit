@@ -49,6 +49,7 @@ from .secret_models import (  # noqa: F401
     SecretReplacementRequest,
     SecretRequestCheckpoint,
 )
+from .setup_delivery_models import SetupMailDelivery  # noqa: F401
 from .setup_exchange_models import SetupSourceExchange, SetupSourceResult  # noqa: F401
 from .setup_models import (  # noqa: F401
     SetupAttempt,

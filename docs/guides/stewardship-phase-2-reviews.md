@@ -364,3 +364,49 @@ profile skips and two existing warnings. Provider delivery checks, initial
 mount/consumer coordination and atomic source/Family/configured-marker
 activation remain open; the finalizer must also cover the chosen financial
 window rather than treating the earlier catalog load as giving-history evidence.
+
+### Setup mail journal and private delivery checkpoint
+
+The original Admin intake can create one explicitly requested fictional sample
+bound to the signed preview, attempt revision, credential fingerprint and
+Testing recipient. The request and its Task root commit together. Replayed
+commands retain the same journal; concurrent pending tests are rejected. The
+dedicated mail SQL role alone can record the submitting boundary, which must
+commit before provider IO. Definitive acceptance/refusal and unknown results
+are terminal. Another request after uncertainty requires explicit acknowledgement.
+
+Bounded scheduler recovery cancels stale queued work but never resends it. An
+in-flight lost result becomes unknown only after both the original Task claim
+and helper deadline expire. Cancellation scrubs the fictional message without
+claiming that an already submitted message was unsent. Every change generates
+an immutable safe audit event containing identifiers, version and coded outcome,
+not the recipient, rendered sample or credential. The raw SQL guards independently
+enforce original login, current Admin, draft/key/recipient identity and worker
+ownership. Migration downgrade refuses retained delivery history.
+
+The internal provider adapter uses one fixed Workspace SMTP endpoint and one
+Testing recipient. Its pipe helper has a finite total deadline, emits only a
+closed outcome, and kills/reaps its child on timeout or lost ownership. Unknown
+results never justify automatic resubmission. A successful DATA response is
+retained even when the subsequent QUIT fails. Credentials and rendered content
+are absent from process arguments, environment, temporary files and diagnostics.
+The distinct ephemeral Workspace relay primitives bind each encrypted transfer
+to the exact journal, credential revision and live mail-worker claim; a restarted
+worker cannot recover another process's private recipient key.
+
+The journal passes 12 PostgreSQL tests with 96% service coverage. The combined
+delivery/helper/provider suite passes 120 pure tests with 96% coverage across
+the new delivery modules. Ephemeral Workspace transfer passes 17 pure tests
+with 100% module coverage. The combined 137-case pure run covers these modules
+at 97%. The latest baseline passes 3,960 tests, with 2,306 explicit profile skips
+and two existing warnings. A broader setup/grant run passes 201 cases before
+finding an outdated empty-table DELETE expectation from the earlier cleanup
+grant. After correcting that expectation, the focused populated-source cleanup
+and actual-role regression passes all 33 cases. These
+tests use only fake providers, synthetic credentials and disposable databases;
+no real messages were sent.
+
+The actual persisted Workspace relay, worker startup/consumer mounting, web
+send controls, optional Slack delivery and atomic setup finalizer remain open.
+This is an internal implementation checkpoint, not phase completion or one of
+the three required complete Phase 2 review/fix rounds.

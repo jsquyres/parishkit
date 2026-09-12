@@ -1,0 +1,55 @@
+"""Setup-only mail journal authority; no Family data or staged private keys."""
+
+from .setup_exchange_grants import CANDIDATE_METADATA, SESSION_COLUMNS
+
+
+def mail_runtime_grants():
+    """Minimal future consumer scope, separately checked from general worker SQL."""
+    tables = {
+        table: {"SELECT"}
+        for table in (
+            "django_migrations",
+            "stewardship_configuration_version",
+            "stewardship_system_configuration",
+            "stewardship_setup_attempt",
+            "stewardship_task_run",
+            "stewardship_task_event",
+            "stewardship_address_rule",
+        )
+    }
+    tables["stewardship_setup_mail_delivery"] = {"SELECT", "UPDATE"}
+    tables["stewardship_task_run"].add("UPDATE")
+    tables["stewardship_task_event"].add("INSERT")
+    tables["stewardship_audit_event"] = {"INSERT"}
+    tables["stewardship_audit_context"] = {"INSERT"}
+    columns = {
+        "stewardship_parish": {"SELECT": {"id", "configuration_id"}},
+        "stewardship_setup_sealed_credential": {"SELECT": set(CANDIDATE_METADATA)},
+        "stewardship_portal_session": {"SELECT": set(SESSION_COLUMNS)},
+        "stewardship_portal_user": {"SELECT": {"id", "disabled", "email"}},
+        "stewardship_setup_draft_section": {
+            "SELECT": {"attempt_id", "step", "values", "scrubbed_at"}
+        },
+    }
+    return tables, columns
+
+
+def add_setup_mail_cleanup_grants(tables, columns):
+    """Expiry can erase sample content and classify stale work, never claim/send."""
+    tables["stewardship_setup_mail_delivery"] = {"SELECT"}
+    columns["stewardship_setup_mail_delivery"] = {
+        "UPDATE": {
+            "mail",
+            "state",
+            "finished_at",
+            "scrubbed_at",
+            "actor_id",
+            "correlation_id",
+            "version",
+        }
+    }
+    columns["stewardship_setup_sealed_credential"]["SELECT"].update(CANDIDATE_METADATA)
+    if "stewardship_setup_draft_section" in columns:
+        columns["stewardship_setup_draft_section"]["SELECT"].update(
+            {"attempt_id", "step", "values", "scrubbed_at"}
+        )

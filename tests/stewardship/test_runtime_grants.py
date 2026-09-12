@@ -79,7 +79,7 @@ def test_public_handoff_grants_separate_discovery_from_publication():
     [
         ("unknown", None),
         (ServiceRole.CREDENTIAL_INSTALLER, "unknown"),
-        (ServiceRole.MAIL_DISPATCH, None),
+        (ServiceRole.BACKUP_WORKER, None),
         (ServiceRole.WEB, "metrics"),
         (ServiceRole.CONFIG_INSTALLER, "metrics"),
         (ServiceRole.BOOTSTRAP, "metrics"),
