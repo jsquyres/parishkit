@@ -13,6 +13,8 @@ from parishkit.stewardship.storage import (
     UTCDateTimeField,
 )
 
+from .setup_content_values import CONTENT_STEPS
+
 
 class SetupAttempt(MutableRecord):
     """One deployment-wide attempt, permanently bound to one original Admin login."""
@@ -86,7 +88,7 @@ class SetupDraftSection(MutableRecord):
     immutable_fields = MutableRecord.immutable_fields + ("attempt_id", "step")
     write_once_fields = ("scrubbed_at",)
     attempt = models.ForeignKey(SetupAttempt, on_delete=models.PROTECT)
-    step = models.CharField(max_length=24)
+    step = models.CharField(max_length=48)
     values = models.JSONField()
     scrubbed_at = UTCDateTimeField(null=True)
 
@@ -106,6 +108,8 @@ class SetupDraftSection(MutableRecord):
                         "slack",
                         "testing",
                         "campaign",
+                        "schedules",
+                        *CONTENT_STEPS,
                     ]
                 ),
                 name="setup_public_step",

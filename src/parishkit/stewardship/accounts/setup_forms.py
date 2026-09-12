@@ -20,6 +20,7 @@ STEPS = {
     "slack": _("Optional Slack notifications"),
     "testing": _("Testing recipient"),
     "campaign": _("First campaign"),
+    "schedules": _("First-campaign mail schedules"),
 }
 
 
@@ -164,6 +165,14 @@ def initial_values(step, values):
 
 def validate_values(step, values):
     """Service callers cannot inject extra fields, coercions or private payloads."""
+    from .setup_content_values import CONTENT_STEPS, validate_content_step
+
+    if step in CONTENT_STEPS:
+        return validate_content_step(step, values)
+    if step == "schedules":
+        from .setup_schedule_values import validate_schedule_step
+
+        return validate_schedule_step(values)
     if step == "campaign":
         from parishkit.stewardship.campaigns.configuration import campaign_values
 

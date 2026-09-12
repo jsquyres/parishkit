@@ -8,9 +8,7 @@
 <p><a href="{% url 'admin:content_catalog' campaign.pk %}">{% translate "Create or edit email templates and their subjects" %}</a></p>
 <form method="post">{% csrf_token %}<input type="hidden" name="action" value="preview"><input type="hidden" name="base_digest" value="{{ base_digest }}">
 <fieldset class="panel"><legend>{% translate "Campaign window" %}</legend>{% if not editable %}<p>{% translate "Structural dates and timezone are locked. This editor can still change future schedules. Exceptional live end-date changes require the campaign lifecycle workflow." %}</p>{% endif %}{{ window.as_div }}</fieldset>
-{{ schedules.management_form }}{{ schedules.non_form_errors }}
-<p>{% translate "The blank last row adds a schedule. Saving makes another blank row available. Every saved row must remain present or be explicitly marked for deletion; its mail type cannot change." %}</p>
-{% for form in schedules %}<fieldset class="panel"><legend>{% translate "Schedule" %} {{ forloop.counter|number }}</legend>{{ form.as_div }}</fieldset>{% endfor %}
+{% include 'stewardship/schedule-fields.html' %}
 <button type="submit">{% translate "Preview changes and affected work" %}</button></form>
 <p><a href="{% url 'admin:campaign_settings' campaign.pk %}">{% translate "Return to campaign settings" %}</a></p>
 {% endblock %}

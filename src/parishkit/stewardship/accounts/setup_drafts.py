@@ -78,7 +78,23 @@ def view_draft(request, service, attempt_id=None):
 
 def save_section(request, service, attempt_id, *, step, values, expected_version):
     """Persist one validated step; concurrent tabs use the entire attempt's version."""
-    values = validate_values(step, values)
+    return save_sections(
+        request,
+        service,
+        attempt_id,
+        updates={step: values},
+        expected_version=expected_version,
+    )
+
+
+def save_sections(request, service, attempt_id, *, updates, expected_version):
+    """One original-owner lock and version cover all dependent temporary edits."""
+    from .setup_content_values import CONTENT_STEPS
+    from .setup_schedule_values import reconcile_preparation
+
+    if type(updates) is not dict or not updates:
+        raise ValueError("Setup edits are required.")
+    updates = {step: validate_values(step, values) for step, values in updates.items()}
     with work_transaction():
         actor, attempt = _owned(request, service, attempt_id)
         check_version(attempt, expected_version)
@@ -87,29 +103,40 @@ def save_section(request, service, attempt_id, *, step, values, expected_version
             or _expiry(attempt, database_now()) is not None
         ):
             raise PermissionError("Setup cannot accept settings now.")
-        if step == "branding":
+        if "branding" in updates:
             from .branding_staging import staged_bundle
 
             staged_bundle(
                 request,
                 service,
-                UUID(values["bundle_id"]),
+                UUID(updates["branding"]["bundle_id"]),
                 setup_attempt_id=attempt.pk,
             )
-        if step == "campaign":
+        if "campaign" in updates:
             from .setup_campaign import admit_campaign_values
 
-            admit_campaign_values(request, service, attempt_id, values)
-        row = SetupDraftSection.objects.filter(attempt=attempt, step=step).first()
+            admit_campaign_values(request, service, attempt_id, updates["campaign"])
+        for step in CONTENT_STEPS:
+            if step not in updates:
+                continue
+            from .setup_content import admit_content_values
+
+            admit_content_values(request, service, attempt_id, step, updates[step])
+        updates = reconcile_preparation(request, service, attempt_id, updates)
         context = dict(actor_id=actor.identity, correlation_id=current_correlation())
-        if row is None:
-            SetupDraftSection.objects.create(
-                attempt=attempt, step=step, values=values, **context
-            )
-        else:
-            SetupDraftSection.objects.filter(pk=row.pk, version=row.version).update(
-                values=values, version=F("version") + 1, **context
-            )
+        # The parent goes first when dates and schedules are saved together;
+        # SQL repeats each child's original source/campaign proof independently.
+        for step in sorted(updates, key=lambda item: (item != "campaign", item)):
+            values = updates[step]
+            row = SetupDraftSection.objects.filter(attempt=attempt, step=step).first()
+            if row is None:
+                SetupDraftSection.objects.create(
+                    attempt=attempt, step=step, values=values, **context
+                )
+            else:
+                SetupDraftSection.objects.filter(pk=row.pk, version=row.version).update(
+                    values=values, version=F("version") + 1, **context
+                )
         SetupAttempt.objects.filter(pk=attempt.pk, version=attempt.version).update(
             version=F("version") + 1, **context
         )

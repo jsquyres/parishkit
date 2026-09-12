@@ -22,8 +22,11 @@ from .accounts import (
     setup_branding_views,
     setup_campaign_views,
     setup_cancellation_views,
+    setup_content_views,
     setup_credential_views,
     setup_progress_views,
+    setup_schedule_views,
+    setup_share_views,
     setup_views,
     share_views,
 )
@@ -176,6 +179,16 @@ admin_patterns = [
         name="setup_branding_asset",
     ),
     path("setup/campaign", setup_campaign_views.setup_campaign, name="setup_campaign"),
+    path("setup/shares", setup_share_views.setup_shares, name="setup_shares"),
+    path(
+        "setup/schedules", setup_schedule_views.setup_schedules, name="setup_schedules"
+    ),
+    path("setup/content", setup_content_views.setup_content, name="setup_content"),
+    path(
+        "setup/content/<str:kind>/<str:slot>",
+        setup_content_views.setup_content_edit,
+        name="setup_content_edit",
+    ),
     path("setup/<str:step>", setup_views.setup_step, name="setup_step"),
     path("maintenance", access_gate.maintenance, name="maintenance"),
     path(

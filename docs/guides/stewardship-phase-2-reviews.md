@@ -306,3 +306,32 @@ passes six Chromium/Firefox/WebKit mobile/desktop accessibility checks. The
 baseline passes 3,827 tests with 2,250 explicit profile skips and two existing
 warnings. Wizard-specific content, share-option and schedule editing, provider
 test delivery and final installer/activation integration remain required.
+
+### First-campaign content and schedule preparation checkpoint
+
+The original wizard now has named page/email visual editors with sanitized
+fictional previews, stable/reorderable financial share options and initial,
+reminder, daily and weekly mail schedules. The normal editors share the same
+field templates. Temporary content and schedules are bounded, validated against
+the original source-bound campaign and scrubbed on cancellation. No Campaign,
+delivery work or active configuration is created by these editors.
+
+One attempt version now covers atomic related section saves. Replacing an email
+revision updates its dependent draft schedules; clearing a referenced template
+requires explicit schedule removal or replacement. Date edits cannot strand
+mail. The combined editor can change campaign dates and correct every schedule
+in the same transaction. Templates determine subjects, and the complete set
+must obey initial/reminder ordering, unique mailing times and digest uniqueness.
+
+The combined setup and ordinary-editor regression passes 73 PostgreSQL tests.
+The focused wizard run passes 27 PostgreSQL tests with 96% coverage across its
+new content/share/schedule service and view modules. Twenty-eight new pure
+content-contract cases pass. Thirty-six selected browser cases pass across
+Chromium, Firefox and WebKit, including mobile/desktop accessibility and the
+visual editor's handling of executable source/paste markup. These browser counts
+come from two nonoverlapping selections, not a full browser rerun. The baseline
+passes 3,855 tests, with 2,285 explicit profile skips and two existing warnings.
+
+Final setup preview, target delivery checks, installer/consumer coordination
+and atomic configured-marker activation remain open. This is an implementation
+checkpoint, not one of the three required complete Phase 2 review rounds.

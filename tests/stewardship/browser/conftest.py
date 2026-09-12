@@ -24,8 +24,10 @@ from parishkit.stewardship.accounts.parish_views import ParishForm
 from parishkit.stewardship.accounts.schedule_forms import Schedules, ScheduleWindow
 from parishkit.stewardship.accounts.setup_branding_views import SetupLogoForm
 from parishkit.stewardship.accounts.setup_campaign_views import SetupCampaignForm
+from parishkit.stewardship.accounts.setup_content_views import SetupContentForm
 from parishkit.stewardship.accounts.setup_credential_views import SetupCredentialForm
 from parishkit.stewardship.accounts.setup_forms import FORMS, STEPS
+from parishkit.stewardship.accounts.setup_schedule_views import SetupScheduleWindow
 from parishkit.stewardship.accounts.share_forms import (
     ShareOptions,
     default_share_options,
@@ -334,6 +336,57 @@ def component_origin():
                         "text": "Hello Sample Family",
                         "generate_text": True,
                     },
+                ),
+            },
+        ),
+        (
+            "/setup-content-edit",
+            "setup-content-edit",
+            {
+                "draft": setup_draft,
+                "label": "Family welcome",
+                "visual": "<p>Hello Sample Family</p>",
+                "placeholders": ["family_name", "parish_name"],
+                "form": SetupContentForm(
+                    kind="page",
+                    initial={
+                        "html": "<p>Hello Sample Family</p>",
+                        "text": "Hello Sample Family",
+                        "generate_text": True,
+                    },
+                ),
+                "sample": {
+                    "html": "<p>Hello Sample Family</p>",
+                    "text": "Hello Sample Family",
+                },
+            },
+        ),
+        (
+            "/setup-shares",
+            "setup-shares",
+            {
+                "draft": setup_draft,
+                "campaign_name": "Sample campaign",
+                "formset": ShareOptions(
+                    prefix="options", previous=default_share_options()
+                ),
+            },
+        ),
+        (
+            "/setup-schedules",
+            "setup-schedules",
+            {
+                "draft": setup_draft,
+                "campaign_name": "Sample campaign",
+                "window": SetupScheduleWindow(
+                    prefix="window", previous=mail_campaign["values"]
+                ),
+                "schedules": Schedules(
+                    prefix="schedules",
+                    previous=[mail],
+                    templates=[],
+                    campaign_id=mail_campaign["id"],
+                    campaign=mail_campaign["values"],
                 ),
             },
         ),

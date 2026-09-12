@@ -198,6 +198,9 @@ def test_csp_blocks_an_unrelated_form_destination(page, component_origin):
         "/setup-branding",
         "/setup-credential",
         "/setup-campaign",
+        "/setup-content-edit",
+        "/setup-shares",
+        "/setup-schedules",
         "/setup-access",
         "/setup-mail",
         "/setup-slack",
@@ -243,11 +246,12 @@ def test_skip_link_and_error_summary_focus(page, component_origin):
     assert page.locator(":focus").get_attribute("id") == "family-code"
 
 
+@pytest.mark.parametrize("path", ["/content-settings", "/setup-content-edit"])
 def test_visual_content_editor_never_executes_source_or_pasted_markup(
-    page, component_origin
+    page, component_origin, path
 ):
     """Visual edits sync source; raw source waits for the server sanitizer."""
-    page.goto(component_origin + "/content-settings")
+    page.goto(component_origin + path)
     editor = page.locator("[data-content-editor]")
     assert editor.is_visible()
     editor.fill("A visual edit")

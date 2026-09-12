@@ -14,6 +14,8 @@
 <p>{% translate "The original bootstrap Administrator is preserved. Additional access rules do not take effect until setup completes." %}</p>
 {% if draft.status.state == 'collecting' %}
 <h2>{% translate "Sealed setup credentials" %}</h2>
+{% if draft.sections.campaign %}<p><a href="{% url 'admin:setup_content' %}">{% translate "Prepare first-campaign content and email templates" %}</a></p>{% endif %}
+{% if 'financial' in draft.sections.campaign.campaign.modules %}<p><a href="{% url 'admin:setup_shares' %}">{% translate "Prepare how Families will share" %}</a></p>{% endif %}
 <ul>
 <li><a href="{% url 'admin:setup_credential' 'parishsoft' %}">{% translate "ParishSoft credential" %}</a></li>
 <li><a href="{% url 'admin:setup_credential' 'google_workspace' %}">{% translate "Google Workspace mail credential" %}</a></li>

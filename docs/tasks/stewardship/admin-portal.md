@@ -73,6 +73,11 @@ passes 27 PostgreSQL cases with 95% focused coverage and six browser cases.
 Wizard content/share/schedule editing, provider test delivery and coherent
 installer finalization still prevent closing ADM-02 as a whole.
 
+The subsequent [wizard preparation checkpoint](../../guides/stewardship-phase-2-reviews.md#first-campaign-content-and-schedule-preparation-checkpoint)
+implements temporary content, share and schedule editing, with 73 combined
+PostgreSQL regressions, 96% focused wizard coverage and 36 selected browser cases.
+Final preview, target delivery checks and atomic activation remain open.
+
 ## ADM-03: Navigation, dashboard, indicators, and configuration
 
 Scope and dependencies: [ADM-03 work package](../../plans/stewardship/admin-portal.md#adm-03-navigation-dashboard-indicators-and-configuration).
