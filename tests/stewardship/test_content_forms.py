@@ -127,3 +127,29 @@ def test_revision_patch_only_updates_actual_consumers():
         [],
     )
     assert revision_patch(document, campaign_row, None, None) == ([], [])
+
+
+def test_parish_and_civil_date_placeholders_use_campaign_values():
+    """Dates remain campaign civil dates rather than browser-shifted UTC instants."""
+    owner = campaign(modules=["financial"], financial=financial())["values"]
+    value = content(
+        "example",
+        text=(
+            "{{ parish_website }} {{ parish_phone }} {{ campaign_start }} "
+            "{{ campaign_end }} {{ campaign_timezone }} {{ campaign_year }} "
+            "{{ financial_start }} {{ financial_end }}"
+        ),
+    )["values"]
+    rendered = sample_render(
+        value,
+        parish={
+            "name": "Example",
+            "website": "https://example.org/",
+            "phone": "+12125550100",
+        },
+        campaign=owner,
+    )
+    assert rendered["text"] == (
+        "https://example.org/ +12125550100 2026-10-01 2026-10-31 "
+        "America/New_York 2027 2027-01-01 2027-12-31"
+    )

@@ -134,7 +134,17 @@ def sample_render(value, *, parish, campaign):
         return None
     substitutions = {
         "parish_name": parish["name"],
+        "parish_website": parish.get("website", "https://example.invalid/"),
+        "parish_phone": parish.get("phone", "+12025550100"),
         "campaign_name": campaign["name"],
+        "campaign_start": campaign["start_date"],
+        "campaign_end": campaign["end_date"],
+        "campaign_timezone": campaign["timezone"],
+        "campaign_year": campaign.get("year_label") or campaign["start_date"][:4],
+        "financial_start": campaign["financial"]["start"]
+        if campaign["financial"]
+        else "",
+        "financial_end": campaign["financial"]["end"] if campaign["financial"] else "",
         "family_name": "Sample Family",
         "family_member_names": "Alex and Sam Sample",
         "family_code": "SAMPLE",
