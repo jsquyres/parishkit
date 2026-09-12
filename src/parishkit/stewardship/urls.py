@@ -20,6 +20,7 @@ from .accounts import (
     presence,
     schedule_views,
     setup_branding_views,
+    setup_progress_views,
     setup_views,
     share_views,
 )
@@ -151,6 +152,11 @@ admin_patterns = [
         name="background_task",
     ),
     path("setup", setup_views.setup, name="setup"),
+    path(
+        "setup/source/<uuid:task_id>",
+        setup_progress_views.setup_source_progress,
+        name="setup_source_progress",
+    ),
     path("setup/branding", setup_branding_views.setup_branding, name="setup_branding"),
     path(
         "setup/branding/assets/<uuid:asset_id>.png",

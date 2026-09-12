@@ -1,5 +1,8 @@
 """WCAG automated checks plus keyboard, mobile, timezone and activity behavior."""
 
+from datetime import timedelta
+from urllib.parse import urlsplit
+
 import pytest
 
 from .conftest import NOW
@@ -7,6 +10,88 @@ from .conftest import NOW
 pytestmark = pytest.mark.parametrize(
     "browser_engine", ["chromium", "firefox", "webkit"], indirect=True
 )
+
+
+def test_setup_progress_only_polls_visible_correlated_work_and_stops_at_deadline(
+    page, component_origin
+):
+    """Visible-page polling carries only CSRF and stops at local deadlines."""
+    page.clock.install(time=NOW)
+    requests = []
+
+    def observe(route):
+        """The synthetic server response has no Family values or renewal promises."""
+        requests.append(route.request)
+        route.fulfill(
+            json={
+                "task_id": urlsplit(route.request.url).path.split("/")[-1],
+                "task_state": "running",
+                "setup_state": "loading",
+                "phase": "fetching",
+                "active": True,
+                "current": 1234,
+                "total": 5000,
+                "idle_at": (NOW + timedelta(minutes=30)).isoformat(),
+                "watchdog_at": (NOW + timedelta(hours=2)).isoformat(),
+                "absolute_at": (NOW + timedelta(hours=12)).isoformat(),
+            }
+        )
+
+    page.route("**/admin/setup/source/*?format=json", observe)
+    page.goto(component_origin + "/setup-source-progress")
+    page.wait_for_function(
+        "() => document.querySelector('[data-task-counts]')"
+        ".textContent.includes('1,234')"
+    )
+    assert page.locator("[data-task-counts]").inner_text() == "1,234 out of 5,000 (25%)"
+    assert len(requests) == 1 and requests[0].method == "POST"
+    assert requests[0].post_data.startswith("csrfmiddlewaretoken=")
+    assert "&" not in requests[0].post_data
+    page.evaluate(
+        "Object.defineProperty(document, 'hidden', {configurable:true, get:()=>true})"
+    )
+    page.clock.fast_forward(60000)
+    assert len(requests) == 1
+    page.evaluate(
+        "Object.defineProperty(document, 'hidden', {configurable:true, get:()=>false})"
+    )
+    with page.expect_response("**/admin/setup/source/*?format=json"):
+        page.clock.fast_forward(15000)
+    assert len(requests) == 2
+    page.clock.fast_forward(13 * 60 * 60 * 1000)
+    assert len(requests) == 2
+
+
+def test_setup_progress_terminal_response_stops_automatic_posts(page, component_origin):
+    """Expired setup does not look successful or keep sending renewal requests."""
+    page.clock.install(time=NOW)
+    requests = []
+
+    def expired(route):
+        """A terminal server verdict is final even before the local timer expires."""
+        requests.append(route.request)
+        route.fulfill(
+            json={
+                "task_id": urlsplit(route.request.url).path.split("/")[-1],
+                "task_state": "cancelled",
+                "setup_state": "expired",
+                "phase": "fetching",
+                "active": False,
+                "current": 0,
+                "total": 0,
+                "idle_at": (NOW + timedelta(minutes=30)).isoformat(),
+                "watchdog_at": (NOW + timedelta(hours=2)).isoformat(),
+                "absolute_at": (NOW + timedelta(hours=12)).isoformat(),
+            }
+        )
+
+    page.route("**/admin/setup/source/*?format=json", expired)
+    page.goto(component_origin + "/setup-source-progress")
+    page.wait_for_function(
+        "() => document.querySelector('[data-task-state]').textContent === 'cancelled'"
+    )
+    page.clock.fast_forward(60000)
+    assert len(requests) == 1
 
 
 def test_csp_permits_the_fixed_google_form_destination(page, component_origin):
@@ -104,6 +189,7 @@ def test_csp_blocks_an_unrelated_form_destination(page, component_origin):
         "/setup-mail",
         "/setup-slack",
         "/setup-testing",
+        "/setup-source-progress",
     ],
 )
 @pytest.mark.parametrize("width", [320, 1280])

@@ -1043,6 +1043,29 @@ with real public staging; sealed setup credential intake, staged source loading,
 campaign preparation, provider delivery checks and configured-marker finalization
 remain incomplete. No Phase 2 acceptance or review-gate completion is implied.
 
+### Correlated setup source progress
+
+The original source Task now has a setup-only progress page and a CSRF POST
+renewal endpoint. Passive reads never extend activity. A renewal requires the
+same original login, exact bound Task, live Task/source fences and recent worker
+heartbeats, and is accepted at most once per five minutes. SQL verifies the
+lease evidence independently. Session activity is updated after the SQL renewal
+stamp, preserving consistent deadline ordering. Neither the original two-hour
+watchdog nor the absolute session deadline can move.
+
+The page shows all deadlines and the expected two-to-three-minute normal load.
+Its bounded foreground polling sends only CSRF, stops when hidden/closed or past
+a deadline, and honors terminal server responses. Manual progress forms also
+work without JavaScript. At the watchdog, the server commits setup expiry rather
+than renewing an unhealthy load. The web receives only source-lease observation
+columns, never lease-write authority. Source task creation/execution and complete
+staging cleanup remain with the upcoming loader owner.
+
+Thirty-nine focused policy, real-lease and HTTP tests pass with 97% service/view
+coverage; 54 setup browser checks pass across all three engines. Historical
+creation-time fixtures exercise the hard SQL clock under restored timestamps;
+all guards are enabled during the actual restricted-role renewal assertions.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later

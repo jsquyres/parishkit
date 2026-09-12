@@ -30,6 +30,86 @@
     });
   });
 
+  // Only the exact source-progress page posts this renewal exception. The
+  // server checks the original login, task/source leases and five-minute limit;
+  // visibility and local deadlines merely stop unnecessary browser requests.
+  document.querySelectorAll("[data-setup-progress]").forEach((panel) => {
+    const form = panel.querySelector("form");
+    const warning = panel.querySelector("[data-progress-unavailable]");
+    const deadlines = [...panel.querySelectorAll("[data-progress-deadline]")];
+    const number = new Intl.NumberFormat("en-US");
+    const localTime = new Intl.DateTimeFormat("en-US", {
+      year: "numeric", month: "short", day: "numeric",
+      hour: "numeric", minute: "2-digit", timeZoneName: "short"
+    });
+    let active = panel.dataset.progressActive === "true";
+    let closed = false, pending = false, timer = null, controller = null;
+    const live = () => {
+      const until = Math.min(...deadlines.map(node => Date.parse(node.dateTime)));
+      return !closed && active && Number.isFinite(until) && Date.now() < until;
+    };
+    const schedule = () => {
+      window.clearTimeout(timer);
+      if (live()) timer = window.setTimeout(refresh, 15000);
+    };
+    async function refresh() {
+      if (!live() || pending) return;
+      if (document.hidden) { schedule(); return; }
+      pending = true;
+      controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 5000);
+      try {
+        const response = await fetch(panel.dataset.progressUrl, {
+          method: "POST", credentials: "same-origin", cache: "no-store",
+          headers: {"Content-Type": "application/x-www-form-urlencoded"},
+          body: new URLSearchParams(new FormData(form)), signal: controller.signal
+        });
+        if (!response.ok) throw new Error("unavailable");
+        const data = await response.json();
+        if (data.task_id !== panel.dataset.progressTask || typeof data.active !== "boolean"
+            || !Number.isSafeInteger(data.current) || !Number.isSafeInteger(data.total)
+            || data.current < 0 || data.total < data.current
+            || !["queued", "running", "retry_wait", "abandoned", "succeeded", "failed", "cancelled"].includes(data.task_state)
+            || !["collecting", "loading", "frozen", "completed", "expired"].includes(data.setup_state)
+            || typeof data.phase !== "string"
+            || deadlines.some(node => !Number.isFinite(Date.parse(data[node.dataset.progressDeadline])))) {
+          throw new Error("unavailable");
+        }
+        if (closed || document.hidden) return;
+        active = data.active;
+        panel.querySelector("[data-task-state]").textContent = data.task_state;
+        panel.querySelector("[data-setup-state]").textContent = data.setup_state;
+        panel.querySelector("[data-task-phase]").textContent = data.phase;
+        const percentage = data.total ? Math.round(data.current * 100 / data.total) : 0;
+        panel.querySelector("[data-task-counts]").textContent =
+          `${number.format(data.current)} out of ${number.format(data.total)} (${percentage}%)`;
+        deadlines.forEach(node => {
+          node.dateTime = data[node.dataset.progressDeadline];
+          node.textContent = localTime.format(new Date(node.dateTime));
+        });
+        warning.hidden = true;
+      } catch (_) {
+        if (!closed && !document.hidden) warning.hidden = false;
+      } finally {
+        window.clearTimeout(timeout);
+        pending = false;
+        controller = null;
+        schedule();
+      }
+    }
+    form.addEventListener("submit", event => { event.preventDefault(); refresh(); });
+    window.addEventListener("pagehide", () => {
+      closed = true;
+      window.clearTimeout(timer);
+      if (controller) controller.abort();
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden && controller) controller.abort();
+      if (!document.hidden) refresh();
+    });
+    refresh();
+  });
+
   // Optional modules remain ordinary accessible fieldsets without JavaScript.
   // Hidden fields are disabled, not silently copied into submitted data. The
   // server independently rejects stray data for every disabled module.

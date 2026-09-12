@@ -243,6 +243,16 @@ def runtime_grants(role, *, target=None):
     # guard rejects an id-only update, and the actual stream is READ ONLY.
     columns = {"stewardship_download_policy": {"UPDATE": {"id"}}}
     if role is ServiceRole.WEB:
+        # Setup progress observes live source ownership, never mutates the lease.
+        columns["stewardship_source_lease"] = {
+            "SELECT": {
+                "owner_id",
+                "task_fence",
+                "worker_id",
+                "expires_at",
+                "heartbeat_at",
+            }
+        }
         # Dashboard timestamps need no source cursor, validation or payload access.
         columns["stewardship_source_snapshot"] = {"SELECT": {"id", "promoted_at"}}
         # Login holds these current-epoch/credential rows against rotation and

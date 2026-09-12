@@ -28,6 +28,7 @@ class DraftView:
     idle_at: datetime
     absolute_at: datetime
     watchdog_at: datetime | None
+    source_task_id: UUID | None = None
 
 
 def _owned(request, service, attempt_id=None):
@@ -71,6 +72,7 @@ def view_draft(request, service, attempt_id=None):
             window.idle_at,
             window.absolute_at,
             window.watchdog_at,
+            row.source_task_id,
         )
 
 

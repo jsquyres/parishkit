@@ -407,6 +407,24 @@ def component_origin():
             "setup-branding",
             {"draft": setup_draft, "form": SetupLogoForm(), "assets": []},
         ),
+        (
+            "/setup-source-progress",
+            "setup-source-progress",
+            {
+                "progress": {
+                    "task_id": uuid4(),
+                    "task_state": "running",
+                    "setup_state": "loading",
+                    "phase": "fetching",
+                    "current": 0,
+                    "total": 0,
+                    "active": True,
+                    "idle_at": (NOW + timedelta(minutes=30)).isoformat(),
+                    "watchdog_at": (NOW + timedelta(hours=2)).isoformat(),
+                    "absolute_at": (NOW + timedelta(hours=12)).isoformat(),
+                }
+            },
+        ),
         ("/availability", "availability", {"setup": True, "admin": True}),
         ("/denied", "denied", {"retry_path": "/admin/login"}),
     ):

@@ -8,6 +8,7 @@
 <p>{% translate "Your temporary settings have been cleared. Sign out and sign in again to start a new setup attempt." %}</p>
 {% elif draft %}
 {% include 'stewardship/setup-deadlines.html' %}
+{% if draft.source_task_id %}<p><a href="{% url 'admin:setup_source_progress' draft.source_task_id %}">{% translate "Source-load progress" %}</a></p>{% endif %}
 <h2>{% translate "Setup sections" %}</h2>
 <ul>{% for item in steps %}<li><a href="{% url 'admin:setup_step' item.key %}">{{ item.label }}</a> — {% if item.saved %}{% translate "Saved temporarily" %}{% else %}{% translate "Not yet entered" %}{% endif %}</li>{% endfor %}</ul>
 <p>{% translate "The original bootstrap Administrator is preserved. Additional access rules do not take effect until setup completes." %}</p>
