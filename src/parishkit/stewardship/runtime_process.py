@@ -248,7 +248,17 @@ def serve_credential_installer(configuration, lease):
 
     lease.check()
     publish_handoff(installer.files.private)
-    return serve_installer_loop(installer.run_once, lease)
+
+    def run_once():
+        """Service one ephemeral setup relay, then the ordinary replacement queue."""
+        if configuration.credential_target == "parishsoft":
+            from .source.setup_exchange import relay_pending
+
+            lease.check()
+            relay_pending(installer.files.private)
+        installer.run_once()
+
+    return serve_installer_loop(run_once, lease)
 
 
 def serve_installer_loop(run_once, lease):

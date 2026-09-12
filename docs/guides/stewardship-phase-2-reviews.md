@@ -239,3 +239,31 @@ The setup exchange/loader, staged campaign, delivery checks, atomic
 source/Family/configured-marker activation, final Compose demonstration and
 three complete phase review/fix rounds remain open. These checkpoints do not
 complete Phase 2 or authorize a merge.
+
+### Ephemeral exchange and staged source execution checkpoint
+
+The original setup attempt now queues one durable source-load Task. Its real
+worker publishes an ephemeral public recipient; only the isolated ParishSoft
+target can relay the sealed candidate to it. The recipient private key stays in
+worker memory. Every provider request and staging batch repeats original-login,
+candidate receipt, Task and source-fence admission. Provider calls hold no SQL
+transaction. The load includes Ministry/fund catalogs without pretending that
+an unconfigured financial window includes giving history.
+
+An immutable result binds the validated ready snapshot to its exact exchange.
+Task completion and returning the wizard to collecting commit together, with
+source release before terminal Task state and the dispatcher completion signal
+after commit. No current source, Family code or configured marker changes.
+Invalid data is rejected; cancellation during a provider page stops further
+requests and staging. The browser start action and closed worker/scheduler
+registries use this owner. An initial worker may omit the installed ParishSoft
+file only with coherent bootstrap-policy evidence; ordinary configured refresh
+still requires its individual credential mount and working bytes.
+
+The integrated loader/exchange/intake/progress run passes 62 PostgreSQL tests
+with 91% focused coverage. Runtime assembly passes 13 tests. The baseline passes
+3,827 tests with 2,231 explicit profile skips and two existing warnings. These
+counts overlap earlier evidence and are not a full PostgreSQL or Compose rerun.
+Abandoned source-row cleanup, initial Compose mount orchestration, staged first
+campaign, provider delivery checks, final installer coordination and atomic
+configuration/source/Family activation remain required before Phase 2 acceptance.

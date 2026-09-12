@@ -80,6 +80,9 @@ def scheduler_handlers():
     from .jobs.queues import WorkQueue
     from .source.outcomes import admit_refresh_metadata, recovery_plan
     from .source.requests import TASK_TYPE
+    from .source.setup_admission import TASK_TYPE as SETUP_LOAD
+    from .source.setup_admission import admit_setup_task
+    from .source.setup_admission import recovery_plan as setup_recovery
 
     def unavailable(execution):
         """A scheduler cannot become a provider worker by calling a registry value."""
@@ -87,6 +90,13 @@ def scheduler_handlers():
 
     return {
         BRANDING_CLEANUP: cleanup_handler(),
+        SETUP_LOAD: Handler(
+            queue=WorkQueue.GENERAL,
+            admit=admit_setup_task,
+            execute=unavailable,
+            recover=setup_recovery,
+            scope=work_transaction,
+        ),
         TASK_TYPE: Handler(
             queue=WorkQueue.GENERAL,
             admit=admit_refresh_metadata,
@@ -117,7 +127,7 @@ def configure_background(configuration, *, stop, heartbeat):
         raise ConfigError("Background service admission differs from its profile.")
     admit_lifecycle_mounts(configuration)
     required = (
-        {"general_encryption", "family_code_mac", "token_public", "parishsoft"}
+        {"general_encryption", "family_code_mac", "token_public"}
         if role is ServiceRole.WORKER
         else {"token_public"}
     )
@@ -128,7 +138,7 @@ def configure_background(configuration, *, stop, heartbeat):
         name: parse_keyring(loaded[name], name) for name in required - {"parishsoft"}
     }
     independent_keyrings(*rings.values())
-    if role is ServiceRole.WORKER:
+    if role is ServiceRole.WORKER and "parishsoft" in loaded:
         from .source.credentials import SourceCredential
 
         SourceCredential(loaded["parishsoft"])
@@ -149,7 +159,19 @@ def configure_background(configuration, *, stop, heartbeat):
     from .accounts.configuration_schema import validate_sections
 
     store = AuthorityStore(configuration.paths["authority"], validate_sections)
-    coherent_configuration(store)
+    active = coherent_configuration(store)
+    if (
+        role is ServiceRole.WORKER
+        and "parishsoft" not in loaded
+        and (
+            active is None
+            or active.mode != "testing"
+            or active.restore_review_required
+            or active.current_campaign_id is not None
+            or active.active_configuration.validation_schema != "bootstrap-policy-v1"
+        )
+    ):
+        raise ConfigError("An installed ParishSoft credential is required.")
 
     if role is ServiceRole.SCHEDULER:
         handlers = scheduler_handlers()
@@ -159,10 +181,15 @@ def configure_background(configuration, *, stop, heartbeat):
         from .source.effects import refresh_reconciler
         from .source.execution import refresh_handler
         from .source.requests import TASK_TYPE
+        from .source.setup_admission import TASK_TYPE as SETUP_LOAD
+        from .source.setup_execution import setup_source_handler
 
         handlers = {
             BRANDING_CLEANUP: cleanup_handler(configuration.paths["media"]),
-            TASK_TYPE: refresh_handler(
+            SETUP_LOAD: setup_source_handler(),
+        }
+        if "parishsoft" in loaded:
+            handlers[TASK_TYPE] = refresh_handler(
                 credential_path=configuration.secrets["parishsoft"],
                 reconcile=refresh_reconciler(
                     general=rings["general_encryption"],
@@ -170,8 +197,7 @@ def configure_background(configuration, *, stop, heartbeat):
                     public=rings["token_public"],
                     suppressions=pre_delivery_suppressions,
                 ),
-            ),
-        }
+            )
     handlers = bind_authority(handlers, store, heartbeat=heartbeat)
     broker = build_broker(
         endpoint=configuration.valkey,

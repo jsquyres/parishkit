@@ -81,6 +81,11 @@ def task_runtime_grants(role):
         from parishkit.stewardship.source.grants import add_refresh_worker_grants
 
         add_refresh_worker_grants(tables, columns)
+        from parishkit.stewardship.accounts.setup_exchange_grants import (
+            add_worker_exchange_grants,
+        )
+
+        add_worker_exchange_grants(tables, columns)
     else:
         from parishkit.stewardship.source.grants import add_refresh_scheduler_grants
 
@@ -128,4 +133,9 @@ def task_runtime_grants(role):
                 "version",
             },
         }
+        from parishkit.stewardship.accounts.setup_exchange_grants import (
+            add_exchange_cleanup_grants,
+        )
+
+        add_exchange_cleanup_grants(columns)
     return tables, columns

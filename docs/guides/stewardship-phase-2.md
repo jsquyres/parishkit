@@ -1095,6 +1095,14 @@ Continue with the fenced setup credential exchange and staged source loader;
 the overall empty-to-configured demonstration and Phase 2 review cycle remain
 incomplete.
 
+The next [execution checkpoint](stewardship-phase-2-reviews.md#ephemeral-exchange-and-staged-source-execution-checkpoint)
+connects the real ephemeral exchange, original-login Task intake, bounded source
+loader and atomic staging completion. Its 62-case PostgreSQL suite passes with
+91% focused coverage; the baseline passes 3,827 tests. The worker supports a
+bootstrap-only registry without an installed ParishSoft file. Continue with
+abandoned source-row cleanup and the remaining staged campaign/finalization
+owners. This is not the empty-to-configured demonstration or phase completion.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later

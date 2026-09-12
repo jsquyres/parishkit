@@ -9,6 +9,7 @@ from parishkit.stewardship.accounts.secret_models import SecretReplacementReques
 from parishkit.stewardship.accounts.setup_models import SetupAttempt
 from parishkit.stewardship.accounts.setup_secret_models import SetupSealedCredential
 
+from ..test_setup_forms import VALUES
 from .auth_builders import signed_in
 from .test_bootstrap_postgresql import bootstrapped  # noqa: F401
 from .test_runtime_auth_grants_postgresql import web_login
@@ -17,6 +18,55 @@ from .test_setup_views_postgresql import post, setup_http, started  # noqa: F401
 
 pytestmark = pytest.mark.django_db(transaction=True)
 URL = "/admin/setup/credentials/parishsoft"
+
+
+def test_original_browser_starts_one_source_load_with_csrf(setup_http, google):
+    """The real start form redirects to its original correlated progress route."""
+    from parishkit.stewardship.jobs.models import TaskRun
+
+    publish("parishsoft")
+    with web_login():
+        browser = started()
+        assert (
+            post(
+                browser,
+                "/admin/setup/parish",
+                VALUES["parish"]
+                | {
+                    "version": str(SetupAttempt.objects.get().version),
+                },
+            ).status_code
+            == 302
+        )
+        assert (
+            post(
+                browser,
+                URL,
+                {
+                    "candidate": CANDIDATE.decode(),
+                    "organization_id": "1",
+                    "version": str(SetupAttempt.objects.get().version),
+                },
+            ).status_code
+            == 302
+        )
+        attempt = SetupAttempt.objects.get()
+        values = {
+            "action": "load",
+            "attempt": str(attempt.pk),
+            "version": str(attempt.version),
+        }
+        assert browser.post("/admin/setup", values).status_code == 403
+        response = post(browser, "/admin/setup", values)
+        assert response.status_code == 302, response.content
+        task = TaskRun.objects.get()
+        assert str(task.pk) in response["Location"]
+        assert browser.get(response["Location"]).status_code == 200
+        repeated = post(browser, "/admin/setup", values)
+        assert repeated["Location"] == response["Location"]
+        assert TaskRun.objects.count() == 1
+        assert SetupAttempt.objects.get().state == "loading"
+    assert not setup_http.configured()
 
 
 def test_write_only_form_real_csrf_staging_and_cancellation(setup_http, google):

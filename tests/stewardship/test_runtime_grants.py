@@ -139,7 +139,18 @@ def test_background_grants_exclude_web_secrets_and_campaign_write_authority(role
         }
     else:
         assert "stewardship_setup_sealed_credential" not in tables
-        assert "stewardship_setup_sealed_credential" not in columns
+        assert columns["stewardship_setup_sealed_credential"] == {
+            "SELECT": {
+                "id",
+                "attempt_id",
+                "target",
+                "version",
+                "fingerprint",
+                "settings",
+                "scrubbed_at",
+            }
+        }
+        assert tables["stewardship_setup_source_exchange"] == {"SELECT", "INSERT"}
     assert tables["stewardship_campaign"] == {"SELECT"}
     assert tables["stewardship_domain_rule"] == {"SELECT"}
     assert columns["stewardship_campaign"] == {"UPDATE": {"id"}}
@@ -147,7 +158,15 @@ def test_background_grants_exclude_web_secrets_and_campaign_write_authority(role
     if role is ServiceRole.WORKER:
         assert tables["stewardship_task_run"] == {"SELECT", "INSERT", "UPDATE"}
         assert "stewardship_portal_session" not in tables
-        assert "stewardship_portal_session" not in columns
+        assert columns["stewardship_portal_session"] == {
+            "SELECT": {
+                "id",
+                "principal_id",
+                "revoked_at",
+                "expires_at",
+                "last_activity_at",
+            }
+        }
     else:
         assert "stewardship_portal_session" not in tables
         assert columns["stewardship_portal_session"] == {

@@ -19,6 +19,13 @@
 <li><a href="{% url 'admin:setup_credential' 'google_workspace' %}">{% translate "Google Workspace mail credential" %}</a></li>
 <li><a href="{% url 'admin:setup_credential' 'slack' %}">{% translate "Optional Slack credential" %}</a></li>
 </ul>
+{% if not draft.source_task_id %}
+<form method="post" class="panel">{% csrf_token %}
+<input type="hidden" name="action" value="load"><input type="hidden" name="attempt" value="{{ draft.status.attempt_id }}"><input type="hidden" name="version" value="{{ draft.status.version }}">
+<p>{% translate "Save the parish profile and ParishSoft credential before loading the source data. A normal load takes about two to three minutes. Keep the progress page open until it completes." %}</p>
+<button type="submit">{% translate "Load parish source data" %}</button>
+</form>
+{% endif %}
 {% endif %}
 <p>{% translate "Provider credentials, source loading, delivery checks and the final readiness confirmation must also complete before this system can be configured." %}</p>
 {% if draft.status.state == 'frozen' %}

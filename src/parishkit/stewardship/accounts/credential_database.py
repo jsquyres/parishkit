@@ -26,6 +26,16 @@ INSTALLER_METADATA = {
 }
 
 
+def installer_permissions(target):
+    """Return independent closed maps including only this target's setup owner."""
+    from .setup_exchange_grants import extend_installer_permissions
+
+    tables = {table: set(names) for table, names in INSTALLER_GRANTS.items()}
+    metadata = {table: set(names) for table, names in INSTALLER_METADATA.items()}
+    extend_installer_permissions(target, tables, metadata)
+    return tables, metadata
+
+
 def _identity(expected, *, database=None):
     """Reject superusers, SET ROLE impersonation and any inherited role authority."""
     database = connection if database is None else database
@@ -54,7 +64,8 @@ def admit_installer_database(target):
     if type(target) is not str or target not in SECRET_TARGETS:
         raise ConfigError("Unknown credential target.")
     _identity("pk_stewardship_credential_" + target)
-    admit_grants(INSTALLER_GRANTS)
+    tables, metadata = installer_permissions(target)
+    admit_grants(tables)
     with connection.cursor() as cursor:
         # Metadata attribution is deliberately column-scoped. No full YAML,
         # testing recipient, configuration content or provider settings are needed.
@@ -65,12 +76,10 @@ def admit_installer_database(target):
             "WHERE n.nspname='public' AND c.relname=ANY(%s) "
             "AND a.attnum>0 AND NOT a.attisdropped "
             "AND has_column_privilege(current_user,c.oid,a.attnum,'SELECT')",
-            [list(INSTALLER_METADATA)],
+            [list(metadata)],
         )
         permitted = {
-            (table, column)
-            for table, columns in INSTALLER_METADATA.items()
-            for column in columns
+            (table, column) for table, columns in metadata.items() for column in columns
         }
         if set(cursor.fetchall()) - permitted:
             raise ConfigError("Credential installer metadata grants are excessive.")

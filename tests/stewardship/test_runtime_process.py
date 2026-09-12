@@ -191,12 +191,23 @@ def test_credential_service_publishes_only_after_admission(
     monkeypatch.setattr(
         "parishkit.stewardship.accounts.handoff_discovery.publish_handoff", publish
     )
+    relay = Mock()
+    monkeypatch.setattr(
+        "parishkit.stewardship.source.setup_exchange.relay_pending", relay
+    )
 
     def serve(run_once, actual_lease):
         """Queue processing cannot race ahead of the advertised encryption key."""
         publish.assert_called_once_with(installer.files.private)
         lease.check.assert_called_once()
-        assert actual_lease is lease and run_once is installer.run_once
+        assert actual_lease is lease
+        run_once()
+        installer.run_once.assert_called_once()
+        if target == "parishsoft":
+            relay.assert_called_once_with(installer.files.private)
+            assert lease.check.call_count == 2
+        else:
+            relay.assert_not_called()
         return 0
 
     monkeypatch.setattr(runtime_process, "serve_installer_loop", serve)

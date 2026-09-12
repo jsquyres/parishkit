@@ -110,6 +110,17 @@ def stage_credential(
         ):
             raise PermissionError("Setup cannot accept credentials now.")
         settings = _context(attempt, target, organization_id)
+        if target == "parishsoft":
+            from parishkit.stewardship.source.credentials import SourceCredential
+
+            from .cryptography import CryptographicError
+
+            try:
+                SourceCredential(candidate)
+            except CryptographicError:
+                raise ValueError(
+                    "The ParishSoft credential has an invalid format."
+                ) from None
         row = (
             SetupSealedCredential.objects.defer("ciphertext")
             .filter(attempt=attempt, target=target)

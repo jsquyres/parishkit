@@ -18,6 +18,7 @@ from .limiting import LimiterUnavailable
 from .setup_drafts import save_section, view_draft
 from .setup_forms import FORMS, STEPS, form_values, initial_values
 from .setup_policy import SetupState
+from .setup_source import start_source_load
 from .setup_staging import _admit, begin_setup, cancel_setup
 
 ERRORS = (
@@ -76,7 +77,10 @@ def setup(request):
         service = runtime()
         if request.method == "POST":
             action = request.POST.get("action")
-            _closed(request, {"action"} if action == "start" else {"action", "attempt"})
+            fields = {"action"} if action == "start" else {"action", "attempt"}
+            if action == "load":
+                fields.add("version")
+            _closed(request, fields)
             if action == "start":
                 attempt = begin_setup(request, service)
                 destination = (
@@ -87,6 +91,16 @@ def setup(request):
             elif action == "cancel":
                 cancel_setup(request, service, UUID(request.POST.get("attempt", "")))
                 destination = "/admin/setup"
+            elif action == "load":
+                task = start_source_load(
+                    request,
+                    service,
+                    UUID(request.POST.get("attempt", "")),
+                    expected_version=expected_version(request.POST.get("version")),
+                )
+                from django.urls import reverse
+
+                destination = reverse("admin:setup_source_progress", args=[task.run_id])
             else:
                 raise ValueError("Unknown setup action.")
             return _checked(request, service, HttpResponseRedirect(destination))
