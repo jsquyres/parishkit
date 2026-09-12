@@ -15,6 +15,14 @@ from django.db import connection, connections, transaction
 from parishkit.stewardship.observability import emit_failure
 
 PULSE_SECONDS = 20
+# This is a process-drain budget, not a promise that multiple independently
+# timed SQL statements finish within one statement timeout. Exhaustion must
+# terminate the consumer rather than let a lingering renewer overlap new work.
+RENEWAL_DRAIN_SECONDS = 30
+
+
+class RenewalDrainFailure(BaseException):
+    """Unconfirmed renewal-thread drainage must escape the broker task catcher."""
 
 
 class ExecutionInterrupted(RuntimeError):
@@ -158,8 +166,10 @@ def maintain_execution(execution, *, stop=None):
     finally:
         done.set()
         if thread.ident is not None:
-            thread.join(timeout=10)
+            thread.join(timeout=RENEWAL_DRAIN_SECONDS)
         control.active = False
         if thread.is_alive():
             control.failed.set()
-            raise ExecutionInterrupted("Worker renewal did not drain in time.")
+            error = RenewalDrainFailure("Worker renewal did not drain in time.")
+            emit_failure(error)
+            raise error

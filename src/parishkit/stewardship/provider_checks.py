@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 from contextlib import suppress
+from threading import Event, Thread
 
 from .accounts.credential_errors import CredentialValidationUnavailable
 from .accounts.key_files import MAX_FILE_BYTES
@@ -15,6 +16,18 @@ from .accounts.provider_context import validated_context
 
 class ProviderCheckDrainFailure(BaseException):
     """Exit the isolated installer if the OS cannot confirm helper termination."""
+
+
+class ProviderCheckOwnershipLost(BaseException):
+    """Lost installer ownership is fatal, never a verdict on a supplied secret."""
+
+
+def _check_owner(check):
+    """Keep ownership loss outside candidate rejection and scrub private context."""
+    try:
+        check()
+    except Exception:
+        raise ProviderCheckOwnershipLost("Provider check ownership was lost.") from None
 
 
 def _stop(process):
@@ -27,6 +40,57 @@ def _stop(process):
         process.wait(timeout=5)
     except (subprocess.TimeoutExpired, OSError):
         raise ProviderCheckDrainFailure("Provider check could not drain.") from None
+
+
+def _exchange(process, payload, *, deadline, check):
+    """One pipe owner completes partial writes while the caller checks its lease.
+
+    Retrying communicate with no input can stop pumping a partially written
+    stdin on supported Python versions. A single bounded call owns both pipes;
+    the caller remains responsive and must join it before closing descriptors.
+    """
+    completed = Event()
+    result = []
+
+    def communicate():
+        """Keep helper errors private and always wake the supervising caller."""
+        try:
+            result.append(
+                process.communicate(
+                    input=payload, timeout=max(0, deadline - time.monotonic())
+                )[0]
+            )
+        except Exception:
+            # Do not let the thread exception hook print candidate-bearing
+            # transport details. A missing result is always retryable, never
+            # evidence that the credential itself is invalid.
+            pass
+        finally:
+            completed.set()
+
+    _check_owner(check)
+    thread = Thread(target=communicate, name="provider-private-ipc", daemon=True)
+    thread.start()
+    try:
+        while not completed.is_set():
+            _check_owner(check)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise CredentialValidationUnavailable()
+            completed.wait(min(remaining, 0.25))
+        _check_owner(check)
+        if not result:
+            raise CredentialValidationUnavailable()
+        return result[0]
+    finally:
+        try:
+            _stop(process)
+        finally:
+            thread.join(timeout=5)
+            if thread.is_alive():
+                raise ProviderCheckDrainFailure(
+                    "Provider pipe exchange could not drain."
+                )
 
 
 def check_candidate(target, settings, value, *, seconds, check):
@@ -53,7 +117,7 @@ def check_candidate(target, settings, value, *, seconds, check):
         }
     ).encode()
     process = None
-    check()
+    _check_owner(check)
     deadline = time.monotonic() + seconds
     try:
         try:
@@ -70,33 +134,23 @@ def check_candidate(target, settings, value, *, seconds, check):
                 close_fds=True,
                 env={},
             )
-            pending = payload
-            while True:
-                check()
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    raise CredentialValidationUnavailable()
-                try:
-                    output, _ = process.communicate(
-                        input=pending, timeout=min(remaining, 0.25)
-                    )
-                    break
-                except subprocess.TimeoutExpired:
-                    pending = None
-            check()
+            output = _exchange(process, payload, deadline=deadline, check=check)
         except OSError:
             raise CredentialValidationUnavailable() from None
         if process.returncode != 0 or output not in {b"valid\n", b"invalid\n"}:
             raise CredentialValidationUnavailable()
         return output == b"valid\n"
+    except ProviderCheckDrainFailure:
+        # Drainage already failed fatally. Closing a buffered pipe still owned
+        # by a live exchange thread can block on its lock indefinitely.
+        process = None
+        raise
     finally:
         if process is not None:
-            try:
-                _stop(process)
-            finally:
-                for stream in (process.stdin, process.stdout):
-                    if stream is not None:
-                        stream.close()
+            _stop(process)
+            for stream in (process.stdin, process.stdout):
+                if stream is not None:
+                    stream.close()
 
 
 def request_validator(target, *, check):
@@ -112,7 +166,7 @@ def request_validator(target, *, check):
         from .accounts.provider_models import ProviderValidationContext
         from .accounts.secret_requests import _now
 
-        check()
+        _check_owner(check)
         try:
             admit_installer_database(target)
             context = (
@@ -124,7 +178,9 @@ def request_validator(target, *, check):
                 raise CredentialValidationUnavailable()
             # Reserve forced drainage inside the immutable request's TTL. A retry
             # with insufficient time yields to the installer's ordinary expiry path.
-            seconds = min(30, (context.request.expires_at - _now()).total_seconds() - 5)
+            seconds = min(
+                30, (context.request.expires_at - _now()).total_seconds() - 10
+            )
             if seconds <= 0:
                 raise CredentialValidationUnavailable()
             settings = validated_context(target, context.settings)
