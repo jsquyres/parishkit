@@ -45,6 +45,7 @@ from .secret_models import (  # noqa: F401
     SecretReplacementRequest,
     SecretRequestCheckpoint,
 )
+from .setup_models import SetupAttempt  # noqa: F401
 
 
 class PortalSession(MutableRecord):

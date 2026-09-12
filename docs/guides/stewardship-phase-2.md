@@ -645,6 +645,40 @@ opt-in cases skipped and two existing warnings. These are incremental results,
 not a substitute for the final complete PostgreSQL, browser, Compose and review
 gates.
 
+### Session-bound setup ownership (in progress)
+
+The initial wizard now has an internal, durable attempt owner bound to exactly
+one bootstrap Admin session. Another login, even for the same Admin account,
+cannot adopt or cancel that staging. Logout, loss of Admin authorization and
+expiry fence the attempt; retries preserve its safe tombstone. SQL rejects
+session/base/task rebinding, unrelated source tasks, skipped completion,
+fabricated renewal and writes after expiry. State changes carry redacted audit
+evidence atomically. No configured marker or online setup grants are enabled by
+this storage increment, and expiry is not yet a claim that target artifacts have
+been scrubbed.
+
+The shared lifetime policy enforces thirty-minute idle expiry, the original
+source Task's fixed two-hour watchdog, the session's absolute deadline and at
+most one correlated live-worker renewal per five minutes. A completed source
+load stops the renewal exception; later steps retain ordinary session expiry.
+The combined bootstrap/setup run passes 62 cases with 100% focused line coverage
+of the new policy and attempt-admission services. The complete wizard forms,
+temporary source/credential artifacts, renewal endpoint, cleanup integration and
+final installer/consumer/configured-marker protocol remain open.
+
+Fresh-database testing also exposed a bootstrap regression previously hidden by
+test flushing: source migrations seed an idle lease and an empty current pointer,
+which the older empty-database trigger treated as occupied application data.
+The follow-up migration admits only their pristine zero-history shapes, not
+used source state or arbitrary future tables. Explicit pristine/nondefault-source
+tests retain the unrelated-data and row-security rejection cases.
+
+The complete PostgreSQL regression run after this storage increment passed
+1,511 tests without skips in 17 minutes. The ordinary suite subsequently passed
+3,444 tests with 1,685 explicit opt-in skips and two existing warnings. Further
+campaign-editor work was still in progress, so these results do not represent
+the final Phase 2 acceptance gate.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later
