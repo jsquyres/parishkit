@@ -173,7 +173,6 @@ def test_both_background_roles_can_check_current_credential_gate_without_mutatio
         "INSERT INTO stewardship_chair_seed_evidence DEFAULT VALUES",
         "UPDATE stewardship_family_token SET digest=NULL",
         "UPDATE stewardship_family_campaign SET last_activity_at=now()",
-        "DELETE FROM stewardship_source_family",
         "UPDATE stewardship_source_family SET canonical='{}'",
     ],
 )
@@ -188,3 +187,20 @@ def test_background_sql_cannot_read_private_payloads_or_expand_authority(
         connection.cursor() as cursor,
     ):
         cursor.execute(statement)
+
+
+@pytest.mark.parametrize("service", [ServiceRole.WORKER, ServiceRole.SCHEDULER])
+def test_empty_source_delete_matches_cleanup_authority(service):
+    """Worker cleanup grants allow a zero-row DELETE, not unrestricted row deletion.
+
+    PostgreSQL does not invoke row guards for an empty table. The populated
+    live/expired/shared-source denial cases belong to test_setup_disposal_postgresql.
+    The scheduler has no deletion grant at all.
+    """
+    with task_login(service), transaction.atomic(), connection.cursor() as cursor:
+        if service is ServiceRole.SCHEDULER:
+            with pytest.raises(DatabaseError), transaction.atomic():
+                cursor.execute("DELETE FROM stewardship_source_family")
+        else:
+            cursor.execute("DELETE FROM stewardship_source_family")
+            assert cursor.rowcount == 0
