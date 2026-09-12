@@ -73,9 +73,13 @@ def _window(row, session):
 
 def _expiry(row, now):
     """A missing or revoked original session is never replaced by another login."""
-    session = PortalSession.objects.filter(
-        pk=row.session_id, principal_id=row.owner_id
-    ).first()
+    session = (
+        PortalSession.objects.only(
+            "id", "principal_id", "revoked_at", "expires_at", "last_activity_at"
+        )
+        .filter(pk=row.session_id, principal_id=row.owner_id)
+        .first()
+    )
     owner = PortalUser.objects.filter(pk=row.owner_id, disabled=False).values("email")
     current = SystemConfiguration.objects.filter(
         mode="testing", restore_review_required=False
@@ -164,6 +168,10 @@ def cancel_setup(request, service, attempt_id):
 def expire_setup_attempts():
     """Fence the single abandoned attempt before its target owners scrub artifacts."""
     with work_transaction():
+        if not SystemConfiguration.objects.filter(
+            restore_review_required=False
+        ).exists():
+            return 0
         row = (
             SetupAttempt.objects.select_for_update()
             .filter(
@@ -178,3 +186,20 @@ def expire_setup_attempts():
             return 0
         _expire(row, actor_id=None, reason=reason)
         return 1
+
+
+def produce_setup_expiry(guard):
+    """The actual scheduler fences abandoned staging before artifact owners scan it."""
+    from django.db import connection
+
+    from parishkit.stewardship.jobs.scheduler import SchedulerGuard
+    from parishkit.stewardship.storage import StorageInvariantError
+
+    if not isinstance(guard, SchedulerGuard):
+        raise TypeError("Setup expiry requires actual scheduler ownership.")
+    if connection.in_atomic_block:
+        raise StorageInvariantError("Setup expiry owns its short transaction.")
+    guard.check()
+    count = expire_setup_attempts()
+    guard.check()
+    return count

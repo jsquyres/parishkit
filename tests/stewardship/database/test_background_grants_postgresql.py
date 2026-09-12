@@ -28,9 +28,14 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 
 @contextmanager
-def task_login(service, *, reconnect=False):
-    """Create/remove only a fresh UUID-named fixture login; never alter real roles."""
-    role = sql.Identifier("test_background_" + uuid4().hex)
+def task_login(service, *, reconnect=False, exact=False):
+    """Create a fresh fixture role; exact-name probes never adopt existing roles."""
+    name = (
+        ("pk_stewardship_" + service.value.replace("-", "_"))
+        if exact
+        else "test_background_" + uuid4().hex
+    )
+    role = sql.Identifier(name)
     with connection.cursor() as cursor:
         cursor.execute(sql.SQL("CREATE ROLE {} LOGIN NOINHERIT").format(role))
 

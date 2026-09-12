@@ -1001,6 +1001,21 @@ review gate. The ordinary full suite passes 3,680 tests with 1,981 explicit opt-
 skips and two existing warnings; those skips are not PostgreSQL/browser evidence.
 Ruff, formatting, edited Markdown and migration-drift checks pass.
 
+### Scheduler-owned setup expiry
+
+The actual scheduler now checks abandoned setup before producing source and
+branding-cleanup tasks. It reads only the original session's identity binding,
+revocation and deadlines, plus current Admin policy; it cannot read session
+keys, Google subjects or Django session payloads. Column grants and the SQL
+owner guard limit it to system-authored expiry, never renewal, cancellation of
+a live session, task rebinding or setup completion. Restore review holds expiry.
+Duplicate sweeps retain one tombstone and one redacted audit event.
+
+The focused PostgreSQL/runtime run passes 75 cases, including exact deployed
+scheduler-role tests. This supplies the runtime expiry fence; removal of all
+remaining staged settings, source and credentials stays with the wizard's
+target-specific cleanup owners.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later

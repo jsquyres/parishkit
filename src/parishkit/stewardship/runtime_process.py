@@ -279,6 +279,7 @@ def serve_background(configuration, lease):
     from uuid import uuid4
 
     from .accounts.branding_cleanup import produce_cleanup
+    from .accounts.setup_staging import produce_setup_expiry
     from .consumer_runtime import publish_single_process_receipts
     from .installer_health import publish_heartbeat
     from .jobs.processes import serve_consumer, serve_scheduler
@@ -314,6 +315,7 @@ def serve_background(configuration, lease):
         def produce(guard):
             """A later YAML/SQL mismatch cannot enqueue or cancel scheduled work."""
             matching_authority(assembled.store)
+            produce_setup_expiry(guard)
             return (*producer(guard), *produce_cleanup(guard))
 
         return serve_scheduler(

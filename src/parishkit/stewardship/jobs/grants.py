@@ -78,4 +78,26 @@ def task_runtime_grants(role):
         from parishkit.stewardship.source.grants import add_refresh_scheduler_grants
 
         add_refresh_scheduler_grants(tables, columns)
+        # Setup expiry needs original session deadlines and current Admin policy,
+        # never Django session keys, OAuth material or identity-provider subjects.
+        columns["stewardship_portal_session"] = {
+            "SELECT": {
+                "id",
+                "principal_id",
+                "revoked_at",
+                "expires_at",
+                "last_activity_at",
+            }
+        }
+        columns["stewardship_portal_user"] = {"SELECT": {"id", "email", "disabled"}}
+        columns["stewardship_setup_attempt"] = {
+            "UPDATE": {
+                "state",
+                "expired_at",
+                "expiry_reason",
+                "actor_id",
+                "correlation_id",
+                "version",
+            }
+        }
     return tables, columns

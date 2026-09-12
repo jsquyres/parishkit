@@ -239,6 +239,7 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
 
     producer, matching = Mock(return_value=("source-receipt",)), Mock()
     guard, cleanup = Mock(), Mock(return_value=("cleanup-receipt",))
+    expiry = Mock(return_value=0)
     monkeypatch.setattr(runtime_background, "configure_background", configure)
     monkeypatch.setattr(runtime_background, "matching_authority", matching)
     monkeypatch.setattr(
@@ -246,6 +247,9 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
     )
     monkeypatch.setattr(
         "parishkit.stewardship.accounts.branding_cleanup.produce_cleanup", cleanup
+    )
+    monkeypatch.setattr(
+        "parishkit.stewardship.accounts.setup_staging.produce_setup_expiry", expiry
     )
     monkeypatch.setattr("parishkit.stewardship.jobs.processes.serve_consumer", serve)
     monkeypatch.setattr("parishkit.stewardship.jobs.processes.serve_scheduler", serve)
@@ -273,8 +277,10 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
         matching.assert_called_once_with(assembled.store)
         producer.assert_called_once_with(guard)
         cleanup.assert_called_once_with(guard)
+        expiry.assert_called_once_with(guard)
     else:
         cleanup.assert_not_called()
+        expiry.assert_not_called()
 
 
 def test_background_failed_admission_restores_signals_without_publishing_receipts(
