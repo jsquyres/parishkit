@@ -236,6 +236,10 @@ def serve_credential_installer(configuration, lease):
     installer = CredentialInstaller.from_configuration(
         configuration, validate=validator
     )
+    from .accounts.handoff_discovery import publish_handoff
+
+    lease.check()
+    publish_handoff(installer.files.private)
     return serve_installer_loop(installer.run_once, lease)
 
 

@@ -13,6 +13,7 @@ from .deployment import ServiceRole
 # Explicit snapshot/read vocabulary; no wildcard over future application tables.
 WEB_READ_TABLES = frozenset(
     [
+        "stewardship_public_credential_handoff",
         "stewardship_source_current",
         "stewardship_snapshot_ministry",
         "stewardship_source_ministry",

@@ -55,6 +55,25 @@ def test_web_only_reads_source_owned_assignment_overlays():
     assert "stewardship_assignment_overlay" not in columns
 
 
+def test_public_handoff_grants_separate_discovery_from_publication():
+    """Only a target installer publishes; web reads and other services have no need."""
+    table = "stewardship_public_credential_handoff"
+    grants, columns = runtime_grants(ServiceRole.WEB)
+    assert grants[table] == {"SELECT"} and table not in columns
+    grants, columns = runtime_grants(
+        ServiceRole.CREDENTIAL_INSTALLER, target="parishsoft"
+    )
+    assert grants[table] == {"SELECT", "INSERT"} and table not in columns
+    for role in (
+        ServiceRole.WORKER,
+        ServiceRole.SCHEDULER,
+        "download",
+        ServiceRole.CONFIG_INSTALLER,
+    ):
+        grants, columns = runtime_grants(role)
+        assert table not in grants and table not in columns
+
+
 @pytest.mark.parametrize(
     "role,target",
     [

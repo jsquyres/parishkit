@@ -858,6 +858,28 @@ The focused topology/process/composition/provisioning run passes 57 tests. This
 does not yet establish the empty-wizard credential path or a running Compose
 demonstration; those remain Phase 2 acceptance work.
 
+### Public credential handoff discovery
+
+After mount/SQL admission, each target installer derives and publishes only its
+public encryption key. Publication is immutable and idempotent; mismatching
+private-key startup refuses rather than silently stranding sealed requests.
+Web has only SELECT authority and resolves an encryption-only `PublicHandoff`.
+Target row policies and SQL insertion guards reject cross-target publication,
+invalid key lengths and forged human attribution. Published history prevents a
+downgrade that would remove these protections. No private key, credential value
+or extra credential mount is exposed to web.
+
+The combined discovery/credential isolation run passes 24 tests with 100% line
+coverage of the discovery service. Runtime tests check publication before queue
+startup. The baseline passes 3,549 tests with 1,856 explicit opt-in skips and two
+existing warnings. Provider validators, integration UI and wizard use of these
+public handoffs remain in progress; discovery alone does not complete them.
+The wider bootstrap/runtime run passes 76 cases after explicitly admitting the
+new RLS table to bootstrap's reviewed visibility list. This is not an emptiness
+exemption: the eight-case discovery rerun verifies that an existing publication
+still prevents initial bootstrap adoption. Ruff, formatting and migration-drift
+checks pass.
+
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
 approval. Normal validation uses synthetic data and fake providers. Later

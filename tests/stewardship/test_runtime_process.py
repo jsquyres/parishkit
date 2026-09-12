@@ -156,6 +156,53 @@ def test_gunicorn_worker_receipt_hook_sanitizes_private_failures(monkeypatch):
     assert error.value.__suppress_context__
 
 
+@pytest.mark.parametrize("target", ["metrics", "parishsoft"])
+def test_credential_service_publishes_only_after_admission(
+    tmp_path, monkeypatch, target
+):
+    """Key discovery derives from the admitted installer before its queue starts."""
+    from parishkit.stewardship.accounts.credential_installation import (
+        CredentialInstaller,
+    )
+
+    configuration = replace(
+        configuration_at(tmp_path),
+        service_role=ServiceRole.CREDENTIAL_INSTALLER,
+        credential_target=target,
+    )
+    monkeypatch.setattr(
+        "parishkit.stewardship.service_boundaries.admit_online_service",
+        lambda _: ServiceRole.CREDENTIAL_INSTALLER,
+    )
+    monkeypatch.setattr(
+        "parishkit.stewardship.runtime_web.admit_lifecycle_mounts", Mock()
+    )
+    monkeypatch.setattr(
+        "parishkit.stewardship.operator_commands.configure_operator_database", Mock()
+    )
+    monkeypatch.setattr(
+        "parishkit.stewardship.runtime_grants.admit_runtime_database", Mock()
+    )
+    installer, lease = Mock(), Mock()
+    monkeypatch.setattr(
+        CredentialInstaller, "from_configuration", Mock(return_value=installer)
+    )
+    publish = Mock()
+    monkeypatch.setattr(
+        "parishkit.stewardship.accounts.handoff_discovery.publish_handoff", publish
+    )
+
+    def serve(run_once, actual_lease):
+        """Queue processing cannot race ahead of the advertised encryption key."""
+        publish.assert_called_once_with(installer.files.private)
+        lease.check.assert_called_once()
+        assert actual_lease is lease and run_once is installer.run_once
+        return 0
+
+    monkeypatch.setattr(runtime_process, "serve_installer_loop", serve)
+    assert runtime_process.serve_credential_installer(configuration, lease) == 0
+
+
 @pytest.mark.parametrize("role", [ServiceRole.WORKER, ServiceRole.SCHEDULER])
 @pytest.mark.parametrize("fail", [False, True])
 def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(

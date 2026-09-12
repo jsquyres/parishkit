@@ -24,6 +24,7 @@ from .configuration_models import (  # noqa: F401
     Parish,
 )
 from .content_models import ContentVersion  # noqa: F401
+from .handoff_models import PublicCredentialHandoff  # noqa: F401
 from .policy_models import (  # noqa: F401
     AddressRoleGrant,
     AddressRule,
