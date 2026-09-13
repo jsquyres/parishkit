@@ -93,9 +93,35 @@ def test_retained_parent_keeps_generation_and_source_until_explicit_release(
     inputs, owner, old, _ = superseded(tmp_path)
     pin = pin_facts(old.pk, parent_kind=kind, parent_id=uuid4(), admit=permit)
     assert compact_facts(inputs.campaign_id, owner, admit=permit) == []
-    assert release_fact_pin(pin.pk, admit=permit)
-    assert not release_fact_pin(pin.pk, admit=permit)
+    arguments = dict(parent_kind=kind, parent_id=pin.parent_id, admit=permit)
+    assert release_fact_pin(pin.pk, **arguments)
+    assert not release_fact_pin(pin.pk, **arguments)
     assert compact_facts(inputs.campaign_id, owner, admit=permit) == [old.pk]
+
+
+def test_release_requires_exact_parent_and_exposes_it_to_admission(tmp_path):
+    """Knowledge of another parent's pin UUID cannot remove its protection."""
+    inputs, owner, old, _ = superseded(tmp_path)
+    pin = pin_facts(old.pk, parent_kind="export", parent_id=uuid4(), admit=permit)
+    observed = []
+
+    def admit(operation, selected):
+        """The owner sees the actual pin, not just the shared generation."""
+        observed.append((operation, selected))
+        return True
+
+    assert not release_fact_pin(
+        pin.pk, parent_kind="export", parent_id=uuid4(), admit=admit
+    )
+    assert not release_fact_pin(
+        pin.pk, parent_kind="digest", parent_id=pin.parent_id, admit=admit
+    )
+    assert observed == [("unpin", None), ("unpin", None)]
+    assert compact_facts(inputs.campaign_id, owner, admit=permit) == []
+    assert release_fact_pin(
+        pin.pk, parent_kind="export", parent_id=pin.parent_id, admit=admit
+    )
+    assert observed[-1] == ("unpin", pin)
 
 
 def test_source_input_pin_cannot_be_released_while_its_facts_remain(tmp_path):
