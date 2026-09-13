@@ -198,7 +198,10 @@ def authenticated_admin(request, *, store, activity=False, read_only=False):
     """Re-evaluate policy every time; passive status/presence calls never renew idle."""
     if activity and read_only:
         raise ValueError("Read-only authorization cannot renew session activity.")
-    with transaction.atomic():
+    # A read-only recheck has no writes to recover independently. Reuse an
+    # enclosing disclosure/audit transaction without two redundant savepoint
+    # statements; a database error still makes that whole response fail closed.
+    with transaction.atomic(savepoint=not read_only):
         query = PortalSession.objects.all()
         if not read_only:
             query = query.select_for_update()

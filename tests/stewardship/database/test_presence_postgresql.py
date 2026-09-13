@@ -264,6 +264,7 @@ def test_header_count_poll_never_fetches_family_names(family_service, google):
     assert response.status_code == 200 and response.json()["count"] == 1
     assert set(response.json()) == {"count", "as_of"}
     assert not any("stewardship_source_family" in query["sql"] for query in queries)
+    assert not any("pg_advisory_xact_lock" in query["sql"] for query in queries)
     assert not AuditEvent.objects.filter(event_type="family_presence_viewed").exists()
     response = browser.get(ADMIN + "?format=json")
     assert response.status_code == 200

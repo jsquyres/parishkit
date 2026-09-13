@@ -160,6 +160,7 @@ def active_families(request):
     source promotion between session filtering and name lookup. A plain READ
     COMMITTED transaction does not provide that multi-query invariant. Keep the
     page bounded; no provider IO or unbounded roster is loaded under the lock.
+    Count-only polling does not join names and needs no global work lock.
     """
     try:
         service = admin_runtime()
@@ -168,7 +169,12 @@ def active_families(request):
         if selected.get("format", "html") not in {"html", "json", "count"}:
             raise ValueError("Invalid presence format.")
         window = PageWindow(expected_version(selected.get("page", "1")), 50)
-        with work_transaction():
+        boundary = (
+            transaction.atomic
+            if selected.get("format") == "count"
+            else work_transaction
+        )
+        with boundary():
             configuration = editable_configuration(service)
             instant = database_now()
             query = visible_sessions(configuration, instant)

@@ -415,7 +415,7 @@ def index(request):
                 "dashboard": data,
             },
         )
-        with work_transaction():
+        with transaction.atomic():
             if (
                 authenticated_admin(request, store=service.store, read_only=True)
                 != principal
