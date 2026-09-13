@@ -57,3 +57,35 @@ class SetupPreparationReceipt(ImmutableRecord):
 
     class Meta:
         db_table = "stewardship_setup_prepared"
+
+
+class SetupCompletion(ImmutableRecord):
+    """The exact atomic first-configuration/source/population completion marker.
+
+    Preparation and consumer ACKs alone cannot create this receipt. Its owner
+    commits it with the original attempt's completion and final Task outcome;
+    retained foreign keys preserve those inputs through later configuration.
+    """
+
+    preparation = models.OneToOneField(
+        SetupPreparationReceipt, on_delete=models.PROTECT
+    )
+    activation = models.OneToOneField(
+        "ConfigurationActivation", on_delete=models.PROTECT
+    )
+    snapshot = models.OneToOneField(
+        "stewardship_source.SourceSnapshot", on_delete=models.PROTECT
+    )
+    task = models.OneToOneField("stewardship_jobs.TaskRun", on_delete=models.PROTECT)
+    task_fence = models.PositiveBigIntegerField()
+    source_fence = models.PositiveBigIntegerField()
+
+    class Meta:
+        db_table = "stewardship_setup_completion"
+        constraints = [
+            models.UniqueConstraint(models.Value(1), name="setup_one_completion"),
+            models.CheckConstraint(
+                condition=models.Q(task_fence__gt=0, source_fence__gt=0),
+                name="setup_completion_fences",
+            ),
+        ]

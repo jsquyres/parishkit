@@ -1,9 +1,10 @@
 """Minimum task-runtime SQL authority; provider owners extend it explicitly.
 
 The scheduler creates hints and can cancel superseded waiting source requests,
-but cannot claim or impersonate running work. Workers can mutate fenced task
-metadata, not campaign configuration, credentials or sessions. Id-only UPDATE
-grants permit row locks; owning table guards reject an id-only mutation.
+but cannot claim or impersonate running work. Workers mutate fenced task metadata
+and separately guarded one-time setup completion effects, never prepared
+configuration, private credential bodies or sessions. Id-only UPDATE grants
+permit row locks; owning table guards reject an id-only mutation.
 """
 
 from parishkit.config import ConfigError
@@ -88,6 +89,11 @@ def task_runtime_grants(role):
         )
 
         add_worker_exchange_grants(tables, columns)
+        from parishkit.stewardship.accounts.setup_completion_grants import (
+            add_setup_completion_grants,
+        )
+
+        add_setup_completion_grants(tables, columns)
     else:
         from parishkit.stewardship.source.grants import add_refresh_scheduler_grants
 

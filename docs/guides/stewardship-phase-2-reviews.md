@@ -628,3 +628,37 @@ preservation. The baseline passes 4,069 tests with 2,436 explicit profile skips
 and two existing warnings. Ruff, formatting and migration drift checks pass.
 Successful completion cleanup and atomic source/Family/configured-marker
 activation remain open; this is not a Phase 2 review-gate completion.
+
+### Atomic initial completion and configured status
+
+The restricted worker can now atomically promote the exact fresh final source,
+activate the prepared configuration, create the first Testing draft and Family
+codes, record immutable completion, scrub temporary public/private setup inputs,
+and succeed its Task. Deferred SQL constraints reject source/configuration
+without that terminal outcome. The completion guard compares the actual source
+Family set and eligibility with the derived population, verifies selected
+financial coverage, and rejects promotion of the earlier catalog. The worker
+never writes YAML or prepared configuration projections. Its additional writes
+are limited by initial-owner guards and column grants; campaign state, ordinary
+credential changes, and private credential-body reads remain unavailable.
+
+The web runtime now reads the immutable completion marker on each configured
+status check. Prepared YAML alone remains unconfigured. Marker provenance does
+not pin subsequent requests to the initial configuration or source generation.
+Empty-history guard reversal/reapplication is covered; completed history refuses
+the downgrade. The original Testing recipient changes only through this exact
+initial activation's dedicated guard.
+
+Twelve PostgreSQL completion tests pass with 96% focused coverage. They cover
+census-only and financial campaigns, actual web/worker grants, cross-target
+temporary-input scrubbing, failed effects and same-owner retry, omitted Task or
+population effects, and migration reversal. After strengthening source/population
+SQL checks, these tests pass again alongside four restart-hold tests (16 total).
+The surrounding grants, preparation and storage regression passes 77 tests.
+The baseline passes 4,069 tests with 2,448 profile skips and two existing warnings;
+Ruff, formatting and migration drift checks pass.
+
+Operational finalization scheduling/consumption, restart recovery, final web
+confirmation/status, unused catalog cleanup after success, and the complete
+initial Compose demonstration remain in progress. This is an internal checkpoint,
+not completion of ADM-02, Phase 2, or a full-phase review round.

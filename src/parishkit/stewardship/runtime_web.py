@@ -208,6 +208,7 @@ def configure_web(configuration):
     from .accounts.configuration_schema import validate_sections
     from .accounts.family_authentication import FamilyRuntime
     from .accounts.limiting import Limiter
+    from .accounts.setup_completion import setup_is_complete
     from .runtime_grants import admit_download_database, admit_runtime_database
 
     admit_runtime_database(configuration)
@@ -244,7 +245,7 @@ def configure_web(configuration):
         limits=configuration.authentication_limits,
     )
     limiter.check_health(force=True)
-    settings.STEWARDSHIP_AUTH_RUNTIME = AuthRuntime(store, limiter)
+    settings.STEWARDSHIP_AUTH_RUNTIME = AuthRuntime(store, limiter, setup_is_complete)
     settings.STEWARDSHIP_FAMILY_RUNTIME = FamilyRuntime(
         store,
         limiter,

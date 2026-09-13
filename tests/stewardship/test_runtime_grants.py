@@ -111,8 +111,10 @@ def test_grant_and_login_resolvers_normalize_string_roles_identically(role):
 
 
 @pytest.mark.parametrize("role", [ServiceRole.WORKER, ServiceRole.SCHEDULER])
-def test_background_grants_exclude_web_secrets_and_campaign_write_authority(role):
-    """Reserved producer/consumer identities cannot inherit web or future tables."""
+def test_background_grants_keep_initial_completion_separate_from_general_authority(
+    role,
+):
+    """The atomic initial owner gains neither private reads nor lifecycle updates."""
     tables, columns = runtime_grants(role)
     for table in (
         "stewardship_sealed_credential_staging",
@@ -148,12 +150,32 @@ def test_background_grants_exclude_web_secrets_and_campaign_write_authority(role
                 "fingerprint",
                 "settings",
                 "scrubbed_at",
-            }
+            },
+            "UPDATE": {
+                "settings",
+                "ciphertext",
+                "scrubbed_at",
+                "actor_id",
+                "correlation_id",
+                "version",
+            },
         }
         assert tables["stewardship_setup_source_exchange"] == {"SELECT", "INSERT"}
-    assert tables["stewardship_campaign"] == {"SELECT"}
+    assert tables["stewardship_campaign"] == (
+        {"SELECT", "INSERT"} if role is ServiceRole.WORKER else {"SELECT"}
+    )
     assert tables["stewardship_domain_rule"] == {"SELECT"}
-    assert columns["stewardship_campaign"] == {"UPDATE": {"id"}}
+    assert columns["stewardship_campaign"] == {
+        "UPDATE": {
+            "id",
+            "active_configuration_id",
+            "version",
+            "actor_id",
+            "correlation_id",
+        }
+        if role is ServiceRole.WORKER
+        else {"id"}
+    }
     assert tables["stewardship_audit_event"] == {"INSERT"}
     if role is ServiceRole.WORKER:
         assert tables["stewardship_task_run"] == {"SELECT", "INSERT", "UPDATE"}

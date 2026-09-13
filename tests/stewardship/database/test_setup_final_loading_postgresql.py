@@ -85,7 +85,7 @@ def queued(service, identifier):
         return task
 
 
-def load(service, task, credential_path):
+def load(service, task, credential_path, *, finalize=None):
     """Use actual worker claim, renewal, page admission and staging transactions."""
     from threading import Event
 
@@ -130,7 +130,9 @@ def load(service, task, credential_path):
                     store=service.store,
                     credential_path=credential_path,
                 )
-            # The actual atomic completion owner is deliberately still closed.
+            if finalize is not None:
+                return finalize(execution, source, snapshot)
+            # A caller which only stages has not performed atomic completion.
             with pytest.raises(PermissionError):
                 execution.transition("complete")
             return snapshot

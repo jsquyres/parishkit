@@ -29,8 +29,8 @@ def bound_preparation(status):
         or task.root_id != status.root_id
         or task.domain_request_id != status.domain_request_id
         or task.task_type != TASK_TYPE
-        or (task.version, task.state, task.fence)
-        != (status.version, status.state, status.fence)
+        or (task.version, task.state, task.fence, task.worker_id)
+        != (status.version, status.state, status.fence, status.worker_id)
         or task.root.idempotency_key != str(task.domain_request_id)
         or task.root.domain_request_id != task.domain_request_id
         or task.root.task_type != TASK_TYPE
@@ -88,8 +88,20 @@ def recovery_plan(status, *, store):
 
 
 def admit_finalization_task(action, status, *, store):
-    """Staging cannot complete the Task before atomic finalization is implemented."""
+    """Only the atomic marker admits completion after pre-activation scope closes."""
     bound_preparation(status)
+    if action == "complete":
+        from parishkit.stewardship.accounts.setup_install_models import SetupCompletion
+
+        return (
+            SetupCompletion.objects.filter(
+                preparation_id=status.domain_request_id,
+                task_id=status.run_id,
+                task_fence=status.fence,
+                preparation__readiness__intent__attempt__state="completed",
+            ).exists()
+            and SourceMutationLease.objects.get(singleton=True).owner_id is None
+        )
     if action == "lease_expired" or (
         action == "recovery_hint" and status.state == "running"
     ):

@@ -144,6 +144,14 @@ now covers cancellation of both finalization chains through real source drainage
 and cleanup. Two integrated cases and 24 surrounding source/disposal regressions
 pass. Atomic successful completion and its cleanup still prevent closing ADM-02.
 
+The [atomic completion checkpoint](../../guides/stewardship-phase-2-reviews.md#atomic-initial-completion-and-configured-status)
+now commits fresh source, prepared configuration, first Testing draft, Family
+codes, terminal input scrubbing and the configured marker together. Twelve
+PostgreSQL cases pass with 96% focused coverage; the strengthened checks also
+pass with four restart-hold cases. Runtime scheduling/consumption, final web
+confirmation, successful catalog cleanup and the full initial Compose
+demonstration remain open. No whole ADM-02 task or Phase 2 gate is closed.
+
 ## ADM-03: Navigation, dashboard, indicators, and configuration
 
 Scope and dependencies: [ADM-03 work package](../../plans/stewardship/admin-portal.md#adm-03-navigation-dashboard-indicators-and-configuration).
