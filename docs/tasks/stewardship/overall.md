@@ -224,10 +224,11 @@ High/Critical issues and all retained findings are resolved. The
 [acceptance index](../../guides/stewardship-phase-2-acceptance.md) records all
 demonstrations, test counts and coverage. DAT-03, BG-01, BG-05, ADM-02, ADM-03,
 ADM-04 and M2 are complete for this phase; DAT-04/DAT-05 retain only their named
-later consumers. PR #22 is open; its post-consolidation CI passes, while the
+later consumers. PR #22 is open; its post-consolidation CI passes, and the
 [supplemental review gate](../../guides/stewardship-phase-2-consolidation-review.md)
-remains open. The human has authorized merging after the remaining review and
-final-head validation pass. After that merge lands on `origin/main`, the next
+is complete with a second successful dual-source round, no High/Critical
+findings and passing correction tests. The human has authorized merging after
+final-head validation passes. After that merge lands on `origin/main`, the next
 dependency-ready package is Phase 3A DAT-06; do not start the Family slice before
 then. The pre-consolidation SHAs above remain historical evidence, not acceptance
 of subsequent corrections.

@@ -28,7 +28,7 @@ five logical signed-off commits; regrouping preserved the complete source tree.
 - [x] Add timestamped test progress, slow-test diagnostics and finite job limits.
 - [x] Measure the resulting CI wall-clock improvement, retaining all required
   browser, container, database and baseline verification.
-- [ ] Review and correct material changes, then consolidate logical commits,
+- [x] Review and correct material changes, then consolidate logical commits,
   preserve sign-offs, verify the final tree and update the existing PR safely.
 - [ ] Pass final-head CI after the final corrections and merge under the human's
   standing authority, then wait for the merge to land on `origin/main`.
@@ -79,4 +79,6 @@ All 2,076 database tests were accounted for; scoped aggregate coverage was
 test populations were not reduced. The credential-free local baseline passed
 4,343 tests in 37.33 seconds, with 2,572 explicit opt-in profile skips and two
 existing warnings. Ruff, formatting and Markdown checks passed. Later changes
-still require final-head CI; the independent review gate remains open.
+still require final-head CI. The completed second supplemental dual-source round
+and its passing correction tests close the independent review gate; see the
+[final round evidence](stewardship-phase-2-consolidation-review.md#supplemental-round-2-completed-correction-review).

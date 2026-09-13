@@ -103,3 +103,47 @@ required before these corrections close the gate. The human-approved delivery
 cycle now permits that focused scope; the preceding **completed** review baseline
 is `8a2d8e0`, not this degraded attempt. Preserve exact tree identity across the
 squashed PR and any review-only snapshot.
+
+## Supplemental round 2: completed correction review
+
+Pika session `20260913-114439-253ad9` completed both prescribed vendors without
+failed agents, degradation, verdict mismatch or salvage. It retained four
+Medium findings from twelve raw findings; eight Low findings were below the
+configured floor. There were no High/Critical findings. The final artifact's
+SHA-256 is `1c5928304f0689290156097ca1484ded04451b67d532c463622c096fc3efc92a`.
+
+The review covered the actual 72-file correction delta since the last completed
+review, `8a2d8e0dab31ae379333b81b679bf6c8f24f1b94`. Because the implementation
+history had been regrouped, review-only snapshot `7dbefa8f8f732e22d25e5fde73a080716e364ee2`
+retained that parent. Its tree `cae67d333f994544abcfe6aa295f62b432c6e906` was
+verified identical to PR head `0bd831a4a1813b080a573896d6c7b48bb6a39bce`.
+The snapshot branch is not implementation history and must not be merged.
+
+| Findings | Disposition | Correction and regression evidence |
+| --- | --- | --- |
+| S-C1 | Corrected | Index signatures now include ordered operator-class names, collations and `indoption` flags, with opclass, descending-order and collation drift probes. |
+| S-C2 | Corrected | Campaign sample delivery performs stop-sensitive admission immediately before its submitting marker. A real restricted-role regression stops during credential reading and proves no provider call, no submitted marker, failed Task disposition and scheduler cancellation. The existing post-marker graceful-drain regression still passes. |
+| S-D1 | Corrected | Expected DDL is built independently from current Django models, without inheriting installed defaults or generated expressions. Full column/default/generated-expression comparison is bidirectional; negative probes cover default removal and a changed generated expression. |
+| S-D2 | Corrected | Full expected and installed constraint/index multisets are compared bidirectionally, including implicit field keys, foreign keys and indexes. Explicit SQL-only logging checks are narrowly listed; their definitions and all constraint triggers remain protected by the independent golden inventory. Removal probes cover unique, foreign-key, field-index and named constraint/index declarations. |
+
+The strengthened independent-Admin credential-selection test additionally
+disables the original Admin, rejects their signed intent under the replacement
+Admin, and executes the replacement Admin's own intent through real installer
+activation. This confirms recovery reaches applied configuration, not merely a
+successful HTTP response.
+
+The three original complete Phase 2 rounds and both complete supplemental
+rounds count. The degraded attempt does not. Under the controlling delivery
+cycle, these corrections and their passing tests complete this round; no
+finding-free rerun is required. Final-head CI and normal protected merge remain
+mandatory, with their final SHA and run recorded in PR #22's handoff.
+
+Post-correction local validation: all 57 schema, campaign-mail and credential
+selection PostgreSQL cases pass in 105.53 seconds. The unchanged-model check
+covers every managed stewardship model; all fifteen negative drift probes pass.
+The credential-free baseline passes 4,357 tests in 39.87 seconds, with 2,591
+explicit opt-in profile skips and two existing warnings. Ruff, formatting,
+Markdown and `makemigrations --check --dry-run` pass. Before these final narrow
+corrections, the broader 159-case PostgreSQL group and all 447 browser tests
+passed; CI on `0bd831a` also passed every check. That earlier green head is not
+substituted for final-head CI.
