@@ -309,9 +309,8 @@ promotion/rejection watermark behavior. The full baseline passes 3,205 tests,
 with 1,350 explicitly opt-in cases skipped; Ruff, formatting and migration drift
 checks pass. Durable attempt/credential binding, task outcome/recovery handlers,
 scheduled/manual producers, source Family/chair effects and runtime/UI setup
-remain open. A source-semantics question about Ministry catalog presence versus
-an explicit active-Ministry policy is awaiting the owner; unrelated source
-worker work continues.
+remain open. At this checkpoint, Ministry activity policy awaited the owner;
+the resolution below adds persistent Admin-managed inactivation.
 
 The attempt-binding checkpoint adds immutable request/manifest/Task-fence/
 configuration/loaded-credential receipts. A loaded API key uses the installer's
@@ -473,10 +472,367 @@ passes 237 PostgreSQL cases with no skips; after adding drained-staging cleanup,
 the 32-case executor/producer/process rerun passes. The baseline passes 3,273
 tests with 1,468 explicitly opt-in cases skipped before those final two cleanup
 cases. Ruff, formatting, migration drift and whitespace checks pass. No Phase 2
-review round has run yet. The next source-authorization integration needs the
-outstanding owner decision about Ministry catalog presence versus an explicit
-active-Ministry policy; no policy choice has been silently applied. Runtime
-wiring, complete setup, configuration/editor UI and their tests remain open.
+review round has run yet. Runtime wiring, complete setup, configuration/editor
+UI and their tests remain open.
+
+Ministry activity decision (September 11, 2026): the owner requires an Admin
+web workflow to mark Ministries inactive so they are not shown to parishioners.
+The [normative workflow](../specs/stewardship/admin-portal/spec.md#ministry-activity-management)
+now defines persistent parish-wide tenant/DUID overrides, defaults, import and
+rename stability, visibility of existing memberships as well as choices, and
+preservation of source/history/earlier requests. It also defines live-campaign
+edits separately from structural selection and the existing seeded-assignment
+suspension/reactivation effects. Linked data, Family and implementation/task
+documents carry the same requirements without marking their implementation done.
+This resolves the policy question; the YAML schema/projections, Admin UI,
+authorization integration and Family-form enforcement still need implementation
+under their owning Phase 2/later-phase tasks.
+
+The local-activity storage checkpoint adds a new immutable v4 configuration
+schema, normal request and additive-only recovery formats. Existing schemas and
+retry parsers retain their old behavior. Exact YAML/projection parity, unique
+tenant/Ministry identities, retained record bindings and append-only history are
+checked in Python and PostgreSQL. Removing an override restores default activity
+without permitting its historical record or tenant/Ministry pair to be reused.
+The ordinary configuration installer preserves campaign/schedule projections;
+runtime grants explicitly include only the new projection's required access.
+
+The pure source Chairperson calculator uses current dated roster relationships,
+active Members, valid Member contacts and the applied local activity policy.
+It retains distinct Member and roster evidence, groups duplicate relationships,
+marks shared addresses ambiguous even when another active owner is not a chair,
+and retains the contact publication indicator. Suggestions never create grants
+or choose a Member merely because an email matches. Twenty-eight source suggestion
+cases and 40 activity cases pass. The suggestion module has 100% focused line
+coverage; the activity module's pure run has 86%, with its database preflight
+covered separately by PostgreSQL tests. Baseline validation passes 3,341 tests
+with 1,488 opt-in cases skipped.
+
+The complete PostgreSQL run passes 1,368 cases and identifies one outdated
+shared guard-inventory assumption. Source payloads, snapshot memberships and
+daily fact rows use explicit compaction guards rather than permanent append-only
+guards. The inventory now checks their exact enabled triggers, update refusal
+and guarded retention, without exempting those tables. Ministry policy records
+retain the ordinary permanent append-only contract.
+
+After correcting that inventory, the 169-case PostgreSQL rerun passes with no
+skips: storage and migration round trips, Ministry activity, restricted installer,
+activation, policy and offline recovery. It includes SQL-only rebinding refusal,
+locked campaign-selection preservation, and both preflight and SQL barriers
+against missing seeded effects. Ruff, formatting, Markdown, migration drift and
+whitespace checks pass. Integrated Phase 2 container/browser coverage and the
+formal review rounds remain for the completed batch.
+
+This remains an internal checkpoint, not the completed Admin activity feature.
+At that checkpoint, preflight and SQL held activity changes with seeded
+assignments until the source-effects owner could reconcile overlays and review
+tasks in the same activation transaction. This prevented storage support from
+leaving stale authorization active. The following checkpoint replaces that
+barrier; Admin UI and later Family submission enforcement remain open.
+
+The subsequent Chair reconciliation checkpoint replaces that temporary blanket
+barrier with exact transactional receipts. A security-barrier current-source
+view exposes only Chairperson Member/Ministry/email relationships and roster
+evidence to the restricted installer, not census or giving payloads. Every join
+uses one promoted snapshot; staging and historical contacts cannot fill gaps in
+current truth. ASCII Chairperson label matching is identical in SQL and Python.
+
+An immutable selection record binds a seeded assignment to the specific Member
+and exact original source evidence. No online role can create this evidence yet:
+the Admin-confirmed request creator remains with ADM-07. Fixtures representing
+previously confirmed seeds exercise the downstream behavior without inventing
+an operational confirmation path. Missing evidence suspends rather than choosing
+a Member by shared email.
+
+Source and configuration owners now atomically record all seeded decisions,
+update the access overlay, open or refresh one suspension-review episode, and
+close that episode on relationship return or explicit assignment removal.
+Manual assignments and configured roles are untouched. Each receipt has a
+parish-owned audit event; retained review/receipt links preserve the full reason
+and source/configuration history without copying private contacts into logs.
+SQL verifies live source fencing or the owning configuration activation, exact
+decisions, and complete effects before promotion/activation can commit. A later
+failure rolls back source, overlays, review records and audit together. A missing
+source still holds activity changes affecting seeds before YAML selection.
+
+The initial targeted suite passed nine PostgreSQL scenarios, including real
+restricted-installer inactivation/reactivation, source loss/return, repeated
+imports, explicit removal, stale fences, omitted/forged effects, rollback and
+closed-review retention. The completed checkpoint adds fresh authorization's
+manual-provenance variants, exact effect retries and a real two-connection
+source-promotion/activity-installation race. Browser SQL authority now reads
+assignment overlays without INSERT/UPDATE privileges; source/configuration
+owners remain responsible for their writes. Receipt/audit attribution uses
+the original Task or configuration activation correlation.
+
+The compiled refresh handler also has one concrete Phase 2 effects composition:
+it verifies the exact live attempt, applies Chair effects, populates a current
+non-archived campaign through the real Family owner, and succeeds only after
+both complete. Keys and transactionally fresh suppression reads are explicit
+startup dependencies; no implicit empty suppression set or success placeholder
+is supplied. Fake-provider integration covers pre-campaign and campaign loads,
+Task acknowledgement, replay, and rollback of earlier Chair effects when a
+Family dependency fails. Production worker startup is still not enabled by
+these internal services.
+
+Validation: the complete PostgreSQL suite passes 1,412 cases in 13 minutes
+38 seconds. After the final composition, provenance, concurrency and attribution
+changes, a 154-case PostgreSQL rerun passes without skips, including restricted
+configuration/authentication grants, bootstrap and storage migration tests.
+Its three focused implementation modules have 95% combined line coverage;
+the pure suggestion and seeded-decision modules separately have 100% coverage.
+The final baseline passes 3,356 tests with 1,536 explicit opt-in cases skipped
+and two existing warnings. Ruff, formatting, Markdown, migration drift and
+whitespace checks pass. No Phase 2 review round has started.
+
+This checkpoint does not complete the Admin screen, confirmed-seeding workflow,
+complete worker wiring or later Family-form activity enforcement.
+
+### Worker composition and initial Admin editors (in progress)
+
+The next increment gives worker and scheduler identities explicit source and
+configuration-read grants. Workers can publish source and Family effects but
+cannot create confirmed Chair seeds, edit Family activity, read sealed email
+links, or rewrite source payloads. Scheduler cancellation has a SQL guard that
+requires the scheduler/work locks and a waiting source task; it cannot use a
+known worker identifier to heartbeat or cancel running work. Restricted-role
+source and background tests pass 37 cases without skips.
+
+Runtime assembly binds every refresh admission to fresh YAML/database coherence,
+loads purpose-specific keys once, and records process-start-bound consumer
+fingerprints. Long-running task renewal updates process health only after the
+lease renewal commits. The focused runtime/receipt/grant suites pass 88 cases.
+This is not yet enabled in the Compose service registry: empty-deployment wizard
+staging and the worker's initial ParishSoft credential handoff remain required.
+The provisional pre-delivery suppression adapter explicitly permits only
+Testing and refuses Production; BG-06 must replace it with the durable provider
+suppression owner before live delivery. It never supplies implicit empty
+Production suppression evidence.
+
+The Ministry activity screen now supports sorted/searchable/filterable catalog
+rows, an actor/source/configuration-bound signed impact preview, CSRF-protected
+confirmation, durable Applying/Applied receipts, and reactivation preserving the
+original override identity. Shared Admin request admission rechecks authorization
+and exact scope inside intake's transaction. Passive receipt reads do not renew
+idle time. Its 24 PostgreSQL tests cover actual restricted web grants, rejected
+stray inputs, preview expiry, stale source/configuration, installer activation,
+and retry idempotency.
+
+The Parish profile editor uses that same request boundary and renders a complete
+before/after preview. Existing campaign timezone, boundaries, schedules and
+branding survive profile edits unchanged. Required-field, forbidden URL, role,
+stale-form and real web-grant tests pass. The combined editor suite passes
+42 cases without skips. Role-filtered navigation, persistent Testing indicators
+and the background-work HTML view are under active validation; broader wizard,
+credential/branding, campaign-content and preview acceptance remains open.
+
+The expanded home page shows the current campaign, latest promoted source time,
+next planned Family mailing, Staff/Admin participation aggregates, and Admin-only
+recent failed tasks. The Testing indicator names the redirected recipient only
+for Admins; leaders receive neither Family-code links nor Family aggregates.
+Critical-event, restore, delivery-pause and go-live-preparation warnings are
+persistent and do not expose private log context. Status-page pagination retains
+its filters and presents exact count/percentage formatting. Dashboard reads are
+audited and recheck authorization after querying.
+
+Current validation passes 100 focused PostgreSQL/pure integration cases with
+96% combined line coverage across the seven new source/runtime/editor/context
+modules. Another 49-case run covers dashboard, navigation, Google authentication
+and restricted web grants. The runtime lifecycle suite exercises signal
+restoration, consumer receipts and cleanup after both successful and failed
+startup/drain. The ordinary baseline passes 3,379 tests with 1,607 explicit
+opt-in cases skipped and two existing warnings. These are incremental results,
+not a substitute for the final complete PostgreSQL, browser, Compose and review
+gates.
+
+### Session-bound setup ownership (in progress)
+
+The initial wizard now has an internal, durable attempt owner bound to exactly
+one bootstrap Admin session. Another login, even for the same Admin account,
+cannot adopt or cancel that staging. Logout, loss of Admin authorization and
+expiry fence the attempt; retries preserve its safe tombstone. SQL rejects
+session/base/task rebinding, unrelated source tasks, skipped completion,
+fabricated renewal and writes after expiry. State changes carry redacted audit
+evidence atomically. No configured marker or online setup grants are enabled by
+this storage increment, and expiry is not yet a claim that target artifacts have
+been scrubbed.
+
+The shared lifetime policy enforces thirty-minute idle expiry, the original
+source Task's fixed two-hour watchdog, the session's absolute deadline and at
+most one correlated live-worker renewal per five minutes. A completed source
+load stops the renewal exception; later steps retain ordinary session expiry.
+The combined bootstrap/setup run passes 62 cases with 100% focused line coverage
+of the new policy and attempt-admission services. The complete wizard forms,
+temporary source/credential artifacts, renewal endpoint, cleanup integration and
+final installer/consumer/configured-marker protocol remain open.
+
+Fresh-database testing also exposed a bootstrap regression previously hidden by
+test flushing: source migrations seed an idle lease and an empty current pointer,
+which the older empty-database trigger treated as occupied application data.
+The follow-up migration admits only their pristine zero-history shapes, not
+used source state or arbitrary future tables. Explicit pristine/nondefault-source
+tests retain the unrelated-data and row-security rejection cases.
+
+The complete PostgreSQL regression run after this storage increment passed
+1,511 tests without skips in 17 minutes. The ordinary suite subsequently passed
+3,444 tests with 1,685 explicit opt-in skips and two existing warnings. Further
+campaign-editor work was still in progress, so these results do not represent
+the final Phase 2 acceptance gate.
+
+### Draft campaign editor (in progress)
+
+The Admin can create the sole draft or edit its structural configuration through
+exact signed previews and the existing configuration installer. Confirmation
+pins source, applied YAML, lifecycle versions and active work gates. Source
+promotion or going live invalidates an earlier preview even when its YAML digest
+did not change. Identical confirmation retries return the original receipt;
+acceptance alone never claims activation. Existing and historical locked
+campaigns render structural fields read-only. New drafts copy the Parish
+timezone, and later draft changes never alter the Parish default.
+
+Forms validate module-dependent inputs, financial/comparison whole-year periods,
+explicit source fund IDs, overlap acknowledgment and current Ministry choices.
+Locally inactive Ministries are unavailable for new selection; retained
+selection does not reactivate them. HTML previews use readable names, dates and
+comma-formatted DUIDs rather than storage UUIDs or object representations.
+Progressive module hiding disables unselected fields; server validation still
+rejects stray values, and ordinary forms remain usable without JavaScript.
+
+The combined form/editor/profile/navigation run passed 85 tests with 98% line
+coverage across the three new campaign modules. All 135 Chromium/Firefox/WebKit
+browser cases passed, including mobile/desktop accessibility, module behavior
+and no-JavaScript forms. The expanded fixtures also caught and fixed a Ministry
+page header override that had hidden the persistent background-work indicator.
+Cloning, immutable content/templates, combined schedule
+reconciliation and readiness-test mail are still required before ADM-04 closes.
+
+The financial share-option editor now supports the configurable default labels,
+stable saved IDs, explicit additions/deletions, and numeric ordering. Submitted
+management counts, missing/foreign/repeated identities and out-of-range fields
+are rejected rather than silently dropped. Only Parish/pronoun substitutions
+are allowed in option labels. Confirmation uses the same exact runtime/source/
+configuration scope and remains unavailable once structural settings lock.
+Its combined form/campaign/share integration run passed 92 tests with 98% share
+module coverage; the browser expansion passed 147 checks across three engines.
+
+### Passive operational indicators and task details
+
+Family sessions now record a separate presence timestamp and closed form-section
+name. The browser sends at most one heartbeat per thirty seconds while visible,
+never answers or credentials. PostgreSQL stamps its own time, enforces the rate
+limit, and rejects attempts to combine presence with idle/absolute renewal.
+Admin reads filter the current campaign, eligibility, mode/rehearsal/restore
+epochs and session deadlines; observations expire after ninety seconds.
+Family names come only from the current configured tenant's source snapshot.
+
+The persistent Admin header polls a count-only presence endpoint and bounded
+background metadata. It exposes explicit unavailable-state messages rather than
+claiming a failed read means zero activity. Neither polling endpoint renews the
+Admin's session. Authorized detail lists show names/DUIDs/times/section, never
+answers, codes, access tokens or session cookies. Task details now have an HTML
+history/progress view with bounded pagination, initiator identity and browser-
+local timestamps; the original JSON metadata API remains available.
+
+The presence/authentication/navigation run passed 46 tests with 93% presence
+module coverage. The final task/presence/navigation run passed 50 cases, and all
+165 browser cases passed across Chromium, Firefox and WebKit. Browser tests
+exercise visible/hidden tabs, thirty-second request limits, expiration, passive
+count polling, service failures, accessibility and mobile layout. The ordinary
+suite passed 3,470 tests with 1,765 explicit opt-in skips and two existing
+warnings. A subsequent full PostgreSQL run was invalidated by adding a migration
+while migration-roundtrip tests were running; it is not passing regression
+evidence. Its separate Admin query-budget failure was fixed by loading presence
+through the passive endpoint instead of recomputing it on every page. The
+identity-performance/presence rerun passed 22 tests at the unchanged query budget.
+
+### Immutable content and template editing
+
+The current campaign has named page slots and independently selectable email
+templates. Separate reminders may use different revisions/subjects. Editing a
+revision allocates a fresh ID and atomically reconciles its referencing campaign
+slot or mail schedules; unrelated templates remain unchanged. A referenced email
+cannot be deleted until its schedules select another template. Content previews
+remain available after structural locking but are invalidated by changed runtime
+or source scope. Historical campaigns are not editable through these routes.
+
+Sanitized HTML and independently generated/edited plain text belong to canonical
+YAML under the new `campaign-content-v5` discriminator. Existing schema validators
+retain their meaning. Normalized immutable projections, ancestry verification,
+request admission, offline Admin recovery and SQL guards retain revision payloads
+and detect missing or forged projections. Installer and runtime SQL registries
+explicitly grant only their required content authority.
+
+The progressively enhanced visual editor supports text formatting and plain-text
+paste. Raw HTML source never enters the browser DOM without server sanitization.
+Before/after previews use fictional Family data and nonfunctional sample links;
+these previews do not send email or establish production readiness. Exact signed
+confirmation requests installation and returns its receipt; it does not claim
+that content is already applied.
+
+Content form/schema tests pass 42 cases. Real-session/storage tests pass 20 cases
+with 92% combined form/view coverage, plus a separate restricted-installer test.
+Browser tests cover HTML editing, inert paste/source, sample previews, accessibility
+and mobile layout; the complete three-engine run passes 180 cases. The ordinary
+suite passes 3,512 tests with 1,801 explicit opt-in skips and two existing
+warnings. Ruff, formatting, selected Markdown and migration-drift checks pass.
+The schema-stable complete PostgreSQL regression after content editing passed
+1,582 tests in 16 minutes, 50 seconds. Review evidence will follow before Phase 2
+is declared complete. Cloning, readiness-test mail, staged
+wizard finalization and the remaining integration/runtime work are still open.
+
+### Combined mail schedule and draft-date reconciliation
+
+The schedule editor owns initial invitations, repeatable reminders, daily/weekly
+digest times and independent template selections. Every saved row retains its
+logical ID and type; removal is explicit. Times have whole seconds and no offset,
+with all civil values resolved in the campaign timezone. Subjects come from the
+selected immutable email revision. Unresolved legacy templates remain visible
+but cannot be newly assigned or count as readiness evidence.
+
+Date/timezone edits in the structural editor transfer to reconciliation whenever
+the campaign has schedules; no edit is saved by that transfer. The combined
+candidate must resolve every out-of-interval mailing and preserve the initial/
+reminder ordering. Mixed structural/date edits remain on the original form with
+an explanation rather than silently discarding fields. Live structural changes
+stay with their dedicated lifecycle owner; this editor does not bypass that lock.
+
+The exact preview includes current-revision work, successful semantic coverage,
+safely cancellable occurrences, failed work and blocking in-flight/uncertain work.
+Aggregate monotonic occurrence/task versions invalidate stale previews without
+loading per-Family records. Current outbox-linked pending work remains blocked
+until its delivery owner can prove atomic reconciliation. SQL repeats the
+replacement guard and supersedes safely cancellable work in the same transaction.
+
+Changing the campaign timezone now selects new schedule revisions even when their
+own civil fields are identical; their UTC time cannot remain pinned to the old
+zone. Date-only changes preserve in-range mail's cadence and work; affected
+out-of-interval mail still needs explicit replacement/removal. Fulfillment carries
+across revisions, and populated downgrade cannot weaken the cadence guard.
+
+The combined form/editor/schedule run passes 70 tests with 94% coverage of the
+three schedule UI modules. Three additional SQL tests cover timezone-only
+in-flight blocking, bypassed Python admission, rollback and empty/populated
+migration reversal. All twelve new mobile/desktop accessibility cases passed
+across the three browser engines. The subsequent 62-case focused rerun passes
+after template revision labels and overlap acknowledgment previews were added.
+The ordinary suite passes 3,535 tests (1,824 opt-in skips); the complete browser
+suite passes 192 tests in three minutes, two seconds. The shared-process WebKit
+fixture stalled reproducibly before the final navigation; two separate 63-case
+subsets passed. Per-scenario browser process isolation resolves the complete
+suite without retries, skipped assertions or longer navigation timeouts.
+
+### Source runtime topology wiring (in progress)
+
+The operational dispatcher and rendered Compose topology now include the source
+worker and metadata-only scheduler. Each has its own SQL and Valkey credentials,
+read-only configuration selection and retained offline-exclusion lease. Only the
+worker has ParishSoft credentials and external network access; neither receives
+mail-dispatch private keys or Workspace credentials. The source-only handler
+registry remains closed, and Production source effects still require BG-06's
+suppression owner. Missing required credentials continue to fail startup closed.
+The focused topology/process/composition/provisioning run passes 57 tests. This
+does not yet establish the empty-wizard credential path or a running Compose
+demonstration; those remain Phase 2 acceptance work.
 
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge

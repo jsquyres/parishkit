@@ -108,6 +108,28 @@ def test_rendered_foundation_enforces_individual_mounts_and_profiles(
     assert layout.credential("token_private") not in mounts
     assert layout.credential("google_workspace") not in mounts
     assert layout.interlock in mounts
+    for name in ("worker", "scheduler"):
+        background = services[name]
+        selected = documents[layout.service_directory / f"{name}.yaml"]
+        mounts = {Path(item["source"]): item for item in background["volumes"]}
+        assert background["command"] == [
+            "runtime",
+            "--config",
+            str(layout.service_directory / f"{name}.yaml"),
+        ]
+        assert mounts[layout.valkey_password(name)]["read_only"]
+        assert mounts[layout.database_password(name)]["read_only"]
+        assert mounts[configuration.paths["authority"]]["read_only"]
+        assert layout.database_password("web") not in mounts
+        assert layout.valkey_password("web") not in mounts
+        assert layout.credential("token_private") not in mounts
+        assert layout.credential("google_workspace") not in mounts
+        assert layout.credential("token_public") in mounts
+        assert selected["deployment"]["service_role"] == name
+        assert set(background["networks"]) == (
+            {"backend", "application-egress"} if name == "worker" else {"backend"}
+        )
+        assert (layout.credential("parishsoft") in mounts) is (name == "worker")
     for target in SECRET_NAMES - {"handoff_private"}:
         name = "credential-installer-" + target.replace("_", "-")
         mounts = services[name]["volumes"]

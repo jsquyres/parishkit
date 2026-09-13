@@ -36,7 +36,10 @@ Scope and dependencies: [ADM-02 work package](../../plans/stewardship/admin-port
 - [ ] ADM-02.05 — Finalize secrets, YAML, source, and campaign setup coherently.
 - [ ] ADM-02.06 — Test wizard aborts, concurrency, and installer recovery.
 
-Evidence: Not started.
+Evidence: Bootstrap and independent keyring preparation are implemented and
+covered by Phase 2 offline/database tests. Session-isolated wizard staging,
+worker credential handoff and final configured-marker activation remain open.
+See [Phase 2 evidence](../../guides/stewardship-phase-2.md).
 
 ## ADM-03: Navigation, dashboard, indicators, and configuration
 
@@ -45,12 +48,20 @@ Scope and dependencies: [ADM-03 work package](../../plans/stewardship/admin-port
 - [ ] ADM-03.01 — Build role-filtered navigation and dashboard.
 - [ ] ADM-03.02 — Build persistent operational-state banners.
 - [ ] ADM-03.03 — Build presence and background-task indicators.
-- [ ] ADM-03.04 — Build durable configuration and credential editors.
+- [ ] ADM-03.04 — Build durable configuration, Ministry activity, and credential editors.
 - [ ] ADM-03.05 — Keep Parish-timezone edits prospective.
 - [ ] ADM-03.06 — Build branding previews and variant handling.
-- [ ] ADM-03.07 — Test configuration UI, concurrency, and timezone isolation.
+- [ ] ADM-03.07 — Test configuration UI, Ministry activity, concurrency, and timezone isolation.
 
-Evidence: Not started.
+Evidence: In progress. The Ministry activity and Parish profile editors use
+signed exact previews and durable Applying/Applied configuration requests;
+42 PostgreSQL cases cover required fields, source/configuration changes,
+permissions, restricted web grants, installation, retry, and campaign-timezone
+isolation. Navigation, Testing banners, passive Family-presence/background
+indicators and HTML task history now pass PostgreSQL and three-engine browser
+tests. Branding, integration replacement and the remaining full acceptance
+checks are not complete. See
+[Phase 2 evidence](../../guides/stewardship-phase-2.md#worker-composition-and-initial-admin-editors-in-progress).
 
 ## ADM-04: Campaign editor, content, schedules, and previews
 
@@ -63,7 +74,21 @@ Scope and dependencies: [ADM-04 work package](../../plans/stewardship/admin-port
 - [ ] ADM-04.05 — Build atomic schedule reconciliation previews.
 - [ ] ADM-04.06 — Test campaign editing, previews, and schedule races.
 
-Evidence: Not started.
+Evidence: In progress. New-draft creation and structural editing now use
+actor/configuration/source/runtime-bound exact previews and Applied receipts.
+The editor covers dates, timezone, modules, current Ministry/fund selections,
+financial/comparison periods, additional information and structural read-only
+states. Combined form/editor/navigation tests pass 85 cases with 98% focused
+coverage; the expanded browser suite passes 135 cases across three engines.
+Named page slots and independent email revisions now have visual/source/plain-text
+editors and sanitized fictional before/after previews. Exact requests reconcile
+existing template consumers and preserve immutable YAML/projection history;
+content form/view integration coverage is 92%. Combined schedule/draft-date
+reconciliation now passes 70 tests with 94% schedule-module coverage; exact
+work previews, explicit removals and timezone-bound revisions preserve SQL
+admission. Cloning and readiness-test mail remain open, along with complete
+integration/regression/review acceptance.
+See [Phase 2 evidence](../../guides/stewardship-phase-2.md#immutable-content-and-template-editing).
 
 ## ADM-05: Production transition and pre-start withdrawal
 

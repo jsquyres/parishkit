@@ -315,6 +315,40 @@ def test_initial_bootstrap_refuses_unrelated_existing_data(tmp_path):
     assert User.objects.filter(username="existing-account").exists()
 
 
+@pytest.mark.parametrize(
+    "kind", ["pristine", "lease-attribution", "pointer-attribution"]
+)
+def test_bootstrap_admits_only_pristine_migration_source_sentinels(tmp_path, kind):
+    """Fresh migration seeds are not source activity; nondefault attribution is."""
+    from parishkit.stewardship.source.models import SourceMutationLease
+    from parishkit.stewardship.source.snapshot_models import SourceCurrent
+
+    lease_defaults = {"actor_id": uuid4()} if kind == "lease-attribution" else {}
+    pointer_defaults = {"actor_id": uuid4()} if kind == "pointer-attribution" else {}
+    SourceMutationLease.objects.get_or_create(singleton=True, defaults=lease_defaults)
+    SourceCurrent.objects.get_or_create(singleton=True, defaults=pointer_defaults)
+    store = AuthorityStore(tmp_path, validate_sections)
+    root = bootstrap_version(uuid4(), "admin@example.org")
+
+    def bootstrap():
+        """Use actual root materialization, including the SQL empty-database trigger."""
+        prepare_initial_configuration(
+            store,
+            root,
+            testing_recipient="test@example.org",
+            actor_id=uuid4(),
+            correlation_id=uuid4(),
+        )
+
+    if kind == "pristine":
+        bootstrap()
+        assert coherent_configuration(store).active_configuration_id == root.version_id
+    else:
+        with pytest.raises(IntegrityError, match="cannot adopt"):
+            bootstrap()
+        assert not AppliedConfigurationVersion.objects.exists()
+
+
 def test_bootstrap_refuses_unreviewed_row_security_even_on_empty_table(tmp_path):
     """An unknown RLS policy cannot make an occupied table appear harmlessly empty."""
     from parishkit.stewardship.bootstrap import (

@@ -51,12 +51,19 @@ remain below `/admin/` and apply server-side authorization.
 4. Build parish, branding, timezone, contact, mode, integration, sender, Slack,
    and secret replace/test pages with YAML change-request and sealed target-
    installer progress, version diff, optimistic digest concurrency, and audit.
+   Include the [Ministry activity editor](../../specs/stewardship/admin-portal/spec.md#ministry-activity-management),
+   with persistent tenant/DUID overrides, impact preview and applied-status UI.
+   Its activation must atomically reevaluate seeded assignment overlays without
+   changing manual assignments or the campaign's structural selection.
 5. Make Parish-timezone edits explicitly prospective: they affect general
    presentation and future drafts but never mutate an existing campaign.
 6. Add logo variant preview and safe branding-version handling.
 7. Test all role variants, browser sizes, applying/applied/error states, stale
    saves, config-installer crash recovery, secret expiry/failure rollback,
    campaign-timezone isolation, and browser-local timestamp rendering.
+   Test Ministry inactivation/reactivation, rename and catalog reappearance,
+   import persistence, active-campaign edits, seeded-access effects, manual-role
+   preservation and activity-change/source-promotion races.
 
 ### ADM-04: Campaign editor, content, schedules, and previews
 

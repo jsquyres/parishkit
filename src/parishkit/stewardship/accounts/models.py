@@ -9,14 +9,21 @@ from .auth_models import (  # noqa: F401
     LimiterStoreHealth,
     OAuthStateConsumption,
 )
+from .chair_models import (  # noqa: F401
+    ChairAssignmentReview,
+    ChairReconciliation,
+    ChairSeedEvidence,
+)
 
 # Django discovers these models through this module; keep session and immutable
 # configuration contracts in separate source files for maintainability.
 from .configuration_models import (  # noqa: F401
     AppliedConfigurationVersion,
     AppliedIntegration,
+    MinistryActivity,
     Parish,
 )
+from .content_models import ContentVersion  # noqa: F401
 from .policy_models import (  # noqa: F401
     AddressRoleGrant,
     AddressRule,
@@ -39,6 +46,7 @@ from .secret_models import (  # noqa: F401
     SecretReplacementRequest,
     SecretRequestCheckpoint,
 )
+from .setup_models import SetupAttempt  # noqa: F401
 
 
 class PortalSession(MutableRecord):

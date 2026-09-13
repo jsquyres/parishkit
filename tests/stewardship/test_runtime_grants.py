@@ -28,6 +28,7 @@ def test_grant_registry_names_existing_models_and_excludes_unrelated_download_da
     tables = {model._meta.db_table for model in apps.get_models()} | {
         "django_migrations",
         "stewardship_download_policy",  # Intentionally SQL-only singleton.
+        "stewardship_current_chair",  # Narrow SQL-only source projection.
     }
     assert WEB_INSERT_TABLES <= WEB_READ_TABLES
     assert WEB_UPDATE_TABLES <= WEB_READ_TABLES
@@ -45,6 +46,13 @@ def test_grant_registry_names_existing_models_and_excludes_unrelated_download_da
         "stewardship_audit_event",
     ):
         assert table not in grants
+
+
+def test_web_only_reads_source_owned_assignment_overlays():
+    """Browser requests cannot become source-reconciliation writers."""
+    tables, columns = runtime_grants(ServiceRole.WEB)
+    assert tables["stewardship_assignment_overlay"] == {"SELECT"}
+    assert "stewardship_assignment_overlay" not in columns
 
 
 @pytest.mark.parametrize(
@@ -91,19 +99,27 @@ def test_background_grants_exclude_web_secrets_and_campaign_write_authority(role
         "stewardship_secret_request",
         "stewardship_portal_session",
         "stewardship_family_session",
-        "stewardship_family_token",
-        "stewardship_source_lease",
-        "stewardship_domain_rule",
     ):
         assert table not in tables and table not in columns
     assert tables["stewardship_campaign"] == {"SELECT"}
+    assert tables["stewardship_domain_rule"] == {"SELECT"}
     assert columns["stewardship_campaign"] == {"UPDATE": {"id"}}
     assert tables["stewardship_audit_event"] == {"INSERT"}
     if role is ServiceRole.WORKER:
         assert tables["stewardship_task_run"] == {"SELECT", "INSERT", "UPDATE"}
     else:
         assert tables["stewardship_task_run"] == {"SELECT", "INSERT"}
-        assert columns["stewardship_task_run"] == {"UPDATE": {"id"}}
+        from parishkit.stewardship.source.grants import SCHEDULER_CANCEL_COLUMNS
+
+        assert columns["stewardship_task_run"] == {
+            "UPDATE": set(SCHEDULER_CANCEL_COLUMNS)
+        }
+        assert tables["stewardship_source_lease"] == {"SELECT"}
+        assert "stewardship_family_token" not in tables
+    if role is ServiceRole.WORKER:
+        assert tables["stewardship_family_token"] == {"INSERT"}
+        assert "ciphertext" not in columns["stewardship_family_token"]["SELECT"]
+        assert "digest" not in columns["stewardship_family_token"]["SELECT"]
 
 
 def test_family_runtime_lock_and_activity_grants_do_not_allow_source_writes():

@@ -218,9 +218,22 @@ Scope and dependencies: [DAT-05 work package](../../plans/stewardship/data.md#da
 - [ ] DAT-05.01 — Implement portal users, login rules, and assignments.
 - [x] DAT-05.02 — Materialize policy from applied YAML versions.
 - [x] DAT-05.03 — Enforce rule precedence and last-Administrator guards.
-- [ ] DAT-05.04 — Implement provenance-aware chair seeds and runtime suspension overlays.
+- [ ] DAT-05.04 — Implement Ministry activity policy, provenance-aware chair seeds, and runtime suspension overlays.
 - [x] DAT-05.05 — Index login and Ministry authorization queries.
 - [ ] DAT-05.06 — Test policy activation, source transitions, and idempotent autosave races.
+
+Phase 2 Ministry activity storage is implemented: v4 YAML/patch and recovery
+formats, exact immutable PostgreSQL projections, retained tenant/DUID/record-ID
+bindings, current-catalog activity selection and narrow runtime grants. The
+source suggestion calculator groups exact Member relationships and flags shared
+email ambiguity without granting access. Exact retained Member selections,
+source-promotion/configuration reconciliation receipts, suspension overlays and
+durable review episodes now have owning services and PostgreSQL guards. Activity
+activation uses the restricted installer and the same source predicate; missing
+source still holds seeded activity edits. The Admin screen, confirmed-seeding
+request creator, complete refresh-worker wiring and Family submission enforcement
+remain open with their owning packages.
+See the [Phase 2 checkpoint](../../guides/stewardship-phase-2.md).
 
 Evidence: The Phase 1A policy batch adds immutable normalized rule/grant/
 assignment projections, explicit provenance, verified identity metadata, runtime
@@ -228,9 +241,10 @@ overlays, lookup indexes, strict v2 schema/patch dispatch, last-Admin protection
 and immediate exact-address/hosted-domain decisions. High-impact activation
 commits security-notification intent and denial-namespace evidence atomically.
 See the [foundation boundary](../../guides/stewardship-authorization-foundation.md).
-DAT-05.01/.04/.06 remain partial: source-backed suggestions/review tasks,
-Admin-confirmed seeds, promotion integration, actual login/audit/session
-enforcement, and autosave/service admission races require Phase 1B/2 consumers.
+DAT-05.01/.04/.06 remain partial: the Admin-confirmed seed creator, complete
+worker/UI integration and end-to-end autosave/source races remain outstanding.
+Phase 1B supplies actual login/audit/session enforcement; Phase 2 supplies the
+source-backed reconciliation services described above.
 The Phase 1A policy-schema portion is complete; these mixed-phase checkboxes
 do not represent additional Phase 1A PRs.
 

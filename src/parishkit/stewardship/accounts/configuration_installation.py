@@ -135,6 +135,9 @@ class DatabaseMaterializer:
         """Commit the snapshot before its checkpoint; retry an intervening crash."""
         self._check()
         self._candidate(version)
+        from .ministry_activity import validate_installation as validate_activity
+
+        validate_activity(version.document())
         from parishkit.stewardship.campaigns.admission import validate_installation
 
         validate_installation(
@@ -180,7 +183,7 @@ class DatabaseMaterializer:
                     actor_id=self.actor_id,
                     correlation_id=self.correlation_id,
                 )
-            ConfigurationActivation.objects.create(
+            activation = ConfigurationActivation.objects.create(
                 configuration_id=selected.version_id,
                 predecessor_id=runtime.active_configuration_id,
                 sequence=runtime.configuration_sequence,
@@ -188,6 +191,9 @@ class DatabaseMaterializer:
                 actor_id=self.actor_id,
                 correlation_id=self.correlation_id,
             )
+            from .chair_reconciliation import reconcile_configuration_chairs
+
+            reconcile_configuration_chairs(activation)
             # SQL inserts Applied, safe audit, and the runtime pointer in this
             # same transaction. A failure in any effect rolls them all back.
 
@@ -381,6 +387,8 @@ def _install_request(store, *, request, correlation_id, admit_campaign=None):
                 if request.request_schema in {
                     "foundation-policy-patch-v2",
                     "campaign-foundation-patch-v3",
+                    "ministry-activity-patch-v4",
+                    "campaign-content-patch-v5",
                 }:
                     from .policy_schema import validate_manual_operation
 
@@ -392,6 +400,11 @@ def _install_request(store, *, request, correlation_id, admit_campaign=None):
                 from .request_admission import check_historical_additions
 
                 check_historical_additions(request.base_id, request.patch)
+                from .ministry_activity import (
+                    validate_installation as validate_activity,
+                )
+
+                validate_activity(intent.candidate.document())
                 from parishkit.stewardship.campaigns.admission import (
                     validate_installation,
                 )

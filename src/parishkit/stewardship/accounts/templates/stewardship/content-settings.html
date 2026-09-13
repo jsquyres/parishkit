@@ -1,0 +1,19 @@
+{% extends 'stewardship/base.html' %}{% load i18n %}
+{% block title %}{{ label }}{% endblock %}
+{% block content %}
+<h1>{{ label }}</h1><p>{{ campaign.active_configuration.name }}</p>
+<p>{% translate "Use a placeholder name inside double braces. Only these names are supported:" %} {% for name in placeholders %}<code>{{ name }}</code>{% if not forloop.last %}, {% endif %}{% endfor %}.</p>
+<p>{% translate "Preview uses fictional sample data and nonfunctional sample links. No email is sent by this editor." %}</p>
+<form method="post" data-content-form>{% csrf_token %}<input type="hidden" name="action" value="preview">
+{{ form.non_field_errors }}{{ form.base_digest }}{{ form.base_digest.errors }}
+{% if form.subject %}<div>{{ form.subject.as_field_group }}</div>{% endif %}
+<section data-visual-content hidden><h2 id="visual-content-label">{% translate "Visual editor" %}</h2>
+<div role="group" aria-label="{% translate 'Text formatting' %}" data-content-toolbar>
+<button type="button" data-content-tag="strong">{% translate "Bold" %}</button><button type="button" data-content-tag="em">{% translate "Italic" %}</button><button type="button" data-content-tag="p">{% translate "Paragraph" %}</button><button type="button" data-content-tag="h2">{% translate "Heading" %}</button><button type="button" data-content-tag="ul">{% translate "Bulleted list" %}</button>
+</div><div class="panel content-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="visual-content-label" data-content-editor>{{ visual|safe }}</div>
+</section>
+<details open data-html-source><summary>{% translate "HTML source" %}</summary>{{ form.html.as_field_group }}</details>
+<div>{{ form.generate_text.as_field_group }}</div><div>{{ form.text.as_field_group }}</div><div>{{ form.clear.as_field_group }}</div>
+<button type="submit">{% translate "Preview changes" %}</button></form>
+<p><a href="{% url 'admin:content_catalog' campaign.pk %}">{% translate "Return to content and templates" %}</a></p>
+{% endblock %}

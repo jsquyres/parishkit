@@ -41,6 +41,8 @@ def check_historical_additions(base_id, patch):
     the installer prepares the candidate; this is not a readiness certificate.
     """
     _check_policy_additions(base_id, patch)
+    _check_ministry_additions(base_id, patch)
+    _check_content_additions(base_id, patch)
     additions = [
         item
         for item in patch
@@ -87,6 +89,81 @@ def check_historical_additions(base_id, patch):
             raise ConfigError(
                 "Integration identities must remain stable across history."
             )
+
+
+def _check_content_additions(base_id, patch):
+    """Compare only matching revision payloads across retained immutable ancestry."""
+    import json
+
+    additions = [
+        item
+        for item in patch
+        if item["section"] == "content" and item["operation"] == "add"
+    ]
+    if not additions:
+        return
+    predicates, parameters = [], [base_id]
+    for item in additions:
+        predicates.append(
+            "(m.record_id=%s AND jsonb_build_object("
+            "'campaign_id', m.campaign_id, 'kind', m.kind, 'slot', m.slot, "
+            "'subject', m.subject, 'html', m.html, 'text', m.text) "
+            "IS DISTINCT FROM %s::jsonb)"
+        )
+        parameters.extend([item["id"], json.dumps(item["values"])])
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """WITH RECURSIVE chain(id, predecessor_id) AS (
+                SELECT id, predecessor_id FROM stewardship_configuration_version
+                WHERE id=%s
+                UNION
+                SELECT p.id, p.predecessor_id FROM stewardship_configuration_version p
+                JOIN chain c ON p.id=c.predecessor_id
+            ) SELECT 1 FROM stewardship_content_version m
+              JOIN chain c ON c.id=m.configuration_id WHERE """
+            + " OR ".join(predicates)
+            + " LIMIT 1",
+            parameters,
+        )
+        if cursor.fetchone() is not None:
+            raise ConfigError("Content revision identities must remain immutable.")
+
+
+def _check_ministry_additions(base_id, patch):
+    """Check retired activity identities without loading historical documents."""
+    additions = [
+        item
+        for item in patch
+        if item["section"] == "ministries" and item["operation"] == "add"
+    ]
+    if not additions:
+        return
+    predicates, parameters = [], [base_id]
+    for item in additions:
+        values = item["values"]
+        predicates.append(
+            "((m.record_id=%s AND (m.organization_id, m.ministry_duid) "
+            "IS DISTINCT FROM (%s::bigint, %s::bigint)) OR "
+            "(m.record_id<>%s AND m.organization_id=%s AND m.ministry_duid=%s))"
+        )
+        identity = [values["organization_id"], values["ministry_duid"]]
+        parameters.extend([item["id"], *identity, item["id"], *identity])
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """WITH RECURSIVE chain(id, predecessor_id) AS (
+                SELECT id, predecessor_id FROM stewardship_configuration_version
+                WHERE id=%s
+                UNION
+                SELECT p.id, p.predecessor_id FROM stewardship_configuration_version p
+                JOIN chain c ON p.id=c.predecessor_id
+            ) SELECT 1 FROM stewardship_ministry_activity m
+              JOIN chain c ON c.id=m.configuration_id WHERE """
+            + " OR ".join(predicates)
+            + " LIMIT 1",
+            parameters,
+        )
+        if cursor.fetchone() is not None:
+            raise ConfigError("Ministry activity identities must remain stable.")
 
 
 def _check_policy_additions(base_id, patch):

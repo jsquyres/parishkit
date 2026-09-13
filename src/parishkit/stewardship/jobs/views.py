@@ -1,10 +1,12 @@
 """Admin-only operational task metadata; requester-owned exports have a separate API."""
 
+import json
 import re
 
 from django.db import DatabaseError, transaction
 from django.db.models import Count, Q
 from django.http import JsonResponse
+from django.shortcuts import render
 from django.views.decorators.http import require_safe
 
 from parishkit.config import ConfigError
@@ -15,6 +17,7 @@ from parishkit.stewardship.accounts.runtime_models import SystemConfiguration
 from parishkit.stewardship.accounts.sessions import authenticated_admin
 from parishkit.stewardship.audit.schemas import Action, ActorKind, Outcome
 from parishkit.stewardship.audit.services import record_action
+from parishkit.stewardship.campaigns.domain import Percentage
 from parishkit.stewardship.web.contracts import (
     ErrorCode,
     FieldError,
@@ -82,6 +85,7 @@ def _task(row, instant):
         "action": row.action,
         "version": row.version,
         "attempt": row.attempt,
+        "initiator_id": str(row.initiated_by_id) if row.initiated_by_id else None,
         "progress": _progress(row),
         "created_at": row.created_at,
         "updated_at": row.updated_at,
@@ -194,3 +198,54 @@ def task_list(request):
 def task_detail(request, task_id):
     """Read bounded immutable attempt history, never task commands or provider data."""
     return _read(request, task_id)
+
+
+@require_safe
+def background_page(request):
+    """Render the same authorized bounded metadata as the passive polling API."""
+    result = _read(request)
+    if result.status_code != 200:
+        return result
+    work = json.loads(result.content)
+    for task in work["tasks"]:
+        progress = task["progress"]
+        progress["display"] = Percentage(progress["current"], progress["total"])
+    following = request.GET.copy()
+    following["page"] = str(work["page"] + 1)
+    response = render(
+        request,
+        "stewardship/background.html",
+        {
+            "work": work,
+            "next_query": following.urlencode(),
+            "selected_state": request.GET.get("state", "nonterminal"),
+            "states": ("nonterminal", "all", *TASK_STATES),
+        },
+    )
+    response["Cache-Control"] = "no-store"
+    return response
+
+
+@require_safe
+def task_page(request, task_id):
+    """Render bounded chronological task history without exposing worker payloads."""
+    result = _read(request, task_id)
+    if result.status_code != 200:
+        return result
+    work = json.loads(result.content)
+    for item in [work["task"], *work["events"]]:
+        progress = item["progress"]
+        progress["display"] = Percentage(progress["current"], progress["total"])
+    following = request.GET.copy()
+    following["page"] = str(work["page"] + 1)
+    response = render(
+        request,
+        "stewardship/background-task.html",
+        {
+            "work": work,
+            "task": work["task"],
+            "next_query": following.urlencode(),
+        },
+    )
+    response["Cache-Control"] = "no-store"
+    return response

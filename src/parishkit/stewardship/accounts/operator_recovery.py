@@ -183,6 +183,10 @@ def recover_admin(
             schema = (
                 "operator-recovery-bootstrap-v1"
                 if base.validation_schema == "bootstrap-policy-v1"
+                else "operator-recovery-content-v5"
+                if base.validation_schema == "campaign-content-v5"
+                else "operator-recovery-ministry-v4"
+                if base.validation_schema == "ministry-activity-v4"
                 else "operator-recovery-patch-v2"
                 if base.validation_schema == "campaign-foundation-v3"
                 else "operator-recovery-patch-v1"

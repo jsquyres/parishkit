@@ -1,0 +1,265 @@
+"""Real content installation, immutable projection history and SQL defense."""
+
+from copy import deepcopy
+from datetime import timedelta
+from importlib import import_module
+from uuid import uuid4
+
+import pytest
+from django.db import IntegrityError, connection, transaction
+
+from parishkit.config import ConfigError
+from parishkit.stewardship.accounts.configuration_installation import install_request
+from parishkit.stewardship.accounts.configuration_models import (
+    AppliedConfigurationVersion,
+)
+from parishkit.stewardship.accounts.configuration_requests import record_request
+from parishkit.stewardship.accounts.configuration_snapshots import (
+    is_prepared,
+    prepare_snapshot,
+)
+from parishkit.stewardship.accounts.content_models import ContentVersion
+from parishkit.stewardship.accounts.operator_recovery import recover_admin
+from parishkit.stewardship.accounts.request_models import ConfigurationChangeRequest
+from parishkit.stewardship.accounts.runtime_models import SystemConfiguration
+from parishkit.stewardship.campaigns.admission import CampaignAdmissionUnavailable
+from parishkit.stewardship.campaigns.lifecycle import Action
+
+from ..configuration_factory import configuration_version, successor_document
+from ..content_factory import content, content_document
+from .campaign_builders import (
+    campaign_clock,
+    change,
+    command,
+    draft_campaign,
+    restored_runtime,
+)
+from .test_configuration_service_postgresql import (
+    as_config_installer,
+    config_role,  # noqa: F401
+)
+from .test_recovery_postgresql import arguments
+
+pytestmark = pytest.mark.django_db(transaction=True)
+
+
+def prepare(version):
+    """Use real outer durable transactions with all projection guards enabled."""
+    return prepare_snapshot(version, actor_id=uuid4(), correlation_id=uuid4())
+
+
+def test_content_installation_replacement_and_recovery(tmp_path):
+    """The installer retains earlier revisions while activating one new selection."""
+    store, campaign, actor = draft_campaign(tmp_path)
+    old = content(str(campaign.pk))
+    assert (
+        change(
+            store,
+            store.active(),
+            actor,
+            [
+                {"operation": "add", "section": "content", **old},
+                {
+                    "operation": "update",
+                    "section": "campaigns",
+                    "id": str(campaign.pk),
+                    "values": {"content_versions": {"welcome": old["id"]}},
+                },
+            ],
+        ).state
+        == "applied"
+    )
+    historical = SystemConfiguration.objects.get().active_configuration
+    assert historical.validation_schema == "campaign-content-v5"
+    assert is_prepared(historical.digest)
+    new = content(str(campaign.pk), html="<p>Updated</p>", text="Updated")
+    assert (
+        change(
+            store,
+            store.active(),
+            actor,
+            [
+                {"operation": "remove", "section": "content", "id": old["id"]},
+                {"operation": "add", "section": "content", **new},
+                {
+                    "operation": "update",
+                    "section": "campaigns",
+                    "id": str(campaign.pk),
+                    "values": {"content_versions": {"welcome": new["id"]}},
+                },
+            ],
+        ).state
+        == "applied"
+    )
+    assert historical.content_versions.get().text == old["values"]["text"]
+    assert (
+        SystemConfiguration.objects.get()
+        .active_configuration.content_versions.get()
+        .text
+        == "Updated"
+    )
+    options = arguments()
+    result = recover_admin(store, **options)
+    assert result.state == "applied"
+    assert (
+        ConfigurationChangeRequest.objects.get(pk=result.request_id).request_schema
+        == "operator-recovery-content-v5"
+    )
+    assert recover_admin(store, **options) == result
+    assert is_prepared(store.active().digest)
+
+
+def test_retired_revision_identity_is_immutable_at_intake(tmp_path):
+    """Removed revisions can be selected unchanged, never rebound to new text."""
+    store, campaign, actor = draft_campaign(tmp_path)
+    row = content(str(campaign.pk), slot="login_help")
+    assert (
+        change(
+            store,
+            store.active(),
+            actor,
+            [{"operation": "add", "section": "content", **row}],
+        ).state
+        == "applied"
+    )
+    assert (
+        change(
+            store,
+            store.active(),
+            actor,
+            [{"operation": "remove", "section": "content", "id": row["id"]}],
+        ).state
+        == "applied"
+    )
+    replacement = deepcopy(row)
+    replacement["values"]["text"] = "Rebound"
+    with pytest.raises(ConfigError, match="immutable"):
+        record_request(
+            base_digest=store.active().digest,
+            patch=[{"operation": "add", "section": "content", **replacement}],
+            actor_id=actor,
+            request_key=uuid4(),
+            correlation_id=uuid4(),
+        )
+    assert (
+        change(
+            store,
+            store.active(),
+            actor,
+            [{"operation": "add", "section": "content", **row}],
+        ).state
+        == "applied"
+    )
+    assert is_prepared(store.active().digest)
+
+
+@pytest.mark.parametrize("action", ["update", "delete"])
+def test_sql_cannot_mutate_revisions(action):
+    """Neither direct UPDATE nor DELETE bypasses append-only content history."""
+    prepare(configuration_version(content_document()))
+    with (
+        pytest.raises(IntegrityError),
+        transaction.atomic(),
+        connection.cursor() as cursor,
+    ):
+        cursor.execute(
+            "UPDATE stewardship_content_version SET text='Changed'"
+            if action == "update"
+            else "DELETE FROM stewardship_content_version"
+        )
+
+
+@pytest.mark.parametrize("defect", ["missing", "forged"])
+def test_projection_completeness_and_exact_yaml(monkeypatch, defect):
+    """Missing or false content projections roll back the entire candidate."""
+    create = ContentVersion.objects.create
+
+    def forged(**kwargs):
+        """Change only the projection, leaving the canonical document intact."""
+        return create(**(kwargs | {"text": "Forged"}))
+
+    monkeypatch.setattr(
+        ContentVersion.objects,
+        "create",
+        (lambda **kwargs: None) if defect == "missing" else forged,
+    )
+    with pytest.raises(IntegrityError, match="incomplete|differs"):
+        prepare(configuration_version(content_document()))
+    assert not AppliedConfigurationVersion.objects.exists()
+
+
+@pytest.mark.parametrize("bypass", [False, True])
+def test_history_identity_survives_preparation_and_sql(bypass, monkeypatch):
+    """Preparation checks ancestry, and SQL repeats it if that preflight is bypassed."""
+    root = configuration_version(content_document())
+    prepare(root)
+    document = successor_document(root)
+    document["sections"]["content"][0]["values"]["text"] = "Rebound"
+    if bypass:
+        monkeypatch.setattr(
+            "parishkit.stewardship.accounts.configuration_snapshots._verify_history",
+            lambda *args, **kwargs: True,
+        )
+    with pytest.raises(
+        IntegrityError if bypass else ConfigError, match="immutable|predecessor"
+    ):
+        prepare(configuration_version(document))
+    assert AppliedConfigurationVersion.objects.count() == 1
+
+
+def test_content_preserves_locked_structure_and_is_held_during_restore(tmp_path):
+    """Live content edits are nonstructural; restore review still freezes them."""
+    store, campaign, actor = draft_campaign(tmp_path)
+    instant = campaign.active_configuration.starts_at - timedelta(days=1)
+    with campaign_clock(instant):
+        command(campaign, actor, Action.ACTIVATE)
+        campaign.refresh_from_db()
+        assert campaign.structural_locked
+        row = content(str(campaign.pk), slot="login_help")
+        patch = [{"operation": "add", "section": "content", **row}]
+        with restored_runtime(instant), pytest.raises(CampaignAdmissionUnavailable):
+            change(store, store.active(), actor, patch)
+        assert change(store, store.active(), actor, patch).state == "applied"
+
+
+def test_populated_downgrade_preserves_guards():
+    """Refuse a downgrade before removing any guard protecting retained content."""
+    prepare(configuration_version(content_document()))
+    migration = import_module(
+        "parishkit.stewardship.accounts.migrations.0049_content_guards"
+    )
+    with (
+        pytest.raises(IntegrityError, match="downgrade"),
+        connection.schema_editor() as editor,
+    ):
+        migration.backward(None, editor)
+    with (
+        pytest.raises(IntegrityError),
+        transaction.atomic(),
+        connection.cursor() as cursor,
+    ):
+        cursor.execute("UPDATE stewardship_content_version SET text='Changed'")
+
+
+def test_restricted_installer_can_prepare_content_without_private_reads(
+    tmp_path,
+    config_role,  # noqa: F811
+):
+    """Projection verification and trigger effects fit the exact installer registry."""
+    store, campaign, actor = draft_campaign(tmp_path)
+    row = content(str(campaign.pk), slot="login_help")
+    request = record_request(
+        base_digest=store.active().digest,
+        patch=[{"operation": "add", "section": "content", **row}],
+        actor_id=actor,
+        request_key=uuid4(),
+        correlation_id=uuid4(),
+    )
+    with as_config_installer():
+        assert (
+            install_request(
+                store, request_id=request.request_id, correlation_id=uuid4()
+            ).state
+            == "applied"
+        )
+        assert is_prepared(store.active().digest)

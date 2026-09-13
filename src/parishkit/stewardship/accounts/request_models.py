@@ -33,6 +33,10 @@ class ConfigurationChangeRequest(ImmutableRecord):
                         "operator-recovery-patch-v2",
                         "operator-recovery-bootstrap-v1",
                         "campaign-foundation-patch-v3",
+                        "ministry-activity-patch-v4",
+                        "operator-recovery-ministry-v4",
+                        "campaign-content-patch-v5",
+                        "operator-recovery-content-v5",
                     ]
                 ),
                 name="config_request_schema",
@@ -55,6 +59,8 @@ class ConfigurationChangeRequest(ImmutableRecord):
                             "operator-recovery-patch-v1",
                             "operator-recovery-patch-v2",
                             "operator-recovery-bootstrap-v1",
+                            "operator-recovery-ministry-v4",
+                            "operator-recovery-content-v5",
                         ]
                     )
                     | models.Q(
@@ -68,6 +74,8 @@ class ConfigurationChangeRequest(ImmutableRecord):
                             "operator-recovery-patch-v1",
                             "operator-recovery-patch-v2",
                             "operator-recovery-bootstrap-v1",
+                            "operator-recovery-ministry-v4",
+                            "operator-recovery-content-v5",
                         ],
                     )
                 ),

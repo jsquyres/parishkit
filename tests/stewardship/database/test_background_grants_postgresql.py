@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 from django.db import DatabaseError, connection, transaction
+from django.db.backends.signals import connection_created
 from psycopg import sql
 
 from parishkit.stewardship.audit.schemas import Action, ActorKind, Outcome
@@ -27,11 +28,17 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 
 @contextmanager
-def task_login(service):
+def task_login(service, *, reconnect=False):
     """Create/remove only a fresh UUID-named fixture login; never alter real roles."""
     role = sql.Identifier("test_background_" + uuid4().hex)
     with connection.cursor() as cursor:
         cursor.execute(sql.SQL("CREATE ROLE {} LOGIN NOINHERIT").format(role))
+
+    def restrict_connection(sender, connection, **kwargs):
+        """Keep provider socket closure and renewal threads on the same test role."""
+        with connection.cursor() as cursor:
+            cursor.execute(sql.SQL("SET SESSION AUTHORIZATION {}").format(role))
+
     try:
         tables, columns = runtime_grants(service)
         with connection.cursor() as cursor:
@@ -59,9 +66,12 @@ def task_login(service):
                         )
                     )
             cursor.execute(sql.SQL("SET SESSION AUTHORIZATION {}").format(role))
+        if reconnect:
+            connection_created.connect(restrict_connection, weak=False)
         admit_columns(connection, tables, columns)
         yield
     finally:
+        connection_created.disconnect(restrict_connection)
         with connection.cursor() as cursor:
             cursor.execute("RESET SESSION AUTHORIZATION")
             cursor.execute(sql.SQL("DROP OWNED BY {}").format(role))
@@ -155,6 +165,11 @@ def test_both_background_roles_can_check_current_credential_gate_without_mutatio
         "UPDATE stewardship_campaign_credentials SET go_live_gate=false",
         "INSERT INTO stewardship_domain_rule DEFAULT VALUES",
         "DELETE FROM stewardship_task_event",
+        "INSERT INTO stewardship_chair_seed_evidence DEFAULT VALUES",
+        "UPDATE stewardship_family_token SET digest=NULL",
+        "UPDATE stewardship_family_campaign SET last_activity_at=now()",
+        "DELETE FROM stewardship_source_family",
+        "UPDATE stewardship_source_family SET canonical='{}'",
     ],
 )
 def test_background_sql_cannot_read_private_payloads_or_expand_authority(
