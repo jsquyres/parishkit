@@ -202,6 +202,10 @@ def test_csp_blocks_an_unrelated_form_destination(page, component_origin):
         "/setup-shares",
         "/setup-schedules",
         "/setup-preview",
+        "/setup-confirmation",
+        "/setup-confirmation-unready",
+        "/setup-finalization",
+        "/setup-installation",
         "/setup-mail-test",
         "/setup-slack-test",
         "/setup-access",
@@ -234,6 +238,22 @@ def test_components_accessible_and_responsive(
         id, impact, targets: nodes.map(n => n.target)
     }))""")
     assert violations == []
+
+
+def test_setup_confirmation_requires_acknowledgement_and_stores_no_draft(
+    page, component_origin
+):
+    """An explicit checkbox gates submission and no browser storage persists setup."""
+    page.goto(component_origin + "/setup-confirmation")
+    checkbox = page.get_by_role("checkbox")
+    assert not checkbox.is_checked()
+    assert not page.locator("form.panel").evaluate("form => form.checkValidity()")
+    checkbox.check()
+    assert page.locator("form.panel").evaluate("form => form.checkValidity()")
+    assert page.evaluate("localStorage.length + sessionStorage.length") == 0
+    page.goto(component_origin + "/setup-confirmation-unready")
+    page.get_by_role("checkbox").check()
+    assert page.get_by_role("button", name="Confirm and finish setup").is_disabled()
 
 
 def test_skip_link_and_error_summary_focus(page, component_origin):

@@ -228,7 +228,14 @@ def configure_web(configuration):
         database=downloads.settings_dict,
     )
     store = AuthorityStore(configuration.paths["authority"], validate_sections)
-    coherent_configuration(store)
+    try:
+        coherent_configuration(store)
+    except ConfigError:
+        from .accounts.setup_startup import initial_setup_hold
+
+        # Keep the real store for every request. Only the existing original-
+        # login cancellation route can use predecessor policy during this hold.
+        initial_setup_hold(store)
     for name in ("reports", "media"):
         private_directory(configuration.paths[name])
     settings.STEWARDSHIP_MEDIA_ROOT = configuration.paths["media"]

@@ -662,3 +662,35 @@ Operational finalization scheduling/consumption, restart recovery, final web
 confirmation/status, unused catalog cleanup after success, and the complete
 initial Compose demonstration remain in progress. This is an internal checkpoint,
 not completion of ADM-02, Phase 2, or a full-phase review round.
+
+### Compiled setup finalization and public confirmation
+
+The actual scheduler now produces the immutable prepared setup's final Task,
+and the compiled restricted worker owns fresh source loading and atomic
+completion. Exact selected-but-unapplied startup admission keeps web, scheduler
+and mail recovery available without admitting ordinary mismatched work. The
+scheduler expires abandoned original logins before attempting finalization.
+Successful cleanup removes the unused catalog through the real scheduler and
+worker, retaining current/shared payloads, immutable receipts and the configured
+marker. Existing cancelled-final-load disposal remains intact.
+
+The setup preview now links to an explicit readiness-checked confirmation form.
+Its original-login progress page shows credential/checkpoint/Task metadata,
+explains actual-consumer recreation and acknowledgement, and never renews idle
+time. Completion returns a currently authorized Admin to the main portal;
+anonymous requests and completion races cannot bypass current authorization.
+
+Ten combined PostgreSQL tests pass with 93% focused coverage across confirmation,
+progress and final scheduler/worker execution. These exercise successful
+completion and cleanup, credential retry, invalid-source failure, real web
+grants, CSRF, exact confirmation and passive progress. Eight additional
+cleanup/restart regressions pass. Twenty-seven browser checks pass across
+Chromium, Firefox and WebKit, including both responsive widths, automated WCAG
+checks, explicit acknowledgement and absence of persisted browser drafts.
+The rebuilt image passes both initial-startup Compose scenarios. The complete
+baseline passes 4,082 tests with 2,487 explicit profile skips and two existing
+warnings. Ruff, formatting, migration drift and focused Markdown checks pass.
+
+The complete initial installation/recreation/ACK Compose demonstration,
+post-setup campaign readiness-test email and integrated phase acceptance remain
+open. This internal checkpoint does not count as a complete phase review round.

@@ -20,6 +20,10 @@ def mail_runtime_grants():
             "stewardship_task_run",
             "stewardship_task_event",
             "stewardship_address_rule",
+            "stewardship_setup_config_intent",
+            "stewardship_config_request",
+            "stewardship_config_checkpoint",
+            "stewardship_config_activation",
         )
     }
     tables["stewardship_setup_mail_delivery"] = {"SELECT", "UPDATE"}

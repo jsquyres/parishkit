@@ -1,4 +1,4 @@
-"""Scheduler and worker ownership for expired setup source disposal."""
+"""Dispose unused terminal-setup staging, never its promoted source truth."""
 
 from uuid import uuid4
 
@@ -27,12 +27,13 @@ from .setup_disposal import (
     dispose_batch,
     owned_snapshots,
     owned_source_tasks,
+    terminal_attempt,
 )
 from .version_models import ENTITY_MODELS
 
 
 def _attempt(status, *, creating=False):
-    """Opaque queue IDs must match a real expired setup and exact Task status."""
+    """Queue IDs must match a terminal setup and exact Task status."""
     require_work_order()
     if not isinstance(status, TaskStatus) or status.task_type != TASK_TYPE:
         raise PermissionError("This Task cannot dispose setup source data.")
@@ -50,7 +51,7 @@ def _attempt(status, *, creating=False):
         ).exists()
     ):
         raise PermissionError("Setup cleanup Task ownership differs.")
-    return SetupAttempt.objects.get(pk=status.domain_request_id, state="expired")
+    return terminal_attempt(status.domain_request_id)
 
 
 def pending(attempt_id):
@@ -95,7 +96,7 @@ def admit_cleanup(action, status):
 
 
 def produce_setup_cleanup(guard):
-    """Queue at most one original expired attempt per scheduler pass, idempotently."""
+    """Queue one original terminal attempt per scheduler pass, idempotently."""
     if not isinstance(guard, SchedulerGuard):
         raise TypeError("Setup cleanup requires its actual scheduler guard.")
     if connection.in_atomic_block:
@@ -111,7 +112,7 @@ def produce_setup_cleanup(guard):
         )
         attempt = (
             SetupAttempt.objects.filter(
-                state="expired",
+                state__in=("expired", "completed"),
                 source_task_id__isnull=False,
             )
             .filter(~Exists(scheduled))
@@ -153,7 +154,7 @@ def _settle_original(attempt_id, execution):
     from .setup_final_tasks import finalization_admission
 
     for row in owned_source_tasks(attempt_id).order_by("created_at", "id"):
-        # The expired original attempt closes finalization before its verifier
+        # The terminal original attempt closes finalization before its verifier
         # reaches filesystem selection. No replacement authority can authorize
         # work here; only expiry and drained cancellation transitions are used.
         admit = (

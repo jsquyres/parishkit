@@ -275,6 +275,7 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
         assert actual is broker and stop is stops[0]
         if role is ServiceRole.SCHEDULER:
             assert kwargs["produce"](guard) == (
+                "finalization-receipt",
                 "source-receipt",
                 "cleanup-receipt",
                 "setup-cleanup-receipt",
@@ -299,6 +300,11 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
     )
     monkeypatch.setattr(
         "parishkit.stewardship.accounts.setup_staging.produce_setup_expiry", expiry
+    )
+    finalization = Mock(return_value=("finalization-receipt",))
+    monkeypatch.setattr(
+        "parishkit.stewardship.source.setup_final_production.produce_finalization",
+        finalization,
     )
     mail_recovery = Mock(return_value=0)
     monkeypatch.setattr(

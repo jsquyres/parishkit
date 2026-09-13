@@ -12,7 +12,8 @@
 <p>{% translate "All test emails go to" %}: {{ testing_recipient }}</p>
 <p>{% translate "Draft revision" %}: {{ draft.status.version|number }}</p></section>
 <section class="panel"><h2>{% translate "Readiness" %}</h2>
-<p>{% translate "The complete public configuration is valid and bound to this login's source load, staged logo and credential settings. This does not prove provider delivery, credential installation or consumer acknowledgements. Final activation is unavailable until those checks and their installation workflow are complete." %}</p>
+<p>{% translate "The complete public configuration is valid and bound to this login's source load, staged logo and credential settings. Successful tests of this exact revision are required before confirmation. Credential installation, consumer acknowledgements and the final source load then run in the background." %}</p>
+<p><a href="{% url 'admin:setup_confirmation' %}">{% translate "Check readiness and finish setup" %}</a></p>
 <p><a href="{% url 'admin:setup_mail' %}">{% translate "Send and check a setup email test" %}</a></p>
 {% if draft.sections.slack.enabled %}<p><a href="{% url 'admin:setup_notification' %}">{% translate "Send and check a Slack test" %}</a></p>{% endif %}</section>
 <h2>{% translate "Named pages and email samples" %}</h2>

@@ -1,10 +1,13 @@
-"""Bounded, exact-ownership removal of expired setup source payloads."""
+"""Bounded disposal of unused source staging after setup expires or completes."""
 
 from django.db import connection
 from django.db.models import CharField, Exists, F, OuterRef, Q
 from django.db.models.functions import Cast
 
-from parishkit.stewardship.accounts.setup_install_models import SetupPreparationReceipt
+from parishkit.stewardship.accounts.setup_install_models import (
+    SetupCompletion,
+    SetupPreparationReceipt,
+)
 from parishkit.stewardship.accounts.setup_models import SetupAttempt
 from parishkit.stewardship.campaigns.work_locks import require_work_order
 from parishkit.stewardship.jobs.models import TaskRun
@@ -19,9 +22,24 @@ from .version_models import ENTITY_MODELS
 TASK_TYPE = "setup_source_cleanup"
 
 
+def terminal_attempt(attempt_id):
+    """Completed setup requires its immutable provenance, not a caller's label."""
+    attempt = SetupAttempt.objects.get(
+        pk=attempt_id, state__in=("expired", "completed")
+    )
+    if (
+        attempt.state == "completed"
+        and not SetupCompletion.objects.filter(
+            preparation__readiness__intent__attempt=attempt
+        ).exists()
+    ):
+        raise PermissionError("Completed setup cleanup requires its retained marker.")
+    return attempt
+
+
 def owned_source_tasks(attempt_id):
     """Resolve only original catalog and exact prepared-finalization retry roots."""
-    attempt = SetupAttempt.objects.get(pk=attempt_id, state="expired")
+    attempt = terminal_attempt(attempt_id)
     prepared = SetupPreparationReceipt.objects.filter(
         readiness__intent__attempt=attempt
     ).values("id")

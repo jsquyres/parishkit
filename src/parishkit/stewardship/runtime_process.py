@@ -338,6 +338,7 @@ def serve_background(configuration, lease):
         from .jobs.processes import serve_consumer, serve_scheduler
         from .source.production import SourceProducer
         from .source.setup_cleanup import produce_setup_cleanup
+        from .source.setup_final_production import produce_finalization
 
         publish_single_process_receipts(configuration, assembled.receipts)
         emit(Event.STARTUP_VALIDATED)
@@ -358,12 +359,22 @@ def serve_background(configuration, lease):
             source production and file cleanup still require matching authority.
             """
             produce_setup_expiry(guard)
-            matching_authority(assembled.store)
+            finalization = produce_finalization(assembled.store, guard)
+            try:
+                matching_authority(assembled.store)
+            except ConfigError:
+                from .accounts.setup_startup import initial_setup_hold
+
+                # A dead original session can still be expired above. While
+                # awaiting installer rollback, no ordinary producer is admitted.
+                initial_setup_hold(assembled.store)
+                return finalization
             guard.check()
             recover_setup_mail()
             guard.check()
             recover_setup_slack()
             return (
+                *finalization,
                 *producer(guard),
                 *produce_cleanup(guard),
                 *produce_setup_cleanup(guard),

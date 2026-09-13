@@ -152,6 +152,13 @@ pass with four restart-hold cases. Runtime scheduling/consumption, final web
 confirmation, successful catalog cleanup and the full initial Compose
 demonstration remain open. No whole ADM-02 task or Phase 2 gate is closed.
 
+The [compiled finalization checkpoint](../../guides/stewardship-phase-2-reviews.md#compiled-setup-finalization-and-public-confirmation)
+connects the original-Admin confirmation/progress UI, actual scheduler and final
+worker, selected-YAML restart recognition and successful catalog cleanup. Its
+combined PostgreSQL tests pass with 93% focused coverage, plus 27 browser cases
+and both initial-startup Compose scenarios. The complete installation/consumer
+recreation/ACK demonstration and integrated acceptance still keep ADM-02 open.
+
 ## ADM-03: Navigation, dashboard, indicators, and configuration
 
 Scope and dependencies: [ADM-03 work package](../../plans/stewardship/admin-portal.md#adm-03-navigation-dashboard-indicators-and-configuration).

@@ -199,11 +199,18 @@ def configure_background(configuration, *, stop, heartbeat):
     from .accounts.configuration_schema import validate_sections
 
     store = AuthorityStore(configuration.paths["authority"], validate_sections)
-    active = (
-        mail_authority(store)
-        if role is ServiceRole.MAIL_DISPATCH
-        else coherent_configuration(store)
-    )
+    try:
+        active = (
+            mail_authority(store)
+            if role is ServiceRole.MAIL_DISPATCH
+            else coherent_configuration(store)
+        )
+    except ConfigError:
+        from .accounts.setup_startup import initial_setup_hold
+
+        active = initial_setup_hold(
+            store, projections=role is not ServiceRole.MAIL_DISPATCH
+        )
     if (
         role is ServiceRole.WORKER
         and "parishsoft" not in loaded
@@ -259,6 +266,29 @@ def configure_background(configuration, *, stop, heartbeat):
                 ),
             )
     handlers = bind_authority(handlers, store, heartbeat=heartbeat)
+    # This is not ordinary selected-YAML authority. The compiled setup owner
+    # repeats its exact original receipt/login/fences for every admitted action.
+    if role is ServiceRole.SCHEDULER or (
+        role is ServiceRole.WORKER and "parishsoft" in loaded
+    ):
+        from dataclasses import replace
+
+        from .source.setup_final_execution import finalization_handler
+        from .source.setup_final_tasks import TASK_TYPE as SETUP_FINALIZE
+
+        options = (
+            {"scheduler": True}
+            if role is ServiceRole.SCHEDULER
+            else {
+                "credential_path": configuration.secrets["parishsoft"],
+                "general": rings["general_encryption"],
+                "mac": rings["family_code_mac"],
+                "public": rings["token_public"],
+            }
+        )
+        handlers[SETUP_FINALIZE] = replace(
+            finalization_handler(store, **options), pulse=heartbeat
+        )
     broker = build_broker(
         endpoint=configuration.valkey,
         password=password,

@@ -115,6 +115,11 @@ def test_final_cleanup_guard_reverses_and_reapplies_on_empty_history():
     )
     operation = migration.Migration.operations[0]
     with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT pg_get_functiondef("
+            "'public.stewardship_setup_disposable_snapshot_v1(uuid)'::regprocedure)"
+        )
+        original = cursor.fetchone()[0]
         try:
             cursor.execute(operation.reverse_sql)
             cursor.execute(
@@ -123,7 +128,7 @@ def test_final_cleanup_guard_reverses_and_reapplies_on_empty_history():
             )
             assert "setup_finalize" not in cursor.fetchone()[0]
         finally:
-            cursor.execute(operation.sql)
+            cursor.execute(original)
         cursor.execute(
             "SELECT pg_get_functiondef("
             "'public.stewardship_setup_disposable_snapshot_v1(uuid)'::regprocedure)"

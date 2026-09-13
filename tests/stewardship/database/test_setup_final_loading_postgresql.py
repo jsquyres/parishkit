@@ -85,8 +85,8 @@ def queued(service, identifier):
         return task
 
 
-def load(service, task, credential_path, *, finalize=None):
-    """Use actual worker claim, renewal, page admission and staging transactions."""
+def wait_for_source():
+    """Respect the real catalog HTTP exclusion without rewriting clock or fences."""
     from threading import Event
 
     from parishkit.stewardship.jobs.ownership import database_now
@@ -101,6 +101,11 @@ def load(service, task, credential_path, *, finalize=None):
     assert remaining < 60
     if remaining > 0:
         Event().wait(remaining + 0.05)
+
+
+def load(service, task, credential_path, *, finalize=None):
+    """Use actual worker claim, renewal, page admission and staging transactions."""
+    wait_for_source()
     handler = Handler(
         WorkQueue.GENERAL,
         finalization_admission(service.store),

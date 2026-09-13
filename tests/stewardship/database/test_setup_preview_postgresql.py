@@ -148,7 +148,7 @@ def test_preview_http_is_private_inert_and_contains_all_named_slots(
             b"Thank You page",
             b"Initial invitation",
             b"no private credential values",
-            b"Final activation is unavailable",
+            b"Check readiness and finish setup",
         ):
             assert expected in response.content
         assert b"synthetic-private" not in response.content

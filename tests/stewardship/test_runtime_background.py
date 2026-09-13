@@ -132,6 +132,7 @@ def test_background_assembly_binds_exact_keys_role_and_closed_registry(
         assert runtime.broker.service is role and runtime.broker.stop is stop
         expected = {
             "source_refresh",
+            "setup_finalize",
             "branding_cleanup",
             "setup_source_load",
             "setup_source_cleanup",

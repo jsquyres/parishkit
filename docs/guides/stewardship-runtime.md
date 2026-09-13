@@ -150,6 +150,10 @@ authority lets the initial Google Admin reach the pre-wizard state; the complete
 parish/campaign setup UX is Phase 2. Existing application data without a matching
 initialized authority is not imported or silently adopted.
 
+On the original Admin login's setup preview, select **Check readiness and
+finish setup**, review the pinned settings and explicitly confirm. Its progress
+page displays installation checkpoints and the final source Task.
+
 Once the initial target installers report `awaiting_ack`, use `compose.json`
 (without Slack) or `compose-slack.json` (with Slack) to recreate the entire
 `worker` and `mail-dispatch` services with `up --detach --force-recreate`.
@@ -161,8 +165,20 @@ selected service configuration and each exact pending request UUID. Do not use
 `compose run` for acknowledgement. See the
 [whole-service acknowledgement protocol](stewardship-credential-installers.md).
 These initial ACKs retain rollback files until atomic setup completion; they do
-not themselves make the application configured. The final wizard/activation
-integration remains under the open Phase 2 acceptance gate.
+not themselves make the application configured. After all acknowledgements, the
+configuration installer prepares/selects YAML and the scheduler queues the
+final worker. That worker fetches fresh data for the selected financial periods
+and atomically activates configuration, source, Family codes and the configured
+marker. The next progress refresh returns the Admin to the main portal. The
+system remains in Testing with a draft campaign; no live invitations are sent.
+
+Progress refreshes do not renew the original login's idle or absolute deadlines.
+If it expires or the Admin cancels before completion, the installer restores
+only unapplied setup state; background owners drain and clean temporary source
+work. A successful completion is never rolled back by the cancellation page.
+Restarted services recognize the exact prepared-but-unapplied setup without
+admitting ordinary work under mismatched YAML/SQL authority. The complete
+initial-installation Compose demonstration remains under the Phase 2 gate.
 
 Long-running production services use `unless-stopped`; one-shot offline profiles
 and development services do not automatically restart. Explicitly stop online

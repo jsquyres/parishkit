@@ -14,6 +14,7 @@ from .deployment import ServiceRole
 WEB_READ_TABLES = frozenset(
     [
         "stewardship_setup_completion",
+        "stewardship_setup_prepared",
         "stewardship_setup_attempt",
         "stewardship_setup_draft_section",
         "stewardship_setup_config_intent",

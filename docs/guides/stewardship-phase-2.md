@@ -26,11 +26,12 @@ tests. Optional Slack test delivery and its passive original-Admin UI are also
 implemented and tested. Initial target installation, rollback retention and
 public YAML preparation now have focused PostgreSQL evidence. Initial
 background services and optional-provider mount variants pass live Compose
-startup; the full install/recreation/ACK demonstration, selected financial-window
-loading and atomic setup finalization remain open.
-The internal exact-confirmation transaction now pins readiness and freezes one
-configuration request, but no final confirmation UI is exposed before its
-installation/activation consumer is complete. No Phase 2
+startup. Selected financial-window loading, atomic setup finalization, compiled
+worker scheduling and successful catalog disposal are implemented. The explicit
+final confirmation and original-login progress screens are connected, including
+current-policy handoff after completion and selected-YAML restart recognition.
+The full install/recreation/ACK Compose demonstration and post-setup campaign
+readiness-test mail remain open, along with integrated phase acceptance. No Phase 2
 PR exists yet, and the three complete phase review/fix rounds are not complete.
 The chronological checkpoints below record partial progress, not phase exit.
 

@@ -24,6 +24,9 @@ from parishkit.stewardship.accounts.parish_views import ParishForm
 from parishkit.stewardship.accounts.schedule_forms import Schedules, ScheduleWindow
 from parishkit.stewardship.accounts.setup_branding_views import SetupLogoForm
 from parishkit.stewardship.accounts.setup_campaign_views import SetupCampaignForm
+from parishkit.stewardship.accounts.setup_confirmation_views import (
+    SetupConfirmationForm,
+)
 from parishkit.stewardship.accounts.setup_content_views import SetupContentForm
 from parishkit.stewardship.accounts.setup_credential_views import SetupCredentialForm
 from parishkit.stewardship.accounts.setup_forms import FORMS, STEPS
@@ -425,6 +428,57 @@ def component_origin():
                         "current": True,
                     }
                 ],
+            },
+        ),
+        (
+            "/setup-confirmation",
+            "setup-confirmation",
+            {
+                "draft": setup_draft,
+                "form": SetupConfirmationForm(
+                    initial={"preview_token": "synthetic-preview"}
+                ),
+                "candidate_digest": "a" * 64,
+            },
+        ),
+        (
+            "/setup-confirmation-unready",
+            "setup-confirmation",
+            {
+                "draft": setup_draft,
+                "form": SetupConfirmationForm(
+                    initial={"preview_token": "synthetic-preview"}
+                ),
+                "candidate_digest": "a" * 64,
+                "readiness_problem": "The reviewed email test must be accepted.",
+            },
+        ),
+        (
+            "/setup-finalization",
+            "setup-cancel",
+            {
+                "attempt": {"state": "frozen", "attempt_id": uuid4()},
+                "checkpoint": "yaml_activated",
+                "prepared": True,
+                "credentials": [
+                    {"target": "parishsoft", "request__state": "awaiting_ack"}
+                ],
+                "source": {
+                    "id": uuid4(),
+                    "state": "running",
+                    "phase": "loading",
+                    "progress": Percentage(1234, 5678),
+                },
+            },
+        ),
+        (
+            "/setup-installation",
+            "setup-cancel",
+            {
+                "attempt": {"state": "frozen", "attempt_id": uuid4()},
+                "checkpoint": "validating",
+                "prepared": False,
+                "credentials": [],
             },
         ),
         (
