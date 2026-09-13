@@ -117,7 +117,8 @@ def require_source_refresh(*, campaign_id):
         or scope.runtime.current_campaign_id != campaign_id
         or (
             scope.campaign is not None
-            and scope.campaign.state not in {"draft", "scheduled", "active", "closed"}
+            and scope.campaign.state
+            not in {"draft", "scheduled", "active", "closed", "archived"}
         )
         or CampaignWorkGate.objects.filter(state__in=["preparing", "running"]).exists()
     ):
