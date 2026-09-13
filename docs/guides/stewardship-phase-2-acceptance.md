@@ -64,27 +64,37 @@ filename alone, define the proof. See the
 
 ## Integrated validation status
 
-- Latest baseline during round-2 corrections: 4,210 passed; 2,581 explicit profile
-  skips; two existing warnings in 33.15 seconds. These skips require their
-  separate opt-in suites below.
-- Browser: 447 passed across the supported engines, with no skipped cases.
-- Operational Compose: all six cases passed in 489.90 seconds, including both
-  complete initial-setup profiles with a saved invitation schedule and no live
-  occurrences or fulfillment. The earlier complete pair passed in 257.30 seconds.
-- Full PostgreSQL coverage: the latest complete diagnostic run finished with
-  2,066 passes and one dashboard query-budget failure. Its 90% combined coverage
-  is not an acceptance pass. The focused performance rerun passes after removing
-  redundant transaction overhead; the 64-query budget is unchanged. A new full
-  run must validate all [round-2 corrections](stewardship-phase-2-full-review-2.md).
-- Ruff and formatting pass; Markdown checks include this acceptance index.
-  Final checks must repeat against the reviewed commit.
-- Three independent full-phase dual-model review/fix rounds: not complete.
-  Both models completed rounds 1 and 2 without degradation: respectively 36
-  and 23 validated Medium findings, no High/Critical. Round-2 corrections and
-  regression checks are in progress; round 3 has not started.
+Final corrected implementation: `ea2d5cb974bccbe2fc5ec85fadded17a07a8bbeb`.
+All results below are from that source tree; subsequent handoff edits are
+documentation only. Validation completed September 13, 2026 UTC.
 
-No Phase 2 PR or phase-exit approval is implied by these partial validation
-results. Do not begin the Family implementation phase or merge this branch here.
+- Latest final-run baseline: 4,297 passed; 2,610 explicit profile
+  skips; two existing warnings in 65.08 seconds. These skips require their
+  separate opt-in suites below.
+- Browser: 447 passed in 438.68 seconds across the supported engines, with no
+  skipped cases.
+- Final-image container, isolation, provisioning and lifecycle smoke: all 59
+  cases passed in 108.97 seconds, with no skipped cases.
+- Operational Compose: all eight cases passed in 724.96 seconds against the
+  corrected final image, with no skipped cases. This validates both completion
+  and selected-but-unapplied abort in development/production topology.
+  The [round-3 record](stewardship-phase-2-full-review-3.md) retains failed
+  diagnostics and the corrected metadata-only mail-admission query.
+- Full PostgreSQL coverage: all 2,114 cases passed in 3,106.18 seconds, with no
+  skipped cases. Combined stewardship/shared scope coverage is 94.16% lines and
+  85.04% branches, independently exceeding both 80% floors. The disposable JSON
+  report is `/tmp/parishkit-phase2-review3-final-coverage.json`, not committed.
+- Final Ruff, formatting, all tracked Markdown, migration-drift and whitespace
+  checks pass, including this acceptance index and the updated task evidence.
+- Three independent full-phase dual-model reviews completed without degradation:
+  respectively 36, 23 and 39 validated Medium findings, no High/Critical in any
+  of those complete-phase rounds. All retained corrections and focused checks
+  are complete, and passing final integrated validation closes the third
+  review/fix round; see the [review ledger](stewardship-phase-2-reviews.md).
+
+Phase 2 implementation, local acceptance and the three-round review/fix gate
+are complete. PR CI and human merge approval remain required. Do not begin the
+Family implementation phase or merge this branch without that approval.
 
 ## Boundaries retained for later phases
 

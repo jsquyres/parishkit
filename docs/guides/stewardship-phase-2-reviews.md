@@ -5,6 +5,12 @@ and [Phase 2 scope](stewardship-phase-2.md). Raw review outputs remain local,
 not repository content. Neither a correction checkpoint nor an interim review
 completes Phase 2 acceptance or authorizes merging.
 
+Current handoff: all three complete-phase review/fix rounds and final local
+acceptance pass at corrected implementation `ea2d5cb`. See the
+[acceptance index](stewardship-phase-2-acceptance.md) for final test/coverage
+evidence. Earlier sections below are chronological checkpoints, not unresolved
+work. PR CI and human merge approval remain required.
+
 ## Round one: interim source/setup correction pass
 
 Reviewed commit: `1619866414d04a33d57f71e4e55524b49371ad49`.
@@ -796,6 +802,20 @@ validation still prevent phase exit; two further full rounds remain required.
 
 Both vendors completed the review of `58e7a8c` with 23 retained Medium findings
 and no High/Critical findings. The
-[round 2 disposition record](stewardship-phase-2-full-review-2.md) tracks current
-corrections and validation. One further full-phase review round and clean
-integrated acceptance remain required.
+[round 2 disposition record](stewardship-phase-2-full-review-2.md) tracks
+corrections and validation, including the subsequent clean 2,091-case full
+PostgreSQL coverage run. The third review below supersedes the earlier pending
+review status; final post-correction integrated acceptance is still required.
+
+## Third complete-phase review
+
+Both vendors completed the review of `0352749` with 39 retained Medium findings
+and no High/Critical findings. All 40 generated Claude shards and the single
+pika-owned Codex reviewer completed without degradation, failed agents or verdict
+mismatch. The [round 3 disposition record](stewardship-phase-2-full-review-3.md)
+records all findings, corrections, evidence-backed pushbacks and regression
+evidence. Corrections are committed through `ea2d5cb` and pushed to the topic
+branch. Final integrated validation passes: all 2,114 PostgreSQL cases and the
+baseline/browser/container/operational profiles, with 94.16% line and 85.04%
+branch coverage. The three-round exit criterion is satisfied. PR CI and human
+merge approval remain required.
