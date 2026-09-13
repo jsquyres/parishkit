@@ -93,8 +93,11 @@ documentation only. Validation completed September 13, 2026 UTC.
   review/fix round; see the [review ledger](stewardship-phase-2-reviews.md).
 
 Phase 2 implementation, local acceptance and the three-round review/fix gate
-are complete. PR CI and human merge approval remain required. Do not begin the
-Family implementation phase or merge this branch without that approval.
+are complete. Delivery and final-head CI are tracked on
+[PR #22](https://github.com/epiphany40223/parishkit/pull/22). The results above are
+local acceptance, not a substitute for that PR's required checks. Human merge
+approval remains required. Do not begin the Family implementation phase or merge
+this branch without that approval.
 
 ## Boundaries retained for later phases
 

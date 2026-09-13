@@ -216,7 +216,7 @@ High/Critical issues and all retained findings are resolved. The
 [acceptance index](../../guides/stewardship-phase-2-acceptance.md) records all
 demonstrations, test counts and coverage. DAT-03, BG-01, BG-05, ADM-02, ADM-03,
 ADM-04 and M2 are complete for this phase; DAT-04/DAT-05 retain only their named
-later consumers. PR creation and final-head CI are the active work. Human merge
+later consumers. PR #22 is open and final-head CI is the active work. Human merge
 approval remains required. After that merge, the next dependency-ready package
 is Phase 3A DAT-06; do not implement the Family slice or merge this branch yet.
 

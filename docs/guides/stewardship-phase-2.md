@@ -30,7 +30,7 @@ lines and 85.04% branches. The [acceptance index](stewardship-phase-2-acceptance
 required demonstration and distinguishes final results from diagnostics. The
 [third review record](stewardship-phase-2-full-review-3.md) preserves corrections,
 pushbacks and the scheduler mail-admission regression discovered during final
-image validation. PR creation and final-head CI are the active work; human merge
+image validation. PR #22 is open and final-head CI is the active work; human merge
 approval remains required before Phase 3A. The chronological checkpoints below
 record earlier partial progress, not the current scope or phase-exit approval.
 
