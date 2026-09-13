@@ -213,21 +213,24 @@ migration state or claiming compatibility with discarded development schemas.
 Keep existing databases/volumes intact and use separately selected empty ones
 when required. See the [schema baseline guide](../../../guides/stewardship-schema.md).
 
+Application containers do not race to run migrations. Current startup refuses
+an unsupported schema or missing credential file and reports a sanitized,
+actionable error. These fresh-install and restart protections remain required
+throughout pre-production.
+
 ### Production upgrades (deferred)
 
 The following requirements become implementation/acceptance work only when the
 human explicitly activates production-readiness work. At that point declare the
 supported baseline and compatibility policy before adding forward upgrades.
 
-Application containers do not race to run migrations. A production upgrade
-requires a successful recent backup, pulls pinned images, runs migration checks
+A production upgrade requires a successful recent backup, pulls pinned images, runs migration checks
 and migrations, then restarts services. Migrations must be forward-safe for the
 declared rollout; destructive column removal follows expand/migrate/contract
 across releases.
 
 Rollback instructions distinguish application rollback (only when schema is
-compatible) from database restore. Startup refuses an unsupported newer schema
-or missing credential file and reports a sanitized actionable error.
+compatible) from database restore.
 
 ### Offline bootstrap profile
 

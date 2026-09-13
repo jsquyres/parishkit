@@ -49,6 +49,11 @@ ParishKit contains reusable Python automation for Catholic parishes.
   application upgrade/downgrade compatibility or tests until the human
   explicitly activates production-readiness work. Never infer permission to
   delete existing development databases from this policy.
+- Stewardship implementation follows its
+  [automated delivery cycle](docs/plans/stewardship/overall.md#automated-phase-delivery-cycle),
+  including smaller coherent PRs, correction-focused review rounds, and the
+  human's standing merge/continue authority. Preserve full integrated gate
+  reviews and explicit production-readiness, deployment and release boundaries.
 - Prefer shorter, simpler code when it remains clear, especially when that
   makes behavior easier to unit test. This code does not require ultra-high
   performance, but avoid gratuitously careless inefficiency.
