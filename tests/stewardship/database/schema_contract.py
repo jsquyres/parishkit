@@ -74,6 +74,12 @@ def assert_model_contract(connection, model):
                 assert any(item["unique"] for item in matching), (table, field.column)
             if field.primary_key:
                 assert any(item["primary_key"] for item in matching)
+            if field.db_index:
+                assert any(item["index"] or item["unique"] for item in matching), (
+                    table,
+                    field.column,
+                    "declared field index",
+                )
             if field.is_relation and field.db_constraint:
                 target = field.target_field
                 assert any(
@@ -90,6 +96,29 @@ def assert_model_contract(connection, model):
             "ON COMMIT DROP"
         )
         with connection.schema_editor(collect_sql=True) as editor:
+            for field in model._meta.local_concrete_fields:
+                if not field.has_db_default():
+                    continue
+                default, params = editor.db_default_sql(field)
+                cursor.execute(
+                    f"ALTER TABLE {quote(scratch)} ALTER COLUMN "
+                    f"{quote(field.column)} SET DEFAULT {default}",
+                    params,
+                )
+                cursor.execute(
+                    "SELECT pg_get_expr(d.adbin,d.adrelid) FROM pg_attribute a "
+                    "LEFT JOIN pg_attrdef d ON a.attrelid=d.adrelid AND a.attnum=d.adnum "
+                    "WHERE a.attrelid IN (%s::regclass,%s::regclass) AND a.attname=%s "
+                    "ORDER BY a.attrelid",
+                    [table, scratch, field.column],
+                )
+                defaults = cursor.fetchall()
+                assert len(defaults) == 2 and defaults[0] == defaults[1], (
+                    table,
+                    field.column,
+                    "declared database default",
+                    defaults,
+                )
             for item in [*model._meta.constraints, *model._meta.indexes]:
                 statement = item.create_sql(model, editor)
                 assert statement is not None, (table, item.name)

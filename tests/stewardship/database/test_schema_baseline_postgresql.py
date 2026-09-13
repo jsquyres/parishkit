@@ -45,12 +45,25 @@ def test_model_declarations_match_installed_schema():
 
 
 @pytest.mark.django_db(transaction=True)
-@pytest.mark.parametrize("drift", ["field", "constraint", "index"])
+@pytest.mark.parametrize(
+    "drift", ["field", "constraint", "index", "field_index", "db_default"]
+)
 def test_model_contract_detects_declaration_only_changes(monkeypatch, drift):
     """Changing Python declarations alone cannot bless unchanged baseline SQL."""
     model = CampaignConfiguration
     if drift == "field":
         monkeypatch.setattr(model._meta.get_field("name"), "max_length", 253)
+    elif drift == "field_index":
+        monkeypatch.setattr(model._meta.get_field("name"), "db_index", True)
+    elif drift == "db_default":
+        field = model._meta.get_field("created_at")
+        monkeypatch.setattr(
+            field,
+            "db_default",
+            models.Value("2000-01-01T00:00:00Z", output_field=models.DateTimeField()),
+        )
+        # Django caches the compiled expression on the field object.
+        monkeypatch.setattr(field, "_db_default_expression", field.db_default)
     elif drift == "constraint":
         original = next(
             item
