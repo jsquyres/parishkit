@@ -30,6 +30,7 @@ def inject_providers(compose):
     ]
     script = Path(__file__).with_name("runtime_setup_provider.py").read_text()
     for name in (
+        "scheduler",
         "worker",
         "mail-dispatch",
         "credential-installer-parishsoft",
@@ -168,8 +169,26 @@ def complete_setup(file, project, configuration, mountpoint, *, abort=False):
             time.sleep(0.5)
         result = browser.result(timeout=60)
     if result.returncode:
+        state = compose_run(
+            file,
+            project,
+            "exec",
+            "-T",
+            "postgres",
+            "psql",
+            "-U",
+            "pk_stewardship_operator",
+            "-d",
+            configuration.postgres.name,
+            "-Atc",
+            "SELECT task_type,state,phase,attempt,progress_current,progress_total "
+            "FROM stewardship_task_run ORDER BY created_at",
+            check=False,
+        )
         logs = compose_run(file, project, "logs", "--tail", "50", check=False)
-        raise AssertionError(result.stdout + result.stderr + logs.stdout + logs.stderr)
+        raise AssertionError(
+            result.stdout + result.stderr + state.stdout + logs.stdout + logs.stderr
+        )
     assert len(acknowledged) == 2
     if abort:
         assert "INITIAL_SETUP_CANCELLED_AFTER_ACK_OK" in result.stdout

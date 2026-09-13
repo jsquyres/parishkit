@@ -126,6 +126,21 @@ def test_lost_lifecycle_lease_is_fatal_not_a_dependency_retry():
         )
 
 
+@pytest.mark.parametrize("lost_before", [False, True])
+def test_independent_producer_never_swallows_lost_scheduler_ownership(lost_before):
+    """Isolating owner failures must not turn a lost scheduler lease into success."""
+    guard = Mock()
+    guard.check.side_effect = (
+        [ConfigError("Lost scheduler lease")]
+        if lost_before
+        else [None, ConfigError("Lost scheduler lease")]
+    )
+    operation = Mock(side_effect=ValueError("private-provider-value"))
+    with pytest.raises(ConfigError, match="Lost scheduler lease"):
+        runtime_process.independent_producer(guard, operation)
+    assert operation.call_count == (0 if lost_before else 1)
+
+
 def test_gunicorn_worker_print_cannot_receive_private_startup_exception(
     tmp_path, monkeypatch
 ):
@@ -279,8 +294,22 @@ def test_credential_service_publishes_only_after_admission(
     ],
 )
 @pytest.mark.parametrize("fail", [False, True])
+@pytest.mark.parametrize(
+    "failing_producer",
+    [
+        None,
+        "expiry",
+        "finalization",
+        "mail",
+        "slack",
+        "campaign",
+        "source",
+        "cleanup",
+        "setup_cleanup",
+    ],
+)
 def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
-    tmp_path, monkeypatch, role, fail, held
+    tmp_path, monkeypatch, role, fail, held, failing_producer
 ):
     """Restore signals and close broker/SQL after normal or failed drainage."""
     import signal
@@ -304,14 +333,23 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
         """Substitute the external process loop, not runtime lifecycle logic."""
         assert actual is broker and stop is stops[0]
         if role is ServiceRole.SCHEDULER:
+            outputs = {
+                "finalization": "finalization-receipt",
+                "source": "source-receipt",
+                "cleanup": "cleanup-receipt",
+                "setup_cleanup": "setup-cleanup-receipt",
+            }
             assert kwargs["produce"](guard) == (
-                ("finalization-receipt",)
+                (
+                    ()
+                    if failing_producer == "finalization"
+                    else ("finalization-receipt",)
+                )
                 if held
-                else (
-                    "finalization-receipt",
-                    "source-receipt",
-                    "cleanup-receipt",
-                    "setup-cleanup-receipt",
+                else tuple(
+                    receipt
+                    for owner, receipt in outputs.items()
+                    if owner != failing_producer
                 )
             )
         signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
@@ -359,10 +397,22 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
         "parishkit.stewardship.accounts.setup_notifications.recover_pending",
         slack_recovery,
     )
+    setup_cleanup = Mock(return_value=("setup-cleanup-receipt",))
     monkeypatch.setattr(
         "parishkit.stewardship.source.setup_cleanup.produce_setup_cleanup",
-        Mock(return_value=("setup-cleanup-receipt",)),
+        setup_cleanup,
     )
+    if failing_producer:
+        {
+            "expiry": expiry,
+            "finalization": finalization,
+            "mail": mail_recovery,
+            "slack": slack_recovery,
+            "campaign": campaign_recovery,
+            "source": producer,
+            "cleanup": cleanup,
+            "setup_cleanup": setup_cleanup,
+        }[failing_producer].side_effect = RuntimeError("synthetic-owner-failure")
     monkeypatch.setattr("parishkit.stewardship.jobs.processes.serve_consumer", serve)
     monkeypatch.setattr("parishkit.stewardship.jobs.processes.serve_scheduler", serve)
     monkeypatch.setattr(
@@ -407,7 +457,7 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
         mail_recovery.assert_called_once_with()
         campaign_recovery.assert_called_once_with()
         slack_recovery.assert_called_once_with()
-        assert guard.check.call_count == 3
+        assert guard.check.call_count == 16
     else:
         mail_recovery.assert_not_called()
         cleanup.assert_not_called()

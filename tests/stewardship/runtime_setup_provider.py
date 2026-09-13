@@ -2,13 +2,44 @@
 
 import json
 import sys
+from pathlib import Path
+from traceback import walk_tb
+
+
+def failure_diagnostic(error):
+    """Synthetic harness diagnostics retain code locations, never values or locals."""
+    return {
+        "event": "SYNTHETIC_RUNTIME_FAILURE",
+        "exception": type(error).__name__,
+        "frames": [
+            {
+                "file": Path(frame.f_code.co_filename).name,
+                "function": frame.f_code.co_name,
+                "line": line,
+            }
+            for frame, line in walk_tb(error.__traceback__)
+        ],
+    }
 
 
 def main():
     """Replace only network boundaries; keep CLI, grants, journals and leases real."""
     from parishkit import parishsoft_transport
-    from parishkit.stewardship import provider_checks, readiness_delivery_process
+    from parishkit.stewardship import (
+        observability,
+        provider_checks,
+        readiness_delivery_process,
+    )
     from parishkit.stewardship.readiness_delivery import DeliveryOutcome
+
+    original_failure = observability.emit_failure
+
+    def report_failure(error, **kwargs):
+        """Expose safe fixture-only trace locations for intermittent worker failures."""
+        print(json.dumps(failure_diagnostic(error)), file=sys.stderr, flush=True)
+        return original_failure(error, **kwargs)
+
+    observability.emit_failure = report_failure
 
     pages = json.loads(sys.argv.pop(1))
     responses = iter(())
