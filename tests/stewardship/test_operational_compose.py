@@ -116,6 +116,16 @@ def seed_runtime(root, *, production=False, provider_mode="configured"):
         image=PRODUCTION_IMAGE if production else IMAGE,
         provider_mode=provider_mode,
     )
+    if provider_mode == "initial":
+        # Production provisioning retains every complete mount variant so the
+        # host can later recreate consumers after first credential installation.
+        for mode in ("configured", "configured-slack"):
+            _, variants = render_runtime(
+                configuration,
+                image=PRODUCTION_IMAGE if production else IMAGE,
+                provider_mode=mode,
+            )
+            documents = variants | documents
     for path, document in documents.items():
         if isinstance(document, str):
             # Test-only local CA: no ACME request, DNS dependency or real TLS key.
@@ -196,20 +206,26 @@ def compose_run(file, project, *arguments, check=True, timeout=60):
 
 
 @pytest.mark.parametrize("production", [False, True])
-@pytest.mark.parametrize("provider_mode", ["configured", "initial"])
+@pytest.mark.parametrize("provider_mode", ["configured", "initial", "complete"])
 def test_complete_foundation_bootstrap_and_online_exclusion(
     tmp_path, production, provider_mode
 ):
     """Use real operator profiles, narrow mounts, SQL identities and native inodes."""
     root = tmp_path / "seed"
     configuration, compose = seed_runtime(
-        root, production=production, provider_mode=provider_mode
+        root,
+        production=production,
+        provider_mode="initial" if provider_mode == "complete" else provider_mode,
     )
     layout = RuntimeLayout(configuration)
     project = "parishkit-runtime-" + uuid4().hex
     volume = project + "-state"
     file = tmp_path / "compose.json"
     deployment = str(uuid4())
+    if provider_mode == "complete":
+        from .runtime_setup_compose import inject_providers
+
+        inject_providers(compose)
     try:
         mountpoint = _fixture_volume(root, IMAGE, volume, owner=10001)
         for service in compose["services"].values():
@@ -366,7 +382,7 @@ def test_complete_foundation_bootstrap_and_online_exclusion(
             str(layout.service_directory / "web.yaml"),
         )
         assert json.loads(diagnosis.stdout)["ready"] is True
-        if provider_mode == "initial":
+        if provider_mode in {"initial", "complete"}:
             started = compose_run(
                 file,
                 project,
@@ -434,6 +450,11 @@ def test_complete_foundation_bootstrap_and_online_exclusion(
                     str(layout.service_directory / f"{name}-initial.yaml"),
                 )
                 assert probe.returncode == 0
+        if provider_mode == "complete":
+            from .runtime_setup_compose import complete_setup
+
+            complete_setup(file, project, configuration, mountpoint)
+            return
         auth_probe = compose_run(
             file,
             project,

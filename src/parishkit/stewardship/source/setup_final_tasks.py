@@ -1,7 +1,7 @@
 """One durable final load per prepared setup, not a second catalog-load attempt.
 
-This metadata owner is intentionally not registered in the operational runtime
-until its atomic source/Family/configuration completion consumer is connected.
+The scheduler produces this metadata for the compiled finalization consumer,
+which owns the atomic source/Family/configuration completion transaction.
 """
 
 from functools import partial

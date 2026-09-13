@@ -32,8 +32,11 @@ final confirmation and original-login progress screens are connected, including
 current-policy handoff after completion and selected-YAML restart recognition.
 Post-setup campaign readiness-test mail now has an exact applied-template
 preview, explicit send, restricted installed-mail consumer and non-retrying
-outcome recovery. The full install/recreation/ACK Compose demonstration remains
-open, along with integrated phase acceptance. No Phase 2
+outcome recovery. All six operational Compose cases now pass, including both
+complete install/recreation/ACK profiles and zero-live-fulfillment proof. The
+full database coverage rerun is in progress. The
+[integrated acceptance index](stewardship-phase-2-acceptance.md)
+maps each required demonstration to its executable proof. No Phase 2
 PR exists yet, and the three complete phase review/fix rounds are not complete.
 The chronological checkpoints below record partial progress, not phase exit.
 

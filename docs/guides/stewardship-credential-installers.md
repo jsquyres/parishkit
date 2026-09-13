@@ -144,11 +144,12 @@ does not update that mount. OPS-04 must recreate the affected consumer container
 and verify its fingerprint; a reload signal alone is insufficient. The installer
 does not mount the Docker socket or get authority to restart other services.
 
-Provider-specific candidate validation/testing, whole-service startup and
-recreation, handoff-key provisioning, and current-Admin/CSRF/fresh-Google web
-admission remain explicit integration work. The internal orchestrator requires
-a validator but does not supply a production always-successful validator.
-No new web credential endpoint or enabled production service exists here.
+Phase 2 connects provider-specific validation/testing, handoff-key provisioning,
+whole-service startup and current-Admin/CSRF/fresh-Google web admission. The
+internal orchestrator requires the compiled target-specific validator; it never
+supplies a production always-successful validator. Initial installation follows
+the [runtime setup protocol](stewardship-runtime.md), including explicit host-side
+consumer recreation rather than granting web access to Docker.
 Keyring retirement additionally needs the separate online-migration and retained-
 backup compatibility workflow; successful file replacement does not retire keys.
 
@@ -162,18 +163,18 @@ explicit Compose file/project arguments. Do not use `compose run` for this
 confirmation: its new process namespace has no live service cohort. All workers
 must have completed admission with the replacement loaded. The command refuses
 multi-container replica configurations; no partial service acknowledgement is
-inferred. Later provider/consumer integrations remain pending as described above.
+inferred. Provider consumers use the same whole-service proof described below.
 
-Phase 2 extends the same command to the single-process `worker` and `scheduler`
-services. Recreate the complete affected service, then run
+Phase 2 extends the same command to the single-process `worker`, `scheduler`
+and `mail-dispatch` services. Recreate the complete affected service, then run
 `pk-stewardship acknowledge-credential --config <service-config> --request-id <UUID>`
 with `docker compose exec -T <service>`. The command repeats runtime admission
 and verifies that the original live process published matching loaded receipts;
 it cannot publish readiness for itself or substitute a newly opened file for
 that proof. The consumer SQL role can acknowledge its required targets but cannot
-read sealed staging or change credential-installation state. Mail-dispatch's
-separate Workspace consumer remains pending; these commands do not enable mail
-delivery or acknowledge a different service.
+read sealed staging or change credential-installation state. Mail-dispatch
+acknowledges its own Workspace consumer, never a different service. These
+commands do not enable live campaign mail delivery.
 
 ## Verification
 

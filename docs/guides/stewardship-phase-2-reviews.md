@@ -757,3 +757,29 @@ The test now reapplies that exact grant after DDL, matching the existing runtime
 upgrade sequence. It does not weaken production grants or make migrations grant
 runtime authority implicitly. All 14 integration-selection PostgreSQL cases
 pass. The full coverage rerun remains in progress; this is not a review round.
+
+## Complete initial runtime demonstration
+
+Both development and production-profile complete initial-setup demonstrations
+pass against the rebuilt image. They start without provider files, use the
+original Admin's real authenticated/CSRF-protected forms, execute staged source
+and readiness delivery work, freeze configuration, recreate the actual consumer
+services and obtain whole-service ACKs. The final worker loads the selected
+financial periods and atomically commits the configured Testing draft, source
+and Family population. The original progress page returns to ordinary Admin
+navigation only after that transaction.
+
+The strengthened full operational suite passes all six cases in 489.90 seconds.
+Read-only operator SQL verifies complete financial source, eligible Family codes,
+population/current-source agreement, scrubbed private/public staging and a saved
+invitation schedule with no live occurrences or fulfillment. The web's narrower
+source grants are unchanged. Normal provisioning already retains the configured
+service-file variants; the fixture now stages those variants before creating its
+native volume. External provider responses remain synthetic, as detailed in the
+[acceptance index](stewardship-phase-2-acceptance.md).
+
+All 447 browser cases pass in 476.93 seconds. Baseline coverage passes 4,097
+tests with 2,527 explicit profile skips and two existing warnings. The full
+PostgreSQL coverage rerun and remaining container checks are in progress.
+Ruff, formatting and Markdown checks pass. M2.01 is complete; full Phase 2
+acceptance and three independent complete-phase review/fix rounds remain open.
