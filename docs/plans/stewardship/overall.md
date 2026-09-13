@@ -51,6 +51,13 @@ below add integrated checks; they do not replace each phase's review cycle.
 
 ## Automated phase delivery cycle
 
+All remaining phases follow the standing
+[pre-production development policy](../../specs/stewardship/operations/spec.md#pre-production-development-policy).
+Database/application upgrade compatibility and upgrade/downgrade tests are
+deferred until the human explicitly activates production-readiness work,
+including where older package/gate wording lists those deliverables. Fresh
+installation and current-functionality checks remain required.
+
 Human-approved workflow, September 8, 2026, with larger delivery batches and
 continued delegated execution confirmed September 9, 2026:
 

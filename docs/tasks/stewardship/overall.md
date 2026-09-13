@@ -6,6 +6,13 @@ the task-level navigation companion to the
 owns dependency ordering, allowed phase scope, and gate exit requirements.
 Use [milestones](milestones.md) for demonstration and review status.
 
+Standing scope override: follow the
+[pre-production development policy](../../specs/stewardship/operations/spec.md#pre-production-development-policy)
+for all remaining work. Historical upgrade/downgrade implementation and tests
+are not dependency-ready requirements until production-readiness work is
+explicitly activated; older evidence describes what was tested then, not work
+to recreate after baseline consolidation.
+
 ## How to select the next work
 
 1. Find the earliest incomplete phase whose preceding review gate has passed and

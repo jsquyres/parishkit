@@ -43,6 +43,12 @@ ParishKit contains reusable Python automation for Catholic parishes.
   behavior unless the intentional change is documented.
 - Preserve existing tool behavior unless an intentional behavior change is
   requested or documented.
+- Stewardship is pre-production. Follow its
+  [pre-production development policy](docs/specs/stewardship/operations/spec.md#pre-production-development-policy):
+  maintain a fresh-install schema baseline; do not add historical database or
+  application upgrade/downgrade compatibility or tests until the human
+  explicitly activates production-readiness work. Never infer permission to
+  delete existing development databases from this policy.
 - Prefer shorter, simpler code when it remains clear, especially when that
   makes behavior easier to unit test. This code does not require ultra-high
   performance, but avoid gratuitously careless inefficiency.
