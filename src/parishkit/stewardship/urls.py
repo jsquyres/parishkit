@@ -7,6 +7,7 @@ from .accounts import (
     access_gate,
     authentication,
     branding_views,
+    campaign_mail_views,
     campaign_views,
     clone_views,
     code_reports,
@@ -127,6 +128,11 @@ admin_patterns = [
         "campaign/<uuid:campaign_id>/content/history/<uuid:revision_id>",
         content_history.content_history,
         name="content_history_revision",
+    ),
+    path(
+        "campaign/<uuid:campaign_id>/content/test/<uuid:revision_id>",
+        campaign_mail_views.campaign_mail,
+        name="campaign_mail",
     ),
     path(
         "campaign/<uuid:campaign_id>/content/<str:kind>/<str:slot>",

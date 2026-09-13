@@ -15,6 +15,7 @@ from PIL import Image
 
 from parishkit.stewardship.accounts.branding_views import LogoForm
 from parishkit.stewardship.accounts.campaign_forms import CampaignForm
+from parishkit.stewardship.accounts.campaign_mail_views import CampaignMailForm
 from parishkit.stewardship.accounts.content_forms import ContentForm
 from parishkit.stewardship.accounts.integration_forms import (
     CredentialForm,
@@ -425,6 +426,93 @@ def component_origin():
                         "state": "queued",
                         "label": "Awaiting mail worker",
                         "created_at": NOW.isoformat(),
+                        "current": True,
+                    }
+                ],
+            },
+        ),
+        (
+            "/campaign-mail",
+            "campaign-mail",
+            {
+                "campaign": {
+                    "pk": mail_campaign["id"],
+                    "active_configuration": mail_campaign["values"],
+                },
+                "form": CampaignMailForm(
+                    initial={"preview_token": "synthetic-preview"}
+                ),
+                "sample": {
+                    "subject": "[TEST] Sample invitation",
+                    "html": "<p>Hello Sample Family.</p>",
+                    "text": "Hello Sample Family.",
+                },
+                "testing_recipient": "testing@example.org",
+                "pending": False,
+                "unknown": False,
+                "items": [
+                    {
+                        "id": uuid4(),
+                        "label": "Provider accepted the test",
+                        "created_at": NOW,
+                        "current": True,
+                    }
+                ],
+            },
+        ),
+        (
+            "/campaign-mail-unknown",
+            "campaign-mail",
+            {
+                "campaign": {
+                    "pk": mail_campaign["id"],
+                    "active_configuration": mail_campaign["values"],
+                },
+                "form": CampaignMailForm(
+                    initial={"preview_token": "synthetic-preview"}
+                ),
+                "sample": {
+                    "subject": "[TEST] Sample invitation",
+                    "html": "<p>Hello Sample Family.</p>",
+                    "text": "Hello Sample Family.",
+                },
+                "testing_recipient": "testing@example.org",
+                "pending": False,
+                "unknown": True,
+                "items": [
+                    {
+                        "id": uuid4(),
+                        "label": "Delivery uncertain",
+                        "created_at": NOW,
+                        "current": False,
+                    }
+                ],
+            },
+        ),
+        (
+            "/campaign-mail-pending",
+            "campaign-mail",
+            {
+                "campaign": {
+                    "pk": mail_campaign["id"],
+                    "active_configuration": mail_campaign["values"],
+                },
+                "form": CampaignMailForm(
+                    initial={"preview_token": "synthetic-preview"}
+                ),
+                "sample": {
+                    "subject": "[TEST] Sample invitation",
+                    "html": "<p>Hello Sample Family.</p>",
+                    "text": "Hello Sample Family.",
+                },
+                "testing_recipient": "testing@example.org",
+                "pending": True,
+                "unknown": False,
+                "items": [
+                    {
+                        "id": uuid4(),
+                        "label": "Awaiting mail worker",
+                        "created_at": NOW,
                         "current": True,
                     }
                 ],

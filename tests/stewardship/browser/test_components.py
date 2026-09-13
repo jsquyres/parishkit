@@ -181,6 +181,9 @@ def test_csp_blocks_an_unrelated_form_destination(page, component_origin):
         "/content-settings",
         "/content-preview",
         "/content-history",
+        "/campaign-mail",
+        "/campaign-mail-unknown",
+        "/campaign-mail-pending",
         "/schedule-settings",
         "/schedule-preview",
         "/clone-settings",
@@ -254,6 +257,28 @@ def test_setup_confirmation_requires_acknowledgement_and_stores_no_draft(
     page.goto(component_origin + "/setup-confirmation-unready")
     page.get_by_role("checkbox").check()
     assert page.get_by_role("button", name="Confirm and finish setup").is_disabled()
+
+
+def test_campaign_mail_preview_is_passive_and_shows_uncertainty(page, component_origin):
+    """Preview/reload never submits mail, and in-flight work disables another send."""
+    sends = []
+    page.on(
+        "request",
+        lambda request: (
+            sends.append(request.url)
+            if request.method == "POST" and "campaign-mail" in request.url
+            else None
+        ),
+    )
+    page.goto(component_origin + "/campaign-mail-unknown")
+    assert "uncertain" in page.get_by_role("alert").inner_text()
+    assert not page.get_by_role("checkbox").is_checked()
+    assert "2026-09-10T12:00:00" not in page.locator("time").inner_text()
+    page.reload()
+    assert not page.get_by_role("checkbox").is_checked()
+    page.goto(component_origin + "/campaign-mail-pending")
+    assert page.get_by_role("button", name="Send this test email").is_disabled()
+    assert not sends
 
 
 def test_skip_link_and_error_summary_focus(page, component_origin):

@@ -289,6 +289,24 @@ def configure_background(configuration, *, stop, heartbeat):
         handlers[SETUP_FINALIZE] = replace(
             finalization_handler(store, **options), pulse=heartbeat
         )
+    # This journal must retain observations after a configuration change; its
+    # owner checks authority for new effects, not for drained outcome recovery.
+    if role is ServiceRole.SCHEDULER or (
+        role is ServiceRole.MAIL_DISPATCH and "google_workspace" in loaded
+    ):
+        from dataclasses import replace
+
+        from .accounts.campaign_mail import TASK_TYPE as CAMPAIGN_MAIL
+        from .accounts.campaign_mail_tasks import campaign_mail_handler
+
+        handlers[CAMPAIGN_MAIL] = replace(
+            campaign_mail_handler(
+                store,
+                scheduler=role is ServiceRole.SCHEDULER,
+                credential_path=configuration.secrets.get("google_workspace"),
+            ),
+            pulse=heartbeat,
+        )
     broker = build_broker(
         endpoint=configuration.valkey,
         password=password,

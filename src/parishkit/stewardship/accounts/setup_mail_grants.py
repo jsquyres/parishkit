@@ -44,6 +44,9 @@ def mail_runtime_grants():
             "SELECT": {"attempt_id", "step", "values", "scrubbed_at"}
         },
     }
+    from .campaign_mail_grants import add_campaign_mail_grants
+
+    add_campaign_mail_grants(tables, columns)
     return tables, columns
 
 

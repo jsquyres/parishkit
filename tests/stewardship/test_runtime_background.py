@@ -139,6 +139,7 @@ def test_background_assembly_binds_exact_keys_role_and_closed_registry(
         }
         if role is ServiceRole.SCHEDULER:
             expected.add("setup_mail_test")
+            expected.add("campaign_mail_test")
         assert set(runtime.handlers) == expected
         assert runtime.handlers["source_refresh"].pulse is pulse
         assert set(runtime.receipts) == set(configuration.secrets)
@@ -263,7 +264,11 @@ def test_mail_runtime_requires_working_key_except_for_coherent_bootstrap(
         configuration, stop=Event(), heartbeat=lambda: None
     )
     try:
-        assert set(runtime.handlers) == {"setup_mail_test"}
+        assert set(runtime.handlers) == (
+            {"setup_mail_test", "campaign_mail_test"}
+            if installed
+            else {"setup_mail_test"}
+        )
         assert runtime.broker.service is ServiceRole.MAIL_DISPATCH
         assert set(runtime.receipts) == set(secrets)
     finally:

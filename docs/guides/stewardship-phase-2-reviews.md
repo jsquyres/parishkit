@@ -694,3 +694,40 @@ warnings. Ruff, formatting, migration drift and focused Markdown checks pass.
 The complete initial installation/recreation/ACK Compose demonstration,
 post-setup campaign readiness-test email and integrated phase acceptance remain
 open. This internal checkpoint does not count as a complete phase review round.
+
+### Applied campaign readiness-test mail
+
+Applied email revisions now have an explicit fictional preview/send screen that
+routes only to the configured Testing recipient. Signed previews pin current
+configuration, campaign, template, Admin and installed Workspace identity.
+Duplicate commands retain one journal/Task root; changed configuration, revoked
+Admin access, restore or cleanup gates cannot initiate new effects. This Phase 2
+consumer admits the sole Testing draft even before its campaign interval; it
+does not enable Production/restore delivery or fulfill a scheduled occurrence.
+Those later owners must explicitly extend their admission and use the retained
+exact-input test result as readiness evidence.
+
+The actual installed mail consumer commits `submitting` before invoking the
+existing finite private delivery helper. SQL fixes routing and immutable input
+bindings, fences the one allowed submission, preserves late/lost uncertainty,
+scrubs terminal message content and retains safe audit/outcome history. Scheduler
+recovery waits for both helper and Task deadlines. Neither an abandoned Task nor
+an explicit Task retry can reenter submission; a new test after uncertainty
+requires a new command and explicit acknowledgement. Failed helper drainage
+leaves the original checkpoint for recovery rather than claiming a safe outcome.
+
+Thirty-two focused tests pass with 92% coverage. They cover actual web/mail/
+scheduler permissions, exact/expired/forged input, replay, all provider outcomes,
+changed configuration/credential/Admin authority, cleanup gates, SQL recipient
+substitution with atomic Task rollback, migration reversal and populated-history
+refusal. A fatal-drain case waits for the actual lease/deadline before recovering
+uncertainty without resending. Twenty-one browser checks pass across all three
+engines, including responsive WCAG checks, passive previews, uncertain/pending
+states and browser-local timestamps. Runtime assembly/process/grant tests pass
+73 cases. The baseline passes 4,097 tests with 2,525 explicit profile skips and
+two existing warnings; Ruff, formatting and migration drift checks pass.
+The surrounding real-auth grants, setup restart/mail and content-editing
+regression passes 28 PostgreSQL cases.
+
+The complete initial installation/recreation/ACK demonstration and integrated
+Phase 2 acceptance/review gate remain open; this is an internal checkpoint.

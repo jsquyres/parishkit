@@ -14,6 +14,7 @@ from .deployment import ServiceRole
 WEB_READ_TABLES = frozenset(
     [
         "stewardship_setup_completion",
+        "stewardship_campaign_mail_test",
         "stewardship_setup_prepared",
         "stewardship_setup_attempt",
         "stewardship_setup_draft_section",
@@ -334,6 +335,7 @@ def runtime_grants(role, *, target=None):
 
         add_setup_mail_cleanup_grants(tables, columns)
         tables["stewardship_setup_mail_delivery"].add("INSERT")
+        tables["stewardship_campaign_mail_test"].add("INSERT")
         tables["stewardship_setup_slack_delivery"].add("INSERT")
         tables["stewardship_setup_config_intent"].add("INSERT")
         tables["stewardship_setup_readiness_binding"] = {"SELECT", "INSERT"}

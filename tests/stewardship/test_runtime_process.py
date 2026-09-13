@@ -308,6 +308,10 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
     )
     mail_recovery = Mock(return_value=0)
     monkeypatch.setattr(
+        "parishkit.stewardship.accounts.campaign_mail_delivery.recover_pending",
+        Mock(return_value=0),
+    )
+    monkeypatch.setattr(
         "parishkit.stewardship.accounts.setup_mail.recover_pending", mail_recovery
     )
     monkeypatch.setattr(
@@ -346,7 +350,7 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
         cleanup.assert_called_once_with(guard)
         expiry.assert_called_once_with(guard)
         mail_recovery.assert_called_once_with()
-        assert guard.check.call_count == 2
+        assert guard.check.call_count == 3
     else:
         mail_recovery.assert_not_called()
         cleanup.assert_not_called()

@@ -373,6 +373,10 @@ def serve_background(configuration, lease):
             recover_setup_mail()
             guard.check()
             recover_setup_slack()
+            from .accounts.campaign_mail_delivery import recover_pending
+
+            guard.check()
+            recover_pending()
             return (
                 *finalization,
                 *producer(guard),

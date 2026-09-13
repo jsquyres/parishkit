@@ -198,7 +198,7 @@ Scope and dependencies: [ADM-04 work package](../../plans/stewardship/admin-port
 - [ ] ADM-04.01 — Build guarded campaign creation and cloning.
 - [ ] ADM-04.02 — Build structural campaign configuration forms.
 - [ ] ADM-04.03 — Build named content and email-template editors.
-- [ ] ADM-04.04 — Build page previews and readiness-test emails.
+- [x] ADM-04.04 — Build page previews and readiness-test emails.
 - [ ] ADM-04.05 — Build atomic schedule reconciliation previews.
 - [ ] ADM-04.06 — Test campaign editing, previews, and schedule races.
 
@@ -218,8 +218,12 @@ admission. Archived campaign cloning now has exact previews, fresh child IDs and
 explicit new-date/current-fund entry; its combined run passes 44 tests with 91%
 focused coverage and eighteen selected browser cases. Read-only retained content
 previews preserve the campaign's selected configuration, Parish name and logo.
-Readiness-test mail and
-complete integration/regression/review acceptance remain open.
+Applied-template readiness-test mail now has an explicit fictional preview/send,
+exact Testing routing, compiled mail consumer and non-retrying recovery. Its
+[focused evidence](../../guides/stewardship-phase-2-reviews.md#applied-campaign-readiness-test-mail)
+records 32 cases at 92% coverage and 21 browser checks. Production/restore
+delivery admission remains with its later phase owners. Complete integrated
+Phase 2 regression/review acceptance remains open.
 See [Phase 2 evidence](../../guides/stewardship-phase-2.md#immutable-content-and-template-editing).
 
 ## ADM-05: Production transition and pre-start withdrawal

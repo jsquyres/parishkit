@@ -76,6 +76,9 @@ def _catalog(request, configuration, campaign):
                 "revisions": [
                     {
                         "subject": row["values"]["subject"],
+                        "test_url": reverse(
+                            "admin:campaign_mail", args=[campaign.pk, row["id"]]
+                        ),
                         "url": reverse(
                             "admin:content_revision",
                             args=[campaign.pk, "email", slot, row["id"]],
