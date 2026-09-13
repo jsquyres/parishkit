@@ -152,6 +152,7 @@ def _execute(execution, *, credential_path):
         candidate = read_private(credential_path)
         if file_fingerprint(candidate) != row.fingerprint:
             raise PermissionError("The installed mail credential differs from preview.")
+        execution.check()
         mail, deadline = begin_submission(row.pk, execution.claim)
         submitted = True
         settings = workspace.settings | {

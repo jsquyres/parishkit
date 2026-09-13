@@ -461,9 +461,13 @@ def test_selection_preview_does_not_hold_the_global_work_lock(
 
 
 def test_another_admin_can_select_with_own_preview_but_not_replay_original(
-    replacement, google
+    replacement, google, request
 ):
     """Credential selection survives original-Admin departure without sharing intent."""
+    from django.db.models import F
+
+    from parishkit.stewardship.accounts.models import PortalUser
+
     from ..policy_factory import address
 
     value = replacement
@@ -483,6 +487,9 @@ def test_another_admin_can_select_with_own_preview_but_not_replay_original(
     )
     google[0]["email"] = "second@example.org"
     google[0]["sub"] = "second-google-subject"
+    PortalUser.objects.filter(pk=value.row.requested_by_id).update(
+        disabled=True, version=F("version") + 1
+    )
     browser, _ = signed_in()
     page = browser.get(value.url)
     assert page.status_code == 200
@@ -497,3 +504,15 @@ def test_another_admin_can_select_with_own_preview_but_not_replay_original(
         b"Review installed credential selection"
         in browser.get("/admin/configuration/integrations/parishsoft").content
     )
+    row = ConfigurationChangeRequest.objects.get(
+        pk=response["Location"].rsplit("/", 1)[-1]
+    )
+    assert row.actor_id != value.row.requested_by_id
+    request.getfixturevalue("config_role")
+    with as_config_installer():
+        assert (
+            install_request(
+                value.service.store, request_id=row.pk, correlation_id=uuid4()
+            ).state
+            == "applied"
+        )

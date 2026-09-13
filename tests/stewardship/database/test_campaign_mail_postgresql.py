@@ -405,6 +405,48 @@ def test_campaign_send_drains_after_graceful_stop(campaign_test, monkeypatch):
     assert TaskRun.objects.get(pk=row.task_id).state == "succeeded"
 
 
+def test_campaign_stop_before_submission_never_starts_provider(
+    campaign_test, monkeypatch
+):
+    """Drain permission for an existing helper cannot admit a new provider effect."""
+    from parishkit.stewardship.accounts import campaign_mail_tasks as tasks
+
+    row, _ = queue(campaign_test)
+    service, _, _, credential = campaign_test
+    handler = campaign_mail_handler(service.store, credential_path=credential)
+    original = tasks.read_private
+    with task_login(ServiceRole.MAIL_DISPATCH, exact=True, reconnect=True):
+        execution = claim_hint(
+            row.task_id,
+            queue=WorkQueue.MAIL,
+            worker_id=uuid4(),
+            handlers={"campaign_mail_test": handler},
+        )
+        assert execution is not None
+
+        def stop_after_read(*args, **kwargs):
+            """Shutdown wins after initial admission but before the durable marker."""
+            value = original(*args, **kwargs)
+            execution.control.stop.set()
+            return value
+
+        def forbidden(*args, **kwargs):
+            """No provider unit may begin after stop-sensitive admission fails."""
+            pytest.fail("Unexpected provider call during shutdown")
+
+        monkeypatch.setattr(tasks, "read_private", stop_after_read)
+        monkeypatch.setattr(tasks, "submit_sample", forbidden)
+        with maintain_execution(execution):
+            handler.execute(execution)
+    row.refresh_from_db()
+    assert row.state == "queued" and row.submitted_at is None
+    assert TaskRun.objects.get(pk=row.task_id).state == "failed"
+    with task_login(ServiceRole.SCHEDULER, exact=True):
+        assert recover_pending() == 1
+    row.refresh_from_db()
+    assert row.state == "cancelled" and row.mail == {}
+
+
 def test_sql_rejects_recipient_substitution_and_rolls_back_task(
     campaign_test, monkeypatch
 ):
