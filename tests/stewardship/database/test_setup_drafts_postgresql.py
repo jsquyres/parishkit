@@ -5,7 +5,7 @@
 from uuid import uuid4
 
 import pytest
-from django.db import DatabaseError, transaction
+from django.db import DatabaseError, connection, transaction
 from django.db.models import F
 
 from parishkit.stewardship.accounts.configuration_models import Parish
@@ -77,6 +77,36 @@ def test_second_tab_cannot_overwrite_a_saved_step(setup_service):
     )
     assert saved_again.version == result.version + 1
     assert SetupDraftSection.objects.get().values["name"] == "Corrected Parish"
+
+
+def test_equality_evidence_is_database_owned_and_changes_with_public_values(
+    setup_service,
+):
+    """Even the web's draft writer cannot substitute a digest for different settings."""
+    with web_login():
+        request, result = saved(setup_service)
+        original = SetupDraftSection.objects.get().scope_digest
+        assert len(original) == 64
+        with (
+            pytest.raises(DatabaseError) as denied,
+            work_transaction(),
+            connection.cursor() as cursor,
+        ):
+            cursor.execute(
+                "UPDATE stewardship_setup_draft_section "
+                "SET scope_digest=%s,version=version+1",
+                ["0" * 64],
+            )
+        assert denied.value.__cause__.sqlstate == "428C9"
+        save_section(
+            request,
+            setup_service,
+            result.attempt_id,
+            step="parish",
+            values=VALUES["parish"] | {"name": "Corrected Parish"},
+            expected_version=result.version,
+        )
+        assert SetupDraftSection.objects.get().scope_digest != original
 
 
 def test_new_login_cannot_read_or_adopt_the_original_draft(setup_service):

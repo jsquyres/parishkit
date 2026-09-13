@@ -30,10 +30,11 @@ from .errors import SourceCredentialChanged, SourceScopeChanged
 from .leases import SourceLeaseUnavailable, release_source, verify_source
 from .models import SourceMutationLease
 from .outcomes import (
-    MAX_AUTOMATIC_ATTEMPTS,
     _request,
     completed_snapshot,
+    failure_action,
     fallback_state,
+    retry_delay,
 )
 from .refresh_models import SourceRefreshAttempt
 from .rejection import reject_snapshot
@@ -153,10 +154,10 @@ def settle_failed_read(execution, error, *, source_claim=None):
                     raise StorageInvariantError(
                         "Source failure must retain its source claim."
                     )
-            retry = decision.retry and (
-                decision.contention or status.attempt < MAX_AUTOMATIC_ATTEMPTS
+            action = failure_action(
+                status.attempt, retry=decision.retry, contention=decision.contention
             )
-            action = "retryable_failure" if retry else "permanent_failure"
+            retry = action == "retryable_failure"
 
             def admit_failure(candidate_action, candidate):
                 """Verify this classified claim and its rejected/no-effect state."""
@@ -183,8 +184,8 @@ def settle_failed_read(execution, error, *, source_claim=None):
                 fence=execution.claim.fence,
                 admit=admit_failure,
                 **(
-                    {"retry_seconds": min(30 * 2 ** min(status.attempt - 1, 5), 600)}
-                    if retry
+                    {"retry_seconds": retry_delay(status.attempt)}
+                    if action == "retryable_failure"
                     else {}
                 ),
             )

@@ -186,17 +186,25 @@ def test_acknowledgement_cli_success_requires_lifecycle_lease(
     )
     calls = []
 
-    def acknowledge(config, identifier, *, lease=None):
+    def acknowledge(kind, config, identifier, *, lease=None):
         """Migration remains excluded while this consumer confirmation is active."""
         with (
             pytest.raises(ConfigError),
             StartupLease(RuntimeLayout(config).interlock, offline=True),
         ):
             pass
-        calls.append(identifier)
+        calls.append((kind, identifier))
 
-    monkeypatch.setattr(credential_runtime, "acknowledge_web", acknowledge)
-    monkeypatch.setattr(credential_runtime, "acknowledge_background", acknowledge)
+    monkeypatch.setattr(
+        credential_runtime,
+        "acknowledge_web",
+        lambda *args, **kwargs: acknowledge("web", *args, **kwargs),
+    )
+    monkeypatch.setattr(
+        credential_runtime,
+        "acknowledge_background",
+        lambda *args, **kwargs: acknowledge("background", *args, **kwargs),
+    )
     identifier = uuid4()
     assert (
         main(
@@ -210,7 +218,7 @@ def test_acknowledgement_cli_success_requires_lifecycle_lease(
         )
         == 0
     )
-    assert calls == [identifier]
+    assert calls == [("web" if role is ServiceRole.WEB else "background", identifier)]
     assert "acknowledgement recorded" in capsys.readouterr().out
 
 

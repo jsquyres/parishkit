@@ -84,6 +84,8 @@ def _scope(service):
 
 def _catalog(configuration, source, previous):
     """Expose Ministry/fund names only from the configured tenant's current corpus."""
+    from .ministry_activity import active_ministries
+
     integrations = configuration.active_configuration.canonical_document[
         "sections"
     ].get("integrations", [])
@@ -101,13 +103,6 @@ def _catalog(configuration, source, previous):
         or str(source.organization_id) != organization
     ):
         return [], []
-    overrides = {
-        row["values"]["ministry_duid"]: row["values"]["active"]
-        for row in configuration.active_configuration.canonical_document[
-            "sections"
-        ].get("ministries", [])
-        if row["values"]["organization_id"] == source.organization_id
-    }
     selected = set(previous.get("ministry_duids", []))
     financial = previous.get("financial") or {}
     retained_funds = set(financial.get("fund_duids", [])) | set(
@@ -116,15 +111,27 @@ def _catalog(configuration, source, previous):
     catalogs = []
     for model in (SnapshotMinistry, SnapshotFund):
         choices = []
-        for row in model.objects.filter(snapshot_id=source.snapshot_id).select_related(
-            "payload"
-        ):
+        rows = list(
+            model.objects.filter(snapshot_id=source.snapshot_id).select_related(
+                "payload"
+            )
+        )
+        ministry_ids = (
+            active_ministries(
+                configuration.active_configuration.canonical_document,
+                organization_id=source.organization_id,
+                catalog_duids=frozenset(int(row.source_key) for row in rows),
+            )
+            if model is SnapshotMinistry
+            else frozenset()
+        )
+        for row in rows:
             duid, payload = int(row.source_key), row.payload.payload
             active = payload.get("active", True) is not False
             if model is SnapshotMinistry:
                 # Upstream Ministry activity is not reliable; the local override
                 # alone owns activity for a Ministry present in this snapshot.
-                active = overrides.get(duid, True)
+                active = duid in ministry_ids
             retained = selected if model is SnapshotMinistry else retained_funds
             if active or duid in retained:
                 name = payload["name"]

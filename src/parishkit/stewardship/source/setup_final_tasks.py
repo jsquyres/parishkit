@@ -12,7 +12,7 @@ from parishkit.stewardship.jobs.models import TaskRun
 from parishkit.stewardship.jobs.storage import TaskStatus, enqueue
 
 from .models import SourceMutationLease
-from .outcomes import MAX_AUTOMATIC_ATTEMPTS
+from .outcomes import MAX_AUTOMATIC_ATTEMPTS, retry_delay
 from .setup_admission import source_available
 from .setup_final_scope import require_prepared_setup
 
@@ -87,9 +87,7 @@ def recovery_plan(status, *, store):
         return RecoveryPlan("recovery_cancel")
     if status.attempt >= MAX_AUTOMATIC_ATTEMPTS:
         return RecoveryPlan("recovery_fail")
-    return RecoveryPlan(
-        "recovery_retry", retry_seconds=min(30 * 2 ** max(status.attempt - 1, 0), 600)
-    )
+    return RecoveryPlan("recovery_retry", retry_seconds=retry_delay(status.attempt))
 
 
 def admit_finalization_task(action, status, *, store):

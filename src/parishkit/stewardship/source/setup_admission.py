@@ -17,7 +17,7 @@ from parishkit.stewardship.storage import StorageInvariantError
 
 from .errors import SourceScopeChanged
 from .models import SourceMutationLease
-from .outcomes import MAX_AUTOMATIC_ATTEMPTS
+from .outcomes import MAX_AUTOMATIC_ATTEMPTS, retry_delay
 
 TASK_TYPE = "setup_source_load"
 
@@ -120,9 +120,7 @@ def recovery_plan(status):
         return RecoveryPlan("recovery_cancel")
     if status.attempt >= MAX_AUTOMATIC_ATTEMPTS:
         return RecoveryPlan("recovery_fail")
-    return RecoveryPlan(
-        "recovery_retry", retry_seconds=min(30 * 2 ** max(status.attempt - 1, 0), 600)
-    )
+    return RecoveryPlan("recovery_retry", retry_seconds=retry_delay(status.attempt))
 
 
 def admit_setup_task(action, status):

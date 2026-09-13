@@ -78,8 +78,9 @@ def admit_installer_database(target):
     tables, metadata = installer_permissions(target)
     admit_grants(tables)
     with connection.cursor() as cursor:
-        # Metadata attribution is deliberately column-scoped. No full YAML,
-        # testing recipient, configuration content or provider settings are needed.
+        # Attribution is column-scoped: no full YAML or public draft payloads.
+        # Target-specific candidate context is separately scoped by its RLS;
+        # setup's public draft checks need only generated equality evidence.
         cursor.execute(
             "SELECT c.relname,a.attname FROM pg_class c "
             "JOIN pg_namespace n ON n.oid=c.relnamespace "

@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import pytest
 from django.db import DatabaseError, connection, transaction
+from django.db.models import F
 from django.test import Client
 
 from parishkit.stewardship.accounts.setup_campaign import campaign_catalog
@@ -13,6 +14,7 @@ from parishkit.stewardship.accounts.setup_drafts import save_section
 from parishkit.stewardship.accounts.setup_models import SetupAttempt, SetupDraftSection
 from parishkit.stewardship.accounts.setup_staging import cancel_setup
 from parishkit.stewardship.campaigns.models import Campaign
+from parishkit.stewardship.campaigns.work_locks import work_transaction
 from parishkit.stewardship.source.snapshot_models import SourceCurrent
 
 from ..campaign_factory import campaign, financial
@@ -107,6 +109,50 @@ def test_other_login_cannot_read_staged_catalog(setup_service, monkeypatch):
         campaign_catalog(login(setup_service), setup_service, attempt.pk)
 
 
+@pytest.mark.parametrize("direct_sql", [False, True])
+def test_source_bound_timezone_cannot_strand_first_campaign(
+    setup_service, monkeypatch, direct_sql
+):
+    """Service and SQL preserve the loaded timezone while other profile edits work."""
+    request, attempt = completed(setup_service, monkeypatch)
+    original = SetupDraftSection.objects.get(attempt=attempt, step="parish").values
+    changed = original | {"timezone": "Pacific/Honolulu"}
+    with web_login():
+        if direct_sql:
+            with pytest.raises(DatabaseError) as failure, work_transaction():
+                SetupDraftSection.objects.filter(attempt=attempt, step="parish").update(
+                    values=changed, version=F("version") + 1
+                )
+            assert failure.value.__cause__.sqlstate == "23514"
+        else:
+            with pytest.raises(ValueError, match="timezone"):
+                save_section(
+                    request,
+                    setup_service,
+                    attempt.pk,
+                    step="parish",
+                    values=changed,
+                    expected_version=attempt.version,
+                )
+        saved = save_section(
+            request,
+            setup_service,
+            attempt.pk,
+            step="parish",
+            values=original | {"name": "Corrected Parish"},
+            expected_version=attempt.version,
+        )
+        assert saved.version == attempt.version + 1
+        assert (
+            campaign_catalog(request, setup_service, attempt.pk).timezone
+            == original["timezone"]
+        )
+        cancel_setup(request, setup_service, attempt.pk)
+        assert (
+            SetupDraftSection.objects.get(attempt=attempt, step="parish").values == {}
+        )
+
+
 def test_staged_financial_funds_and_replaced_key_require_current_evidence(
     setup_service, monkeypatch
 ):
@@ -178,3 +224,31 @@ def test_first_campaign_http_is_private_versioned_and_csrf_protected(
         assert post(browser, "/admin/setup/campaign", fields).status_code == 409
         assert browser.get("/admin/setup/campaign").status_code == 200
     assert not Campaign.objects.exists() and not setup_http.configured()
+
+
+def test_loaded_parish_form_explains_fixed_timezone_and_preserves_other_edits(
+    setup_http, monkeypatch
+):
+    """Disabled browser fields retain their trusted initial value even if forged."""
+    request, attempt = completed(setup_http, monkeypatch)
+    browser = Client(enforce_csrf_checks=True)
+    browser.cookies["pk_admin"] = request.session.session_key
+    original = SetupDraftSection.objects.get(attempt=attempt, step="parish").values
+    with web_login():
+        page = browser.get("/admin/setup/parish")
+        assert page.status_code == 200, page.content
+        assert page.context["form"].fields["timezone"].disabled
+        assert b"Cancel and start a new setup" in page.content
+        for supplied in ({}, {"timezone": "Pacific/Honolulu"}):
+            fields = {
+                key: value for key, value in original.items() if key != "timezone"
+            }
+            fields.update(
+                supplied, name="Corrected Parish", version=str(attempt.version)
+            )
+            response = post(browser, "/admin/setup/parish", fields)
+            assert response.status_code == 302, response.content
+            attempt.refresh_from_db()
+            assert SetupDraftSection.objects.get(
+                attempt=attempt, step="parish"
+            ).values == (original | {"name": "Corrected Parish"})

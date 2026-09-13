@@ -45,16 +45,17 @@ def test_new_login_and_cancelled_attempt_cannot_fetch_staged_image(request):
     request.getfixturevalue("setup_http")
     request.getfixturevalue("google")
     request.getfixturevalue("media")
-    browser = started()
-    post(browser, "/admin/setup/branding", {"version": "1", "logo": upload()})
-    asset = BrandingAsset.objects.first()
-    url = f"/admin/setup/branding/assets/{asset.pk}.png"
-    another, _ = signed_in()
-    assert another.get(url).status_code == 403
-    attempt = SetupAttempt.objects.get()
-    post(browser, "/admin/setup", {"action": "cancel", "attempt": str(attempt.pk)})
-    assert browser.get(url).status_code == 403
-    assert SetupDraftSection.objects.get().values == {}
+    with web_login():
+        browser = started()
+        post(browser, "/admin/setup/branding", {"version": "1", "logo": upload()})
+        asset = BrandingAsset.objects.first()
+        url = f"/admin/setup/branding/assets/{asset.pk}.png"
+        another, _ = signed_in()
+        assert another.get(url).status_code == 403
+        attempt = SetupAttempt.objects.get()
+        post(browser, "/admin/setup", {"action": "cancel", "attempt": str(attempt.pk)})
+        assert browser.get(url).status_code == 403
+        assert SetupDraftSection.objects.get().values == {}
 
 
 def test_setup_logo_rejects_invalid_stale_and_extra_inputs_before_selection(request):
@@ -62,16 +63,20 @@ def test_setup_logo_rejects_invalid_stale_and_extra_inputs_before_selection(requ
     request.getfixturevalue("setup_http")
     request.getfixturevalue("google")
     request.getfixturevalue("media")
-    browser = started()
-    assert browser.get("/admin/setup/branding").status_code == 200
-    for values, status in (
-        ({"version": "2", "logo": upload()}, 409),
-        ({"version": "1", "logo": upload(), "path": "/private"}, 400),
-        (
-            {"version": "1", "logo": SimpleUploadedFile("invalid.png", b"not-a-png")},
-            400,
-        ),
-    ):
-        assert post(browser, "/admin/setup/branding", values).status_code == status
-    assert not BrandingBundle.objects.exists()
-    assert not SetupDraftSection.objects.exists()
+    with web_login():
+        browser = started()
+        assert browser.get("/admin/setup/branding").status_code == 200
+        for values, status in (
+            ({"version": "2", "logo": upload()}, 409),
+            ({"version": "1", "logo": upload(), "path": "/private"}, 400),
+            (
+                {
+                    "version": "1",
+                    "logo": SimpleUploadedFile("invalid.png", b"not-a-png"),
+                },
+                400,
+            ),
+        ):
+            assert post(browser, "/admin/setup/branding", values).status_code == status
+        assert not BrandingBundle.objects.exists()
+        assert not SetupDraftSection.objects.exists()

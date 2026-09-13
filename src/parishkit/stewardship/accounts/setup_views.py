@@ -128,11 +128,20 @@ def setup_step(request, step):
         draft = view_draft(request, service)
         if draft is None or draft.status.state != SetupState.COLLECTING:
             return _checked(request, service, HttpResponseRedirect("/admin/setup"))
+        form = form_type(
+            request.POST if request.method == "POST" else None,
+            initial=initial_values(step, draft.sections.get(step, {})),
+        )
+        if step == "parish" and draft.source_task_id is not None:
+            form.fields["timezone"].disabled = True
+            form.fields["timezone"].help_text = (
+                "The source load fixes this setup's timezone. "
+                "Cancel and start a new setup to change it."
+            )
         if request.method == "POST":
             version = expected_version(request.POST.get("version"))
             if version != draft.status.version:
                 raise StaleRecordError("Reload this setup form.")
-            form = form_type(request.POST)
             if form.is_valid():
                 save_section(
                     request,
@@ -145,7 +154,6 @@ def setup_step(request, step):
                 return _checked(request, service, HttpResponseRedirect("/admin/setup"))
             status = 400
         else:
-            form = form_type(initial=initial_values(step, draft.sections.get(step, {})))
             status = 200
         response = render(
             request,

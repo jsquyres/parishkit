@@ -159,10 +159,53 @@ def test_cancel_scrubs_sample_without_inventing_nonsubmission(
     row = SetupMailDelivery.objects.get()
     assert row.mail == {} and row.scrubbed_at is not None
     assert row.state == ("submitting" if submitted else "cancelled")
+    scrub = AuditEvent.objects.get(event_type="setup_mail_scrubbed")
+    assert AuditContext.objects.get(event=scrub).context["outcome"] == (
+        "changed" if submitted else "cancelled"
+    )
     with pytest.raises(DatabaseError), work_transaction():
         SetupMailDelivery.objects.update(
             mail={"subject": "new"}, version=F("version") + 1
         )
+
+
+def test_scheduler_cannot_read_draft_or_rendered_mail_payloads(
+    setup_service, monkeypatch, tmp_path
+):
+    """Real scrub-only grants still permit stale-send recovery after a draft edit."""
+    from parishkit.stewardship.accounts.setup_mail_tasks import setup_mail_handler
+    from parishkit.stewardship.jobs.scanning import collect_hints
+
+    request, attempt, _, _, delivery = prepared(setup_service, monkeypatch, tmp_path)
+    with task_login(ServiceRole.SCHEDULER, exact=True):
+        for statement in (
+            "SELECT values FROM stewardship_setup_draft_section",
+            "SELECT mail FROM stewardship_setup_mail_delivery",
+        ):
+            with (
+                pytest.raises(DatabaseError) as error,
+                transaction.atomic(),
+                connection.cursor() as cursor,
+            ):
+                cursor.execute(statement)
+            assert error.value.__cause__.sqlstate == "42501"
+        assert recover_pending() == 0
+        hints, _ = collect_hints(
+            handlers={"setup_mail_test": setup_mail_handler(scheduler=True)}
+        )
+        assert [hint.run_id for hint in hints] == [delivery.task_id]
+    with web_login():
+        save_section(
+            request,
+            setup_service,
+            attempt.attempt_id,
+            step="testing",
+            values={"testing_recipient": "different@example.org"},
+            expected_version=attempt.version,
+        )
+    with task_login(ServiceRole.SCHEDULER, exact=True):
+        assert recover_pending() == 1
+    assert SetupMailDelivery.objects.get().state == "cancelled"
 
 
 def test_changed_recipient_invalidates_queued_submission(

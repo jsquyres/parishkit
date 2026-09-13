@@ -276,6 +276,36 @@ def test_wrong_installed_credential_is_unsent_then_scheduler_scrubs(
     assert row.state == "cancelled" and row.mail == {}
 
 
+@pytest.mark.parametrize("removed", [False, True])
+def test_installed_credential_change_during_helper_is_uncertain(
+    campaign_test, monkeypatch, removed
+):
+    """An admitted helper must stop on its next pulse, never accept or retry."""
+    from parishkit.stewardship.accounts import campaign_mail_tasks as tasks
+
+    queue(campaign_test)
+    pulses = []
+
+    def submit(value, settings, mail, *, seconds, check):
+        """Replace only the external helper; real journal and pulse checks remain."""
+        check()
+        pulses.append("admitted")
+        if removed:
+            campaign_test[3].unlink()
+        else:
+            write_private(campaign_test[3], b"rotated-synthetic-workspace")
+        check()
+        pytest.fail("Credential change failed to stop the helper pulse")
+
+    monkeypatch.setattr(tasks, "submit_sample", submit)
+    row = deliver(campaign_test)
+    assert pulses == ["admitted"]
+    assert row.state == "delivery_unknown" and row.mail == {}
+    assert TaskRun.objects.get(pk=row.task_id).state == "failed"
+    with task_login(ServiceRole.SCHEDULER, exact=True):
+        assert recover_pending() == 0
+
+
 def test_web_cannot_forge_provider_result_or_retarget_queued_mail(campaign_test):
     """SQL column and transition owners defend against direct ORM bypasses."""
     row, _ = queue(campaign_test)

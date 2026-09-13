@@ -197,10 +197,13 @@ def test_sql_rejects_identity_rebinding_before_and_after_reply(
             assert relay_pending(private)
     with (
         target_login() if as_target else nullcontext(),
-        pytest.raises(DatabaseError),
+        pytest.raises(DatabaseError) as denied,
         work_transaction(),
     ):
         SetupSourceExchange.objects.update(**mutation, version=F("version") + 1)
+    # Both identities can UPDATE the journal, but its immutable trigger must
+    # reject rebinding before a foreign-key violation can mask missing guards.
+    assert denied.value.__cause__.sqlstate == "23514"
 
 
 def test_forged_recipient_scope_and_unrelated_target_have_no_authority(setup_service):

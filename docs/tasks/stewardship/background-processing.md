@@ -11,13 +11,13 @@ Follow the [execution and completion rules](README.md#execution-and-completion).
 
 Scope and dependencies: [BG-01 work package](../../plans/stewardship/background-processing.md#bg-01-durable-task-scheduler-lease-and-recovery-substrate).
 
-- [ ] BG-01.01 — Implement task/occurrence transitions, claims, and retry chains.
-- [ ] BG-01.02 — Configure singleton scheduling, lost-hint recovery, and isolated queues.
-- [ ] BG-01.03 — Implement transactional campaign-work admission.
-- [ ] BG-01.04 — Expose authorized task progress and status.
-- [ ] BG-01.05 — Test all state transitions, admission guards, retries, crashes, and leases.
+- [x] BG-01.01 — Implement task/occurrence transitions, claims, and retry chains.
+- [x] BG-01.02 — Configure singleton scheduling, lost-hint recovery, and isolated queues.
+- [x] BG-01.03 — Implement transactional campaign-work admission.
+- [x] BG-01.04 — Expose authorized task progress and status.
+- [x] BG-01.05 — Test all state transitions, admission guards, retries, crashes, and leases.
 
-Evidence: Implemented within the open Phase 2 batch: durable Task transitions,
+Evidence: Implemented and accepted in Phase 2 at `ea2d5cb`: durable Task transitions,
 UUID-only hint dispatch, singleton scheduling, finite lease renewal, queue/type
 isolation, lost-hint recovery, source request bindings, compiled owning admission,
 and Admin-only passive task/count/history pages. Actual worker, scheduler and
@@ -25,8 +25,9 @@ mail service startup uses isolated mounts, grants and Valkey credentials.
 Tests cover state transitions, races, failed/drained work, restricted SQL roles
 and real disposable-Valkey transport/controller behavior. The
 [acceptance index](../../guides/stewardship-phase-2-acceptance.md) controls current
-integrated validation and the required three full-phase review rounds; those
-gates remain open. Earlier incremental counts and implementation history are
+integrated validation and the required three full-phase review/fix rounds; all
+pass. PR CI and human merge approval remain required. Earlier incremental counts
+and implementation history are
 retained only in the [checkpoint guide](../../guides/stewardship-phase-2.md).
 
 ## BG-02: Campaign boundary occurrences
@@ -70,14 +71,14 @@ Evidence: Not started.
 
 Scope and dependencies: [BG-05 work package](../../plans/stewardship/background-processing.md#bg-05-parishsoft-delta-and-full-refresh).
 
-- [ ] BG-05.01 — Implement supported change-feed and watermark adapters.
-- [ ] BG-05.02 — Implement delta indications and affected-Family reloads.
-- [ ] BG-05.03 — Implement scheduled and manual complete source refreshes.
-- [ ] BG-05.04 — Fence source mutations and validate promotion inputs.
-- [ ] BG-05.05 — Coalesce manual refresh and exclude concurrent publication.
-- [ ] BG-05.06 — Test invalid corpora, retries, takeover, and reconciliation.
+- [x] BG-05.01 — Implement supported change-feed and watermark adapters.
+- [x] BG-05.02 — Implement delta indications and affected-Family reloads.
+- [x] BG-05.03 — Implement scheduled and manual complete source refreshes.
+- [x] BG-05.04 — Fence source mutations and validate promotion inputs.
+- [x] BG-05.05 — Coalesce manual refresh and exclude concurrent publication.
+- [x] BG-05.06 — Test invalid corpora, retries, takeover, and reconciliation.
 
-Evidence: Implemented within the open Phase 2 batch: coherent bounded full and
+Evidence: Implemented and accepted in Phase 2 at `ea2d5cb`: coherent bounded full and
 Family-delta reads, exact source/Task/credential bindings, complete-corpus
 validation, atomic promotion and Family/chair reconciliation, immutable
 full-fallback dependencies, scheduled/manual request coalescing, and drained
@@ -89,10 +90,10 @@ PostgreSQL ownership/race and operational Compose tests cover these paths.
 The Admin-editable nightly time now has a versioned schema and integration
 editor, with passing pure validation, Admin-to-scheduler, projection, credential
 replay and offline-recovery regressions. Full integrated acceptance and the
-required three complete-phase review rounds remain open. See the
+required three complete-phase review/fix rounds pass. See the
 [acceptance index](../../guides/stewardship-phase-2-acceptance.md) for current
 validation and the [checkpoint guide](../../guides/stewardship-phase-2.md) for
-chronological history. No BG-05 checklist item is closed by focused tests alone.
+chronological history. PR CI and human merge approval remain required.
 
 ## BG-06: Family invitations and reminders
 

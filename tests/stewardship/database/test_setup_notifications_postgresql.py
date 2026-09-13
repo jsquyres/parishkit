@@ -302,16 +302,38 @@ def test_unrelated_service_cannot_submit_notification(
     ready(setup_service, monkeypatch, tmp_path)
     with (
         task_login(ServiceRole.WORKER, exact=True),
-        pytest.raises(DatabaseError),
+        pytest.raises(DatabaseError) as denied,
         transaction.atomic(),
     ):
         SetupSlackDelivery.objects.update(state="submitting", version=F("version") + 1)
+    assert denied.value.__cause__.sqlstate == "42501"
     with (
         target_login("google_workspace"),
-        pytest.raises(DatabaseError),
+        pytest.raises(DatabaseError) as denied,
         transaction.atomic(),
     ):
         SetupSlackDelivery.objects.update(state="submitting", version=F("version") + 1)
+    assert denied.value.__cause__.sqlstate == "42501"
+
+
+def test_slack_target_has_equality_evidence_not_unrelated_draft_values(
+    setup_service, monkeypatch, tmp_path
+):
+    """Target grants admit its live notification without exposing public drafts."""
+    ready(setup_service, monkeypatch, tmp_path)
+    with target_login("slack"):
+        with (
+            pytest.raises(DatabaseError) as denied,
+            transaction.atomic(),
+            connection.cursor() as cursor,
+        ):
+            cursor.execute("SELECT values FROM stewardship_setup_draft_section")
+        assert denied.value.__cause__.sqlstate == "42501"
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT step FROM stewardship_setup_draft_section")
+            assert cursor.fetchall() == [("slack",)]
+        with work_transaction():
+            assert notifications.live(SetupSlackDelivery.objects.get())
 
 
 def test_wrong_private_key_records_unsent_without_a_provider_call(

@@ -22,7 +22,36 @@ from parishkit.stewardship.source.errors import (
 )
 from parishkit.stewardship.source.failures import classify_read_failure
 from parishkit.stewardship.source.leases import SourceFenceLost, SourceLeaseUnavailable
+from parishkit.stewardship.source.outcomes import failure_action, retry_delay
 from parishkit.stewardship.storage import StorageInvariantError
+
+
+@pytest.mark.parametrize(
+    "attempt,delay", [(1, 30), (2, 60), (5, 480), (6, 600), (1000000, 600)]
+)
+def test_source_retry_delay_is_shared_and_bounded(attempt, delay):
+    """Even prolonged contention cannot produce an unbounded exponent or delay."""
+    assert retry_delay(attempt) == delay
+    assert failure_action(attempt, retry=False) == "permanent_failure"
+    assert failure_action(attempt, retry=True) == (
+        "retryable_failure" if attempt < 5 else "permanent_failure"
+    )
+    assert failure_action(attempt, retry=True, contention=True) == "retryable_failure"
+
+
+@pytest.mark.parametrize("attempt", [None, True, 0, -1, 1.5])
+def test_source_retry_delay_rejects_invalid_attempts(attempt):
+    """Retry owners supply actual positive integer Task attempt numbers."""
+    with pytest.raises(ValueError):
+        retry_delay(attempt)
+
+
+def test_source_retry_classification_rejects_truthy_non_booleans():
+    """A loose caller flag cannot silently authorize retry after permanent failure."""
+    with pytest.raises(TypeError):
+        failure_action(1, retry="yes")
+    with pytest.raises(TypeError):
+        failure_action(1, retry=True, contention=1)
 
 
 @pytest.mark.parametrize(

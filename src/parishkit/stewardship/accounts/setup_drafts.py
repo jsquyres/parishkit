@@ -103,6 +103,13 @@ def save_sections(request, service, attempt_id, *, updates, expected_version):
             or _expiry(attempt, database_now()) is not None
         ):
             raise PermissionError("Setup cannot accept settings now.")
+        if "parish" in updates and attempt.source_task_id is not None:
+            original = SetupDraftSection.objects.get(attempt=attempt, step="parish")
+            if updates["parish"]["timezone"] != original.values["timezone"]:
+                raise ValueError(
+                    "The source load fixes this setup's timezone. "
+                    "Cancel and start a new setup to change it."
+                )
         if "branding" in updates:
             from .branding_staging import staged_bundle
 

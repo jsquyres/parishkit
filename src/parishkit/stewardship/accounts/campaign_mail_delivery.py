@@ -42,7 +42,7 @@ def begin_submission(identifier, claim):
         row = CampaignMailTest.objects.select_for_update().get(pk=identifier)
         if (
             row.state != "queued"
-            or task.root_id != row.task_id
+            or task.pk != row.task_id
             or task.domain_request_id != row.pk
             or not live(row)
         ):

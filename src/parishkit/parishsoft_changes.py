@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 
 from .parishsoft import ParishSoftAPIError
+from .parishsoft_pagination import IncompleteSourceCollection
 
 
 class ChangeFeedIncomplete(RuntimeError):
@@ -85,8 +86,10 @@ def load_family_changes(client, *, organization_id, start_date, end_date, maximu
     ):
         raise ValueError("Change-feed input requires a bounded date window and limit.")
     actual = client.validate_organization()
-    if _identifier(actual) != organization_id:
-        raise ChangeFeedIncomplete("The change feed belongs to another organization.")
+    if type(actual) is not int or actual != organization_id:
+        raise IncompleteSourceCollection(
+            "The change feed does not have the expected tenant."
+        )
     try:
         rows = client.get_uncached(
             "families/change/list",

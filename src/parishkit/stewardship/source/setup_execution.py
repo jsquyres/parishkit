@@ -13,11 +13,12 @@ from parishkit.stewardship.jobs.dispatch import Handler
 from parishkit.stewardship.jobs.ownership import lock_task_claim
 from parishkit.stewardship.jobs.queues import WorkQueue
 from parishkit.stewardship.jobs.storage import _status, change_run
+from parishkit.stewardship.observability import correlation
 from parishkit.stewardship.storage import StorageInvariantError
 
 from .failures import classify_read_failure
 from .leases import acquire_source, release_source, verify_source
-from .outcomes import MAX_AUTOMATIC_ATTEMPTS
+from .outcomes import failure_action, retry_delay
 from .rejection import reject_snapshot
 from .setup_admission import (
     admit_setup_task,
@@ -79,7 +80,7 @@ def _failed(execution, error, claim):
     decision = classify_read_failure(error, has_source_claim=claim is not None)
     if decision is None:
         raise error
-    with execution.control.lock:
+    with execution.control.lock, correlation(execution.correlation_id):
         execution.control.check(allow_drain=True)
         with work_transaction():
             status = _status(lock_task_claim(execution.claim))
@@ -89,11 +90,8 @@ def _failed(execution, error, claim):
             except PermissionError:
                 action = "safe_cancel"
             else:
-                action = (
-                    "retryable_failure"
-                    if decision.retry
-                    and (decision.contention or status.attempt < MAX_AUTOMATIC_ATTEMPTS)
-                    else "permanent_failure"
+                action = failure_action(
+                    status.attempt, retry=decision.retry, contention=decision.contention
                 )
             if claim is not None:
                 verify_source(claim)
@@ -121,7 +119,7 @@ def _failed(execution, error, claim):
                 fence=execution.claim.fence,
                 admit=admit_setup_task,
                 **(
-                    {"retry_seconds": min(30 * 2 ** min(status.attempt - 1, 5), 600)}
+                    {"retry_seconds": retry_delay(status.attempt)}
                     if action == "retryable_failure"
                     else {}
                 ),

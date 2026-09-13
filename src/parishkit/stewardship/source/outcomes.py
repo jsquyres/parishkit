@@ -19,7 +19,7 @@ from parishkit.stewardship.jobs.ownership import database_now
 from parishkit.stewardship.jobs.storage import TaskStatus
 from parishkit.stewardship.storage import StaleRecordError, StorageInvariantError
 
-from .canonical import canonical_payload
+from .canonical import InvalidSourcePayload, canonical_payload
 from .models import SourceCurrent, SourceMutationLease
 from .refresh_models import (
     SourceRefreshAttempt,
@@ -29,6 +29,25 @@ from .refresh_models import (
 from .requests import TASK_TYPE, _organization, _window, admit_refresh_request
 
 MAX_AUTOMATIC_ATTEMPTS = 5
+
+
+def retry_delay(attempt):
+    """One capped exponential delay for live failures and abandoned read recovery."""
+    if type(attempt) is not int or attempt < 1:
+        raise ValueError("A positive source attempt is required.")
+    return min(30 * 2 ** min(attempt - 1, 5), 600)
+
+
+def failure_action(attempt, *, retry, contention=False):
+    """Contention does not consume the bounded provider-failure retry allowance."""
+    retry_delay(attempt)
+    if type(retry) is not bool or type(contention) is not bool:
+        raise TypeError("Source failure classification requires boolean flags.")
+    return (
+        "retryable_failure"
+        if retry and (contention or attempt < MAX_AUTOMATIC_ATTEMPTS)
+        else "permanent_failure"
+    )
 
 
 def scope_fingerprint(organization_id, window_digest):
@@ -264,13 +283,11 @@ def _recovery_plan(status, evidence):
         return None
     if status.attempt >= MAX_AUTOMATIC_ATTEMPTS:
         return RecoveryPlan("recovery_fail")
-    return RecoveryPlan(
-        "recovery_retry", min(30 * 2 ** max(status.attempt - 1, 0), 600)
-    )
+    return RecoveryPlan("recovery_retry", retry_delay(status.attempt))
 
 
 def superseding_digest(status):
-    """Identify a real new tenant/window, without treating temporary holds as changes.
+    """Identify coherent replacement scope, not temporary or inconsistent holds.
 
     Missing or inconsistent applied state cannot authorize cancellation. This
     metadata check does not admit new source work through a restore/purge gate.
@@ -288,7 +305,7 @@ def _superseding_digest(request):
         scope = _scope(runtime.current_campaign_id)
         organization = _organization(scope)
         window = _window(scope)
-    except PermissionError:
+    except (PermissionError, InvalidSourcePayload):
         return None
     if (
         organization != request.organization_id

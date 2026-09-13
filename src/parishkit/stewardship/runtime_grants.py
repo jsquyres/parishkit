@@ -333,7 +333,7 @@ def runtime_grants(role, *, target=None):
         add_web_setup_catalog_grants(tables, columns)
         from .accounts.setup_mail_grants import add_setup_mail_cleanup_grants
 
-        add_setup_mail_cleanup_grants(tables, columns)
+        add_setup_mail_cleanup_grants(tables, columns, read_payload=True)
         tables["stewardship_setup_mail_delivery"].add("INSERT")
         tables["stewardship_campaign_mail_test"].add("INSERT")
         tables["stewardship_setup_slack_delivery"].add("INSERT")

@@ -15,30 +15,24 @@ refreshed `origin/main` tip.
 
 ## Active checkpoint
 
-The active package is ADM-02: completing initial setup end to end. Source
-refresh, staged initial loading, ephemeral credential exchange, public setup
-forms and the preparation editors are implemented with focused test evidence.
-Expired source cleanup and first-campaign structural/content/share/schedule
-staging and the exact public setup preview are implemented. The readiness-mail
-journal, finite private delivery helper, persisted ephemeral Workspace relay,
-maintained mail dispatch and passive original-Admin delivery UI now have focused
-tests. Optional Slack test delivery and its passive original-Admin UI are also
-implemented and tested. Initial target installation, rollback retention and
-public YAML preparation now have focused PostgreSQL evidence. Initial
-background services and optional-provider mount variants pass live Compose
-startup. Selected financial-window loading, atomic setup finalization, compiled
-worker scheduling and successful catalog disposal are implemented. The explicit
-final confirmation and original-login progress screens are connected, including
-current-policy handoff after completion and selected-YAML restart recognition.
-Post-setup campaign readiness-test mail now has an exact applied-template
-preview, explicit send, restricted installed-mail consumer and non-retrying
-outcome recovery. All six operational Compose cases now pass, including both
-complete install/recreation/ACK profiles and zero-live-fulfillment proof. The
-full database coverage rerun is in progress. The
-[integrated acceptance index](stewardship-phase-2-acceptance.md)
-maps each required demonstration to its executable proof. No Phase 2
-PR exists yet, and the three complete phase review/fix rounds are not complete.
-The chronological checkpoints below record partial progress, not phase exit.
+All Phase 2 implementation scope is connected: source storage and full/delta
+refresh, restricted background owners, complete original-login setup, selected
+financial loading, atomic configured-marker completion, journaled pre-activation
+cancellation, and Admin campaign/content/integration/Ministry preparation.
+Three independent full-phase reviews have completed with both vendors; the
+third returned no High/Critical findings. All retained corrections and focused
+regressions are complete through `ea2d5cb`, pushed to the topic branch.
+
+Final integrated acceptance passes: 4,297 baseline tests, all 2,114 PostgreSQL
+cases, all 447 browser cases, 59 final-image container/isolation/provisioning
+cases and all eight operational Compose scenarios. Scoped coverage is 94.16%
+lines and 85.04% branches. The [acceptance index](stewardship-phase-2-acceptance.md) maps each
+required demonstration and distinguishes final results from diagnostics. The
+[third review record](stewardship-phase-2-full-review-3.md) preserves corrections,
+pushbacks and the scheduler mail-admission regression discovered during final
+image validation. PR #22 is open and final-head CI is the active work; human merge
+approval remains required before Phase 3A. The chronological checkpoints below
+record earlier partial progress, not the current scope or phase-exit approval.
 
 ## Historical implementation checkpoints
 
@@ -1057,7 +1051,11 @@ attempt's version to reject conflicting tabs. SQL independently checks the
 original live Admin, bootstrap base, declared field vocabulary and lifecycle.
 Cancellation or scheduler expiry clears all public values in the same database
 transaction; retained tombstones cannot be repopulated or deleted. The scheduler
-has scrub-only columns and cannot read the staged settings. Normalized setup
+has scrub-only payload columns and cannot read public draft JSON or rendered
+mail. Delivery eligibility compares database-generated draft digests with the
+explicit candidate metadata needed by its invoker-only guards. The isolated
+Slack target can read equality evidence only for its own Slack step, not other
+draft rows. Normalized setup
 logos use original-login-only, non-cacheable image URLs and the existing durable
 bundle/cleanup owner. They are never public merely because they are ready.
 

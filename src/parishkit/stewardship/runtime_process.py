@@ -308,6 +308,23 @@ def serve_installer_loop(run_once, lease):
     return 0
 
 
+def independent_producer(guard, operation, *args):
+    """One failed recovery owner cannot starve unrelated cleanup or hint scans.
+
+    Scheduler ownership checks remain outside the exception boundary: losing
+    the singleton session is fatal, not a recoverable sub-producer failure.
+    Each operation still owns its ordinary domain admission and transaction.
+    """
+    guard.check()
+    try:
+        result = operation(*args)
+    except Exception as error:
+        emit_failure(error)
+        result = ()
+    guard.check()
+    return result
+
+
 def serve_background(configuration, lease):
     """Assemble one admitted queue process and retain exclusion through final drain."""
     from uuid import uuid4
@@ -363,8 +380,10 @@ def serve_background(configuration, lease):
             and is needed to unblock a selected-but-unapplied setup abort. Normal
             source production and file cleanup still require matching authority.
             """
-            produce_setup_expiry(guard)
-            finalization = produce_finalization(assembled.store, guard)
+            independent_producer(guard, produce_setup_expiry, guard)
+            finalization = independent_producer(
+                guard, produce_finalization, assembled.store, guard
+            )
             try:
                 matching_authority(assembled.store)
             except ConfigError:
@@ -374,19 +393,16 @@ def serve_background(configuration, lease):
                 # awaiting installer rollback, no ordinary producer is admitted.
                 initial_setup_hold(assembled.store)
                 return finalization
-            guard.check()
-            recover_setup_mail()
-            guard.check()
-            recover_setup_slack()
+            independent_producer(guard, recover_setup_mail)
+            independent_producer(guard, recover_setup_slack)
             from .accounts.campaign_mail_delivery import recover_pending
 
-            guard.check()
-            recover_pending()
+            independent_producer(guard, recover_pending)
             return (
                 *finalization,
-                *producer(guard),
-                *produce_cleanup(guard),
-                *produce_setup_cleanup(guard),
+                *independent_producer(guard, producer, guard),
+                *independent_producer(guard, produce_cleanup, guard),
+                *independent_producer(guard, produce_setup_cleanup, guard),
             )
 
         return serve_scheduler(

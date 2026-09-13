@@ -6,6 +6,7 @@ from parishkit.config import ConfigError
 from parishkit.stewardship.accounts.setup_install_models import SetupPreparationReceipt
 from parishkit.stewardship.campaigns.work_locks import work_transaction
 from parishkit.stewardship.jobs.scheduler import SchedulerGuard
+from parishkit.stewardship.observability import correlation, emit_failure
 from parishkit.stewardship.storage import StorageInvariantError
 
 from .setup_final_tasks import enqueue_finalization
@@ -36,9 +37,11 @@ def produce_finalization(store, guard):
             task = enqueue_finalization(
                 store, receipt.pk, correlation_id=receipt.correlation_id
             )
-        except (PermissionError, ConfigError):
+        except (PermissionError, ConfigError) as error:
             # A receipt whose YAML selection is not currently coherent is not
             # runnable, but must not starve unrelated cleanup and hint scanning.
+            with correlation(receipt.correlation_id):
+                emit_failure(error)
             return ()
     guard.check()
     return (task.run_id,)

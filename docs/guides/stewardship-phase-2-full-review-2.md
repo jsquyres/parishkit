@@ -49,7 +49,7 @@ validation remains open. Numbering follows triage order: Claude, then Codex.
 | 20 | Separate local admission errors from provider DTO errors | Typed local boundary; pure and real-transport regressions added |
 | 21 | Explain recovery from permanent initial-load failure | Progress page directs cancellation, correction and new login |
 | 22 | Recheck all initial credential receipts/ACKs at atomic completion | Migration 0095, narrow metadata reads and lost-ACK regressions added |
-| 23 | Require a clean integrated PostgreSQL coverage run | Still open; focused passes cannot substitute |
+| 23 | Require a clean integrated PostgreSQL coverage run | Passed: 2,091 PostgreSQL cases; later round-3 changes require their own full rerun |
 
 Gmail's empty error continuation follows the
 [official XOAUTH2 protocol](https://developers.google.com/workspace/gmail/imap/xoauth2-protocol).
@@ -84,8 +84,13 @@ The first all-profile Docker rerun passed six existing scenarios; both new abort
 cases completed rollback and recreation but failed the test's final, incorrect
 web-only health probe. It now uses the same installer-style liveness check as
 the actual worker/mail topology. The rebuilt-image rerun is still in progress.
-The final required full-phase review round has not started. No PR or phase-exit
-approval is implied by this record.
+These are chronological diagnostic results, not the latest phase status. The
+subsequent complete round-2 coverage run passed 2,091 PostgreSQL cases in
+3,149.09 seconds, with 93.09% line and 81.44% branch coverage; its baseline
+passed 4,210 cases. The [third review](stewardship-phase-2-full-review-3.md)
+has now completed with both vendors and no High/Critical findings. Its new
+corrections require final integrated validation. No PR or phase-exit approval
+is implied by this record.
 
 ## Acceptance gap found during corrections
 

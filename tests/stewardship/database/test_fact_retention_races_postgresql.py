@@ -15,6 +15,7 @@ from parishkit.stewardship.reports.retention import (
     release_fact_pin,
 )
 
+from .lock_observer import backend_pid, wait_for_lock
 from .test_fact_retention_postgresql import superseded
 from .test_source_snapshots_postgresql import permit
 
@@ -57,6 +58,7 @@ def test_deletion_winning_lock_makes_later_exact_pin_fail_closed(tmp_path, monke
     """A late selector cannot replace deleted exact inputs with the current graph."""
     inputs, owner, old, _ = superseded(tmp_path)
     deleted, finish, pin_started = Event(), Event(), Event()
+    pin_backend = []
     original = retention.record_action
 
     def pause(*args, **kwargs):
@@ -76,6 +78,7 @@ def test_deletion_winning_lock_makes_later_exact_pin_fail_closed(tmp_path, monke
     def pinning():
         """Request the exact old generation while its compactor holds the row."""
         try:
+            pin_backend.append(backend_pid())
             pin_started.set()
             return pin_facts(
                 old.pk, parent_kind="digest", parent_id=uuid4(), admit=permit
@@ -90,6 +93,7 @@ def test_deletion_winning_lock_makes_later_exact_pin_fail_closed(tmp_path, monke
             assert deleted.wait(10)
             pin_future = pool.submit(pinning)
             assert pin_started.wait(10)
+            wait_for_lock(pin_backend[0])
         finally:
             finish.set()
         assert cleaning_future.result() == [old.pk]

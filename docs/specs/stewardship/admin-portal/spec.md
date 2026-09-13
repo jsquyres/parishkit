@@ -83,6 +83,11 @@ campaign configuration before making the system configured:
 7. Exact preview/readiness summary and final confirmation.
 
 The staged ParishSoft load provides the Ministries/funds needed by later steps.
+Starting that load fixes the Parish timezone for this setup attempt, so the
+source catalog and first campaign retain the same civil-date interpretation.
+The Parish step explains this restriction and keeps other Parish fields editable.
+Changing the timezone then requires cancelling and starting a new setup attempt;
+it never silently reinterprets an existing source result.
 Wizard progress may be kept in the authenticated session and temporary staging
 tables/files, but no staged configuration is active until installer
 finalization. While the bootstrap Admin remains on the correlated source-load

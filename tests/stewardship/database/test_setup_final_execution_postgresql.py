@@ -12,6 +12,7 @@ from parishkit.config import ConfigError
 from parishkit.stewardship.accounts.key_files import write_private
 from parishkit.stewardship.accounts.setup_completion import setup_is_complete
 from parishkit.stewardship.accounts.setup_models import SetupAttempt
+from parishkit.stewardship.audit.models import AuditEvent
 from parishkit.stewardship.deployment import ServiceRole
 from parishkit.stewardship.jobs.dispatch import claim_hint, execute_hint
 from parishkit.stewardship.jobs.lifetime import maintain_execution
@@ -38,10 +39,14 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 
 def test_incoherent_finalization_does_not_abort_scheduler_tick(
-    setup_http, monkeypatch, tmp_path, config_role
+    setup_http, monkeypatch, tmp_path, config_role, caplog
 ):
     """An actual prepared receipt with unreadable YAML is ineligible, not fatal."""
     from parishkit.stewardship.accounts.authority import AuthorityStore
+    from parishkit.stewardship.accounts.setup_install_models import (
+        SetupPreparationReceipt,
+    )
+    from parishkit.stewardship.observability import Event, SafeJsonFormatter
 
     prepared(setup_http, monkeypatch, tmp_path)
     original = AuthorityStore.active
@@ -57,6 +62,13 @@ def test_incoherent_finalization_does_not_abort_scheduler_tick(
         assert produce_finalization(setup_http.store, guard) == ()
         guard.check()
         assert not TaskRun.objects.filter(task_type=TASK_TYPE).exists()
+    events = [record for record in caplog.records if record.msg == Event.TASK_FAILED]
+    assert len(events) == 1
+    assert (
+        events[0].extra["correlation_id"]
+        == SetupPreparationReceipt.objects.get().correlation_id
+    )
+    assert "Synthetic incoherent selection" not in SafeJsonFormatter().format(events[0])
 
 
 @pytest.mark.parametrize("failure", [None, "credential", "invalid_source"])
@@ -119,6 +131,10 @@ def test_real_finalization_producer_and_compiled_worker(
     assert SetupAttempt.objects.get().state == (
         "completed" if failure is None else "frozen"
     )
+    if failure == "invalid_source":
+        rejected = AuditEvent.objects.filter(event_type="source_rejected").last()
+        assert rejected is not None
+        assert rejected.correlation_id == execution.correlation_id
     if failure is None:
         settings.STEWARDSHIP_AUTH_RUNTIME = replace(
             setup_http, setup_complete=setup_is_complete
