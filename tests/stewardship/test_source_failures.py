@@ -2,6 +2,7 @@
 
 import pytest
 
+from parishkit.config import ConfigError
 from parishkit.parishsoft import ParishSoftAPIError
 from parishkit.parishsoft_changes import ChangeFeedIncomplete
 from parishkit.parishsoft_pagination import IncompleteSourceCollection
@@ -17,9 +18,43 @@ from parishkit.stewardship.source.canonical import InvalidSourcePayload
 from parishkit.stewardship.source.errors import (
     SourceCredentialChanged,
     SourceScopeChanged,
+    local_read_admission,
 )
 from parishkit.stewardship.source.failures import classify_read_failure
 from parishkit.stewardship.source.leases import SourceFenceLost, SourceLeaseUnavailable
+from parishkit.stewardship.storage import StorageInvariantError
+
+
+@pytest.mark.parametrize(
+    "kind", [ConfigError, ValueError, TypeError, KeyError, OverflowError]
+)
+def test_local_admission_errors_are_not_provider_data_failures(kind):
+    """The outer shared DTO parser cannot consume a local callback's ValueError."""
+
+    @local_read_admission
+    def callback():
+        """Simulate local configuration parsing or connection cleanup failure."""
+        raise kind("synthetic-private")
+
+    with pytest.raises(StorageInvariantError) as raised:
+        callback()
+    assert "synthetic-private" not in str(raised.value)
+    assert classify_read_failure(raised.value, has_source_claim=True) is None
+
+
+@pytest.mark.parametrize("kind", [SourceScopeChanged, SourceFenceLost, PermissionError])
+def test_local_admission_preserves_typed_ownership_errors(kind):
+    """No new blanket permission-error retry path is introduced."""
+    error = kind("synthetic-private")
+
+    @local_read_admission
+    def callback():
+        """Deliver the original typed ownership result unchanged."""
+        raise error
+
+    with pytest.raises(kind) as raised:
+        callback()
+    assert raised.value is error
 
 
 @pytest.mark.parametrize(

@@ -19,7 +19,7 @@ from parishkit.stewardship.storage import StorageInvariantError
 
 from .credentials import SourceCredential
 from .cursors import refresh_cursor
-from .errors import SourceCredentialChanged, SourceScopeChanged
+from .errors import SourceCredentialChanged, SourceScopeChanged, local_read_admission
 from .leases import reserve_source_request, verify_source
 from .loading import load_full_source
 from .setup_final_tasks import require_final_task
@@ -71,6 +71,7 @@ def load_final_setup_source(execution, claim, *, store, credential_path):
             claim, organization_id=scope.organization_id, admit=admitted
         )
 
+    @local_read_admission
     def before_request(seconds):
         """Each page/retry reserves real drainage before releasing its SQL socket."""
         if connection.in_atomic_block:

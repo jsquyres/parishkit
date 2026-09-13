@@ -12,7 +12,7 @@ from parishkit.stewardship.source import setup_final_tasks as tasks
 @pytest.mark.parametrize("available", [False, True])
 def test_finalization_recovery_preserves_source_drain(monkeypatch, live, available):
     """An expired login permits cancellation only after old external work drains."""
-    status, store = SimpleNamespace(state="abandoned"), object()
+    status, store = SimpleNamespace(state="abandoned", attempt=1), object()
     monkeypatch.setattr(tasks, "bound_preparation", lambda _: None)
     monkeypatch.setattr(tasks, "source_available", lambda: available)
 
@@ -90,9 +90,11 @@ def test_initial_load_failure_does_not_wait_for_another_task(
 
 
 @pytest.mark.parametrize(
-    "action", ["recovery_hint", "recovery_retry", "recovery_cancel"]
+    "action", ["recovery_hint", "recovery_retry", "recovery_cancel", "recovery_fail"]
 )
-@pytest.mark.parametrize("plan", [None, "recovery_retry", "recovery_cancel"])
+@pytest.mark.parametrize(
+    "plan", [None, "recovery_retry", "recovery_cancel", "recovery_fail"]
+)
 def test_finalization_recovery_admits_only_its_verified_disposition(
     monkeypatch, action, plan
 ):

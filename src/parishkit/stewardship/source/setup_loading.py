@@ -25,7 +25,7 @@ from parishkit.stewardship.jobs.storage import _status
 from parishkit.stewardship.storage import StorageInvariantError
 
 from .cursors import refresh_cursor
-from .errors import SourceCredentialChanged
+from .errors import SourceCredentialChanged, local_read_admission
 from .leases import reserve_source_request, verify_source
 from .loading import load_full_source
 from .setup_admission import bound_attempt, require_live_setup
@@ -88,6 +88,7 @@ def load_setup_source(execution, claim, *, exchange_id, credential):
             claim, organization_id=organization_id, admit=admitted
         )
 
+    @local_read_admission
     def before_request(seconds):
         """Every retry reserves drainage under fresh admission, then closes SQL."""
         if connection.in_atomic_block:

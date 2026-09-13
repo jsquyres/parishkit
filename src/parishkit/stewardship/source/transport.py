@@ -10,7 +10,7 @@ from parishkit.stewardship.storage import StorageInvariantError
 
 from .attempts import verify_refresh_attempt
 from .credentials import SourceCredential
-from .errors import SourceCredentialChanged, SourceScopeChanged
+from .errors import SourceCredentialChanged, SourceScopeChanged, local_read_admission
 from .leases import SourceClaim, reserve_source_request
 
 
@@ -32,6 +32,7 @@ def source_session(execution, claim, *, attempt_id, credential):
     if not isinstance(attempt_id, UUID) or not isinstance(credential, SourceCredential):
         raise TypeError("Source transport requires a bound attempt and credential.")
 
+    @local_read_admission
     def before_request(seconds):
         """Never close the caller's transaction or perform HTTP inside it."""
         if connection.in_atomic_block:

@@ -310,6 +310,55 @@ def test_original_cancel_during_provider_page_blocks_all_staging(
     assert not SetupSourceResult.objects.exists()
 
 
+@pytest.mark.parametrize("stage", ["publish", "receive"])
+def test_cancel_during_private_handoff_settles_without_provider_reads(
+    setup_service, monkeypatch, stage
+):
+    """Cancellation before recipient publication or its next poll releases ownership."""
+    from unittest.mock import Mock
+    from uuid import uuid4
+
+    from parishkit.stewardship.source import setup_execution
+
+    request, attempt, task, _ = queued(setup_service)
+    name = "EphemeralSetupRecipient" if stage == "publish" else "monotonic"
+    original = getattr(setup_execution, name)
+    cancelled = False
+
+    def cancel(*args, **kwargs):
+        """Use the actual browser owner between, never inside, worker effects."""
+        nonlocal cancelled
+        result = original(*args, **kwargs)
+        if not cancelled:
+            assert not connection.in_atomic_block
+            with connection.cursor() as cursor:
+                cursor.execute("RESET SESSION AUTHORIZATION")
+            try:
+                with web_login():
+                    cancel_setup(request, setup_service, attempt.attempt_id)
+            finally:
+                with connection.cursor() as cursor:
+                    cursor.execute("SET SESSION AUTHORIZATION pk_stewardship_worker")
+            cancelled = True
+        return result
+
+    monkeypatch.setattr(setup_execution, name, cancel)
+    loader = Mock()
+    monkeypatch.setattr(setup_execution, "load_setup_source", loader)
+    with task_login(ServiceRole.WORKER, exact=True, reconnect=True):
+        assert execute_hint(
+            task.run_id,
+            queue=WorkQueue.GENERAL,
+            worker_id=uuid4(),
+            handlers={"setup_source_load": setup_source_handler()},
+        )
+    assert cancelled
+    assert TaskRun.objects.get().state == "cancelled"
+    assert SourceMutationLease.objects.get().owner_id is None
+    assert not SourceSnapshot.objects.exists()
+    loader.assert_not_called()
+
+
 def test_success_without_result_rolls_back_lease_and_control_flag(setup_service):
     """Incomplete staging cannot release ownership or return the wizard to editing."""
     execution, source, _, _ = prepared(setup_service)

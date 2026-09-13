@@ -17,6 +17,7 @@ from parishkit.stewardship.storage import StorageInvariantError
 
 from .failures import classify_read_failure
 from .leases import acquire_source, release_source, verify_source
+from .outcomes import MAX_AUTOMATIC_ATTEMPTS
 from .rejection import reject_snapshot
 from .setup_completion import complete_setup
 from .setup_final_loading import load_final_setup_source
@@ -111,7 +112,8 @@ def _failed(execution, error, claim, *, store):
             else:
                 action = (
                     "retryable_failure"
-                    if decision.retry and status.attempt < 3
+                    if decision.retry
+                    and (decision.contention or status.attempt < MAX_AUTOMATIC_ATTEMPTS)
                     else "permanent_failure"
                 )
             if claim is not None:
@@ -137,7 +139,11 @@ def _failed(execution, error, claim, *, store):
                 correlation_id=execution.correlation_id,
                 fence=execution.claim.fence,
                 admit=execution.handler.admit,
-                **({"retry_seconds": 30} if action == "retryable_failure" else {}),
+                **(
+                    {"retry_seconds": min(30 * 2 ** min(status.attempt - 1, 5), 600)}
+                    if action == "retryable_failure"
+                    else {}
+                ),
             )
             operational(
                 decision.event,
