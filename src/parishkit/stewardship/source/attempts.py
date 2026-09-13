@@ -7,6 +7,7 @@ from parishkit.stewardship.jobs.models import TaskRun
 from parishkit.stewardship.storage import StorageInvariantError
 
 from .credentials import SourceCredential
+from .errors import SourceCredentialChanged, SourceScopeChanged
 from .leases import SourceClaim, verify_source
 from .refresh_models import SourceRefreshAttempt, SourceRefreshRequest
 from .requests import _organization, _window
@@ -23,13 +24,13 @@ def _scope(request, credential_fingerprint):
         .values_list("credential_fingerprint", flat=True)
         .first()
     )
+    if fingerprint is None or fingerprint != credential_fingerprint:
+        raise SourceCredentialChanged("The loaded source credential is stale.")
     if (
-        fingerprint is None
-        or _organization(scope) != request.organization_id
+        _organization(scope) != request.organization_id
         or _window(scope).digest != request.window_digest
-        or fingerprint != credential_fingerprint
     ):
-        raise PermissionError("The source attempt scope or loaded credential is stale.")
+        raise SourceScopeChanged("The source attempt scope is stale.")
     return scope
 
 

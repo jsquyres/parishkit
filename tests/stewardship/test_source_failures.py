@@ -6,6 +6,7 @@ from parishkit.parishsoft import ParishSoftAPIError
 from parishkit.parishsoft_changes import ChangeFeedIncomplete
 from parishkit.parishsoft_pagination import IncompleteSourceCollection
 from parishkit.parishsoft_transport import (
+    InvalidSourceResponse,
     SourceTransportDrainFailure,
     SourceTransportError,
 )
@@ -13,6 +14,10 @@ from parishkit.retry import RetryError, TransientRetryError
 from parishkit.stewardship.accounts.cryptography import CryptographicError
 from parishkit.stewardship.jobs.lifetime import ExecutionInterrupted
 from parishkit.stewardship.source.canonical import InvalidSourcePayload
+from parishkit.stewardship.source.errors import (
+    SourceCredentialChanged,
+    SourceScopeChanged,
+)
 from parishkit.stewardship.source.failures import classify_read_failure
 from parishkit.stewardship.source.leases import SourceFenceLost, SourceLeaseUnavailable
 
@@ -21,9 +26,10 @@ from parishkit.stewardship.source.leases import SourceFenceLost, SourceLeaseUnav
     "error,retry,contention",
     [
         (InvalidSourcePayload("PRIVATE"), False, False),
+        (InvalidSourceResponse("PRIVATE"), False, False),
         (IncompleteSourceCollection("PRIVATE"), False, False),
         (SourceLeaseUnavailable("PRIVATE"), True, True),
-        (PermissionError("PRIVATE"), True, False),
+        (SourceScopeChanged("PRIVATE"), True, False),
         (SourceTransportError("PRIVATE"), True, False),
         (RetryError("PRIVATE", SourceTransportError("PRIVATE")), True, False),
         (ParishSoftAPIError(401, "PRIVATE", "PRIVATE"), False, False),
@@ -62,13 +68,13 @@ def test_cyclic_retry_cause_is_not_a_known_failure():
 
 
 @pytest.mark.parametrize("claimed", [False, True])
+@pytest.mark.parametrize("error_type", [CryptographicError, SourceCredentialChanged])
 def test_credential_intake_and_later_inventory_rotation_have_distinct_retry_policy(
     claimed,
+    error_type,
 ):
     """Missing intake needs repair; a concurrently changing key inventory can retry."""
-    decision = classify_read_failure(
-        CryptographicError("PRIVATE"), has_source_claim=claimed
-    )
+    decision = classify_read_failure(error_type("PRIVATE"), has_source_claim=claimed)
     assert decision.retry is claimed
 
 
@@ -80,6 +86,7 @@ def test_credential_intake_and_later_inventory_rotation_have_distinct_retry_poli
         ExecutionInterrupted("PRIVATE"),
         ChangeFeedIncomplete("PRIVATE"),
         RuntimeError("PRIVATE"),
+        PermissionError("PRIVATE"),
         ValueError("PRIVATE"),
         KeyboardInterrupt(),
     ],

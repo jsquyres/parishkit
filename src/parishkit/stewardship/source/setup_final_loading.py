@@ -19,6 +19,7 @@ from parishkit.stewardship.storage import StorageInvariantError
 
 from .credentials import SourceCredential
 from .cursors import refresh_cursor
+from .errors import SourceCredentialChanged, SourceScopeChanged
 from .leases import reserve_source_request, verify_source
 from .loading import load_full_source
 from .setup_final_tasks import require_final_task
@@ -43,13 +44,17 @@ def load_final_setup_source(execution, claim, *, store, credential_path):
         status = _status(lock_task_claim(execution.claim))
         scope = require_final_task(status, store=store)
         verify_source(claim)
+        if (claim.task_id, claim.task_fence, claim.worker_id) != (
+            status.run_id,
+            status.fence,
+            status.worker_id,
+        ):
+            raise PermissionError("Final setup source ownership changed.")
         if (
-            (claim.task_id, claim.task_fence, claim.worker_id)
-            != (status.run_id, status.fence, status.worker_id)
-            or credential.fingerprint != scope.fingerprint
+            credential.fingerprint != scope.fingerprint
             or SourceCredential.read(credential_path).fingerprint != scope.fingerprint
         ):
-            raise PermissionError("Final setup source credential or ownership changed.")
+            raise SourceCredentialChanged("Final setup source credential changed.")
         return scope
 
     def admitted(action, snapshot):
@@ -72,11 +77,10 @@ def load_final_setup_source(execution, claim, *, store, credential_path):
             raise StorageInvariantError("Final setup HTTP cannot hold a transaction.")
         try:
             with execution.effect():
-                if (
-                    verify() != scope
-                    or session.headers.get("x-api-key") != credential.api_key
-                ):
-                    raise PermissionError("Final setup source input changed.")
+                if verify() != scope:
+                    raise SourceScopeChanged("Final setup source input changed.")
+                if session.headers.get("x-api-key") != credential.api_key:
+                    raise SourceCredentialChanged("Final setup source key changed.")
                 reserve_source_request(
                     claim, timeout_seconds=seconds, safety_seconds=15
                 )

@@ -10,6 +10,7 @@ from parishkit.stewardship.storage import StorageInvariantError
 
 from .attempts import verify_refresh_attempt
 from .credentials import SourceCredential
+from .errors import SourceCredentialChanged, SourceScopeChanged
 from .leases import SourceClaim, reserve_source_request
 
 
@@ -45,12 +46,15 @@ def source_session(execution, claim, *, attempt_id, credential):
                         "Source HTTP requires maintained task/source ownership."
                     )
                 attempt = verify_refresh_attempt(attempt_id, execution, claim)
+                if attempt.snapshot.state != "staging":
+                    raise SourceScopeChanged("Source HTTP observation is stale.")
                 if (
-                    attempt.snapshot.state != "staging"
-                    or attempt.credential_fingerprint != credential.fingerprint
+                    attempt.credential_fingerprint != credential.fingerprint
                     or session.headers.get("x-api-key") != credential.api_key
                 ):
-                    raise PermissionError("Source HTTP attempt or credential is stale.")
+                    raise SourceCredentialChanged(
+                        "The source HTTP credential is stale."
+                    )
                 reserve_source_request(
                     claim, timeout_seconds=seconds, safety_seconds=15
                 )

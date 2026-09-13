@@ -15,6 +15,7 @@ from parishkit.stewardship.jobs.ownership import database_now
 from parishkit.stewardship.jobs.storage import TaskStatus
 from parishkit.stewardship.storage import StorageInvariantError
 
+from .errors import SourceScopeChanged
 from .models import SourceMutationLease
 
 TASK_TYPE = "setup_source_load"
@@ -71,7 +72,7 @@ def require_live_setup(attempt):
             current_campaign_id=None,
         ).exists()
     ):
-        raise PermissionError("The original setup source attempt has expired.")
+        raise SourceScopeChanged("The original setup source attempt has expired.")
     return attempt
 
 
@@ -130,9 +131,10 @@ def admit_setup_task(action, status):
         plan = recovery_plan(status)
         return plan is not None and (action == "recovery_hint" or action == plan.action)
     if action in {"retryable_failure", "permanent_failure", "safe_cancel"}:
-        # Release preserves the external deadline. A later claim must wait for it.
+        # This task must release its own claim, not another task's reservation.
+        # Release preserves the external deadline; retry admission still waits.
         lease = SourceMutationLease.objects.get(singleton=True)
-        return lease.owner_id is None
+        return lease.owner_id != status.run_id
     require_live_setup(attempt)
     if action in {"claim", "hint"}:
         return source_available()
