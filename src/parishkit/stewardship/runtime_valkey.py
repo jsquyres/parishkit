@@ -73,7 +73,7 @@ def broker_acl(service, password):
     if not producer:
         keys.append(f"~{BROKER_PREFIX}{service.value}:unacked*")
         commands += (
-            " +brpop +rpop +srem +hset +hget +hdel +zadd +zrem +zrevrangebyscore"
+            " +brpop +rpop +rpush +srem +hset +hget +hdel +zadd +zrem +zrevrangebyscore"
             " +get +set +del +expire +pexpire +watch +unwatch"
             " +eval +evalsha +script|load +script|exists"
         )
