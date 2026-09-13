@@ -288,6 +288,14 @@ def test_selection_migration_roundtrip_and_populated_refusal(replacement):
     try:
         MigrationExecutor(connection).migrate(previous)
         MigrationExecutor(connection).migrate(leaves)
+        # Downgrading drops the later setup table, including its runtime ACL.
+        # As in a real upgrade, reapply this fixture's consumer grant after DDL;
+        # migration ownership does not implicitly authorize the target installer.
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "GRANT SELECT ON stewardship_setup_credential_install "
+                "TO pk_stewardship_credential_parishsoft"
+            )
         complete(replacement)
         preview = hidden(replacement.browser.get(replacement.url), "preview")
         assert (

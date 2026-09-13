@@ -744,3 +744,16 @@ The two real scratch-build context tests prove inclusion and adjacent private
 text exclusion. Ninety-one packaging/schema tests pass. The rebuilt development
 image contains the catalog; the complete setup demonstration is still running.
 This is a discovered integration correction, not a completed phase review round.
+
+## Integration-selection migration fixture correction
+
+The first complete PostgreSQL coverage run reached 942 passing cases and one
+failure before being stopped for correction. The credential-selection downgrade/
+upgrade test recreated the later initial-installation binding table without
+restoring its target-installer SELECT grant. Its subsequent ordinary credential
+completion correctly failed under the restricted role.
+
+The test now reapplies that exact grant after DDL, matching the existing runtime
+upgrade sequence. It does not weaken production grants or make migrations grant
+runtime authority implicitly. All 14 integration-selection PostgreSQL cases
+pass. The full coverage rerun remains in progress; this is not a review round.
