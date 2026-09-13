@@ -11,6 +11,7 @@ from django.utils import timezone
 from parishkit.config import ConfigError
 from parishkit.stewardship.accounts import branding_cleanup as cleanup
 from parishkit.stewardship.accounts.branding_files import create_bundle
+from parishkit.stewardship.accounts.configuration_requests import record_request
 from parishkit.stewardship.campaigns.work_locks import work_transaction
 from parishkit.stewardship.deployment import ServiceRole
 from parishkit.stewardship.jobs.dispatch import claim_hint, execute_hint, recover_hint
@@ -85,6 +86,42 @@ def test_current_and_historical_refs_excluded_before_bounded_page(staged):
         tasks = cleanup.produce_cleanup(guard, limit=1)
     assert [item.domain_request_id for item in tasks] == [second.pk]
     assert (media / "branding" / row.pk.hex).exists()
+
+
+@pytest.mark.parametrize("selects_bundle", [False, True])
+def test_pending_request_pins_only_its_selected_bundle(staged, selects_bundle):
+    """Unrelated edits do not starve expired media; selecting a logo still pins it."""
+    store, version, actor, row, values, media = staged
+    patch = branding_patch(version, values)
+    if not selects_bundle:
+        patch[0]["values"] = {"name": "Pending public parish name"}
+    status = record_request(
+        base_digest=version.digest,
+        patch=patch,
+        actor_id=actor,
+        request_key=uuid4(),
+        correlation_id=uuid4(),
+    )
+    assert status.state == "staged" and store.active() == version
+    if selects_bundle:
+        assert produce() == ()
+        with (
+            pytest.raises(DatabaseError, match="Pending configuration"),
+            transaction.atomic(),
+        ):
+            advance(row, "cleanup_pending")
+        # Exclude the pinned earlier upload before applying the bounded limit.
+        second, _ = ready(version, actor)
+        with task_login(ServiceRole.SCHEDULER), scheduler_session() as guard:
+            tasks = cleanup.produce_cleanup(guard, limit=1)
+        assert [task.domain_request_id for task in tasks] == [second.pk]
+    else:
+        (task,) = produce()
+        with task_login(ServiceRole.WORKER, reconnect=True):
+            assert execute_hint(task.run_id, **arguments(media))
+        row.refresh_from_db()
+        assert row.state == "scrubbed"
+        assert not (media / "branding" / row.pk.hex).exists()
 
 
 def test_unexpired_uploads_restore_and_pending_configuration_are_holds(
