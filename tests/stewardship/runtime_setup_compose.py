@@ -13,6 +13,7 @@ from parishkit.stewardship.runtime_paths import RuntimeLayout
 from parishkit.stewardship.runtime_topology import render_runtime
 
 from .campaign_factory import campaign, financial
+from .test_integration_candidates import account
 from .test_runtime_topology import IMAGE as PRODUCTION_IMAGE
 from .test_setup_forms import VALUES
 from .test_source_giving import contribution, pledge
@@ -42,7 +43,7 @@ def inject_providers(compose):
         ]
 
 
-def complete_setup(file, project, configuration, mountpoint):
+def complete_setup(file, project, configuration, mountpoint, *, abort=False):
     """Drive the original browser while the host recreates actual ACK consumers."""
     from .test_operational_compose import IMAGE, compose_run
 
@@ -80,6 +81,8 @@ def complete_setup(file, project, configuration, mountpoint):
     configured_file.write_text(json.dumps(configured))
     fixture = {
         "steps": VALUES,
+        "workspace": account().decode(),
+        "abort": abort,
         "campaign": campaign(
             modules=["census", "financial"],
             financial=financial(fund_duids=[9], comparison_fund_duids=[9]),
@@ -129,6 +132,12 @@ def complete_setup(file, project, configuration, mountpoint):
                 if identifier in acknowledged:
                     continue
                 service = "worker" if target == "parishsoft" else "mail-dispatch"
+                if abort and not acknowledged:
+                    # Pause before any ACK can permit YAML preparation. The
+                    # browser cancels only after both real consumers acknowledge.
+                    compose_run(
+                        file, project, "stop", "--timeout", "10", "config-installer"
+                    )
                 compose_run(
                     configured_file,
                     project,
@@ -162,6 +171,10 @@ def complete_setup(file, project, configuration, mountpoint):
         logs = compose_run(file, project, "logs", "--tail", "50", check=False)
         raise AssertionError(result.stdout + result.stderr + logs.stdout + logs.stderr)
     assert len(acknowledged) == 2
+    if abort:
+        assert "INITIAL_SETUP_CANCELLED_AFTER_ACK_OK" in result.stdout
+        restore_initial_consumers(file, project, configuration)
+        return
     assert "INITIAL_SETUP_ATOMIC_COMPLETION_OK" in result.stdout
     # Inspect private integration invariants with read-only operator SQL. The web
     # intentionally cannot SELECT * from source snapshots or read target staging.
@@ -196,3 +209,56 @@ def complete_setup(file, project, configuration, mountpoint):
         "JOIN stewardship_task_run t ON t.id=f.task_id",
     ).stdout.strip()
     assert proof == "promoted|succeeded|1|1|1|0|t|0|0|1|0|0", proof
+
+
+def restore_initial_consumers(file, project, configuration):
+    """After rollback unlinks candidate files, recreate the no-provider profiles."""
+    from .test_operational_compose import compose_run
+
+    compose_run(file, project, "start", "config-installer")
+    deadline = time.monotonic() + 120
+    while True:
+        proof = compose_run(
+            file,
+            project,
+            "exec",
+            "-T",
+            "postgres",
+            "psql",
+            "-U",
+            "pk_stewardship_operator",
+            "-d",
+            configuration.postgres.name,
+            "-Atc",
+            "SELECT count(*),count(*) FILTER (WHERE state='expired'),"
+            "(SELECT count(*) FROM stewardship_setup_completion) "
+            "FROM stewardship_secret_request",
+        ).stdout.strip()
+        if proof == "2|2|0":
+            break
+        assert time.monotonic() < deadline, proof
+        time.sleep(0.5)
+    compose_run(
+        file,
+        project,
+        "up",
+        "--detach",
+        "--no-deps",
+        "--force-recreate",
+        "--wait",
+        "--wait-timeout",
+        "60",
+        "worker",
+        "mail-dispatch",
+        timeout=90,
+    )
+    for service in ("worker", "mail-dispatch"):
+        compose_run(
+            file,
+            project,
+            "exec",
+            "-T",
+            service,
+            "pk-stewardship",
+            "installer-healthcheck",
+        )

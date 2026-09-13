@@ -120,6 +120,8 @@ def main():
         data = {"version": version(path), "candidate": "synthetic-private-" + target}
         if target == "parishsoft":
             data["organization_id"] = "1"
+        else:
+            data["candidate"] = fixture["workspace"]
         post(path, data)
     stream = BytesIO()
     Image.new("RGB", (64, 64), "navy").save(stream, format="PNG")
@@ -215,6 +217,31 @@ def main():
     deadline = time.monotonic() + 180
     while True:
         response = get("/admin/setup/cancel")
+        if fixture.get("abort"):
+            from parishkit.stewardship.accounts.secret_models import (
+                CredentialConsumerAcknowledgement,
+            )
+            from parishkit.stewardship.accounts.setup_install_models import (
+                SetupCredentialInstallation,
+            )
+
+            assert response.status_code == 200
+            attempt_id = response.context["attempt"].attempt_id
+            installs = SetupCredentialInstallation.objects.filter(
+                readiness__intent__attempt_id=attempt_id
+            ).values_list("request_id", flat=True)
+            if (
+                CredentialConsumerAcknowledgement.objects.filter(
+                    request_id__in=installs
+                ).count()
+                == 2
+            ):
+                post("/admin/setup/cancel", {"attempt": str(attempt_id)})
+                assert (
+                    not runtime().configured() and not SetupCompletion.objects.exists()
+                )
+                print("INITIAL_SETUP_CANCELLED_AFTER_ACK_OK")
+                return
         if response.status_code == 302:
             assert response["Location"] == "/admin/"
             break

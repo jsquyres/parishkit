@@ -177,6 +177,14 @@ Progress refreshes do not renew the original login's idle or absolute deadlines.
 If it expires or the Admin cancels before completion, the installer restores
 only unapplied setup state; background owners drain and clean temporary source
 work. A successful completion is never rolled back by the cancellation page.
+If consumers were already recreated with installed provider mounts, cancellation
+or expiry removes those candidate files. After the target installers finish
+rollback, recreate `worker` and `mail-dispatch` from the complete initial-setup
+Compose topology, using the same project name and `up --detach --force-recreate`.
+Do not merely restart the configured consumers: an existing bind mount can retain
+the removed file's inode, and a new container cannot mount that missing file.
+Verify the recreated initial consumers are healthy before another setup attempt.
+The application cannot perform this operator-owned Docker step.
 Restarted services recognize the exact prepared-but-unapplied setup without
 admitting ordinary work under mismatched YAML/SQL authority. The complete
 initial-installation Compose demonstration remains under the Phase 2 gate.

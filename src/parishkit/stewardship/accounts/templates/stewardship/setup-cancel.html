@@ -3,6 +3,7 @@
 {% block content %}
 <h1>{% translate "Initial setup progress" %}</h1>
 {% if attempt.state == 'expired' %}
+<p>{% translate "If provider-mounted consumers were already recreated, ask the operator to wait for credential rollback, then recreate worker and mail-dispatch using the documented initial-setup Compose topology. Restarting the configured services is not sufficient after candidate files have been removed." %}</p>
 <p role="status">{% translate "Cancellation is recorded. Background cleanup must restore the original configuration and remove temporary setup data before a new attempt can finish." %}</p>
 <p><a href="{% url 'admin:setup' %}">{% translate "Check setup status" %}</a></p>
 {% else %}
