@@ -190,11 +190,34 @@ Documented first deployment order is:
 5. Start web/worker/scheduler/installers/proxy.
 6. Complete the first-Admin wizard.
 
-Before production compatibility is declared, explicitly approved consolidation
-of unreleased migration history may establish a fresh-install baseline. This
-does not authorize deleting development databases, faking migration state or
-claiming compatibility with discarded development schemas. See the
-[schema baseline guide](../../../guides/stewardship-schema.md).
+### Pre-production development policy
+
+Human decision, September 13, 2026: all remaining stewardship implementation is
+pre-production until the human explicitly activates production-readiness work.
+Maintain a current fresh-install schema baseline. Do not build or test database
+or application upgrade/downgrade paths, preserve intermediate development schema
+compatibility, or add legacy compatibility code solely for old development
+installations. Update the baseline and its model state as functionality evolves,
+with fresh-install and current-functionality regression evidence. This standing
+policy supersedes upgrade-related acceptance work elsewhere in the plans and
+tasks while pre-production continues; do not block phase delivery on it.
+
+Fresh installation, model/schema agreement, current constraints and permissions,
+transactions, restart/persistence, failure recovery and current-format backup/
+restore tests remain relevant. Business workflows such as campaign transitions,
+credential rotation, configuration versioning and cancelling an unapplied setup
+are current application behavior, not obsolete software upgrade paths.
+
+This policy never authorizes deleting existing development databases, faking
+migration state or claiming compatibility with discarded development schemas.
+Keep existing databases/volumes intact and use separately selected empty ones
+when required. See the [schema baseline guide](../../../guides/stewardship-schema.md).
+
+### Production upgrades (deferred)
+
+The following requirements become implementation/acceptance work only when the
+human explicitly activates production-readiness work. At that point declare the
+supported baseline and compatibility policy before adding forward upgrades.
 
 Application containers do not race to run migrations. A production upgrade
 requires a successful recent backup, pulls pinned images, runs migration checks
