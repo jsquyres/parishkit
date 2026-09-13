@@ -157,10 +157,16 @@ def test_gunicorn_worker_receipt_hook_sanitizes_private_failures(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "target", ["metrics", "parishsoft", "google_workspace", "slack"]
+    "target,failure",
+    [("metrics", None)]
+    + [
+        (target, failure)
+        for target in ("parishsoft", "google_workspace", "slack")
+        for failure in (None, "relay", "stage")
+    ],
 )
 def test_credential_service_publishes_only_after_admission(
-    tmp_path, monkeypatch, target
+    tmp_path, monkeypatch, target, failure
 ):
     """Key discovery derives from the admitted installer before its queue starts."""
     from parishkit.stewardship.accounts.credential_installation import (
@@ -210,12 +216,30 @@ def test_credential_service_publishes_only_after_admission(
         "parishkit.stewardship.accounts.setup_credential_installation.stage_initial_credential",
         stage_initial,
     )
+    if failure:
+        failing = (
+            stage_initial
+            if failure == "stage"
+            else {
+                "parishsoft": relay,
+                "google_workspace": mail_relay,
+                "slack": slack_send,
+            }[target]
+        )
+        failing.side_effect = RuntimeError("synthetic setup failure")
 
     def serve(run_once, actual_lease):
         """Queue processing cannot race ahead of the advertised encryption key."""
         publish.assert_called_once_with(installer.files.private)
         lease.check.assert_called_once()
         assert actual_lease is lease
+        if failure:
+            with pytest.raises(RuntimeError, match="synthetic setup failure"):
+                run_once()
+            # A stuck exchange cannot starve ordinary rotations or rollback.
+            installer.run_once.assert_called_once()
+            failing.assert_called_once()
+            return 0
         run_once()
         installer.run_once.assert_called_once()
         if target == "parishsoft":

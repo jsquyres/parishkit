@@ -250,7 +250,13 @@ def serve_credential_installer(configuration, lease):
     publish_handoff(installer.files.private)
 
     def run_once():
-        """Relay, stage frozen initial input, then reconcile target-owned files."""
+        """Reconcile existing files before any fallible setup-specific relay work.
+
+        Cancellation rollback and ordinary rotations must get a turn even when
+        a setup exchange is stuck. Newly staged setup input is consumed on the
+        next bounded pass; no new authority or implicit retry is introduced.
+        """
+        installer.run_once()
         if configuration.credential_target == "parishsoft":
             from .source.setup_exchange import relay_pending
 
@@ -275,7 +281,6 @@ def serve_credential_installer(configuration, lease):
 
             lease.check()
             stage_initial_credential(installer.files)
-        installer.run_once()
 
     return serve_installer_loop(run_once, lease)
 

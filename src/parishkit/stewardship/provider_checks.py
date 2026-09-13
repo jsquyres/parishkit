@@ -160,7 +160,7 @@ def request_validator(target, *, check):
 
     def validate(identifier, value):
         """Read narrow target evidence and close SQL sockets before external IO."""
-        from django.db import DatabaseError, connections
+        from django.db import connections
 
         from .accounts.credential_database import admit_installer_database
         from .accounts.provider_models import ProviderValidationContext
@@ -168,26 +168,35 @@ def request_validator(target, *, check):
 
         _check_owner(check)
         try:
-            admit_installer_database(target)
-            context = (
-                ProviderValidationContext.objects.select_related("request")
-                .filter(request_id=identifier, target=target, request__state="testing")
-                .first()
+            try:
+                admit_installer_database(target)
+                context = (
+                    ProviderValidationContext.objects.select_related("request")
+                    .filter(
+                        request_id=identifier, target=target, request__state="testing"
+                    )
+                    .first()
+                )
+                if context is None:
+                    raise CredentialValidationUnavailable()
+                # Reserve forced drainage inside the immutable request's TTL.
+                seconds = min(
+                    30, (context.request.expires_at - _now()).total_seconds() - 10
+                )
+                if seconds <= 0:
+                    raise CredentialValidationUnavailable()
+                settings = validated_context(target, context.settings)
+            finally:
+                connections.close_all()
+            return check_candidate(
+                target, settings, value, seconds=seconds, check=check
             )
-            if context is None:
-                raise CredentialValidationUnavailable()
-            # Reserve forced drainage inside the immutable request's TTL. A retry
-            # with insufficient time yields to the installer's ordinary expiry path.
-            seconds = min(
-                30, (context.request.expires_at - _now()).total_seconds() - 10
-            )
-            if seconds <= 0:
-                raise CredentialValidationUnavailable()
-            settings = validated_context(target, context.settings)
-        except DatabaseError:
+        except CredentialValidationUnavailable:
+            raise
+        except Exception:
+            # Local admission, invocation and connection failures are not a
+            # provider verdict on the candidate. Fatal ownership/drain signals
+            # inherit BaseException and must still terminate this installer.
             raise CredentialValidationUnavailable() from None
-        finally:
-            connections.close_all()
-        return check_candidate(target, settings, value, seconds=seconds, check=check)
 
     return validate

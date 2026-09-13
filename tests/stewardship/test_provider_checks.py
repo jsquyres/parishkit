@@ -5,12 +5,15 @@ import io
 import json
 import subprocess
 import sys
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 import requests
+from google.oauth2 import _client as google_client
 
+from parishkit.config import ConfigError
 from parishkit.stewardship import provider_check_worker as worker
 from parishkit.stewardship import provider_checks as parent
 from parishkit.stewardship.accounts.credential_errors import (
@@ -221,6 +224,39 @@ def test_workspace_token_and_smtp_authentication_never_send(
 
 
 @pytest.mark.parametrize(
+    "status,code,expected",
+    [
+        (400, "invalid_grant", "invalid"),
+        (401, "invalid_grant", "invalid"),
+        (400, "unauthorized_client", "invalid"),
+        (400, "invalid_client", "invalid"),
+        (400, "unknown", "unavailable"),
+        (429, "invalid_grant", "unavailable"),
+        (503, "invalid_grant", "unavailable"),
+    ],
+)
+def test_workspace_token_rejection_is_not_a_temporary_outage(
+    monkeypatch, status, code, expected
+):
+    """Actual Google refresh parsing recognizes only closed definitive refusals."""
+    http(monkeypatch, Response(status, json.dumps({"error": code}).encode()))
+
+    def refresh(request):
+        """Exercise the installed Google refresh client without real signing keys."""
+        google_client.jwt_grant(request, worker.GOOGLE_TOKEN_URI, b"synthetic-jwt")
+
+    monkeypatch.setattr(
+        worker,
+        "workspace_candidate",
+        Mock(return_value=SimpleNamespace(refresh=refresh)),
+    )
+    smtp = Mock(side_effect=AssertionError("Token rejection must not reach SMTP"))
+    monkeypatch.setattr(worker.smtplib, "SMTP_SSL", smtp)
+    assert worker.check_request(payload("google_workspace")) == expected
+    smtp.assert_not_called()
+
+
+@pytest.mark.parametrize(
     "raw",
     [
         b"[]",
@@ -309,6 +345,43 @@ def invoke(**changes):
         b"synthetic-private",
         **(dict(seconds=30, check=lambda: None) | changes),
     )
+
+
+@pytest.mark.parametrize("stage", ["admission", "context", "close", "helper"])
+@pytest.mark.parametrize("error", [ConfigError, ValueError])
+def test_request_local_failures_cannot_reject_a_credential(monkeypatch, stage, error):
+    """Only an actual helper verdict can invalidate an otherwise sealed candidate."""
+    from django.db import connections
+    from django.utils import timezone
+
+    from parishkit.stewardship.accounts import credential_database
+    from parishkit.stewardship.accounts.provider_models import ProviderValidationContext
+
+    query = Mock()
+    query.filter.return_value.first.return_value = SimpleNamespace(
+        settings={"channel_id": "C123"},
+        request=SimpleNamespace(expires_at=timezone.now() + timedelta(minutes=5)),
+    )
+    monkeypatch.setattr(
+        ProviderValidationContext.objects, "select_related", Mock(return_value=query)
+    )
+    monkeypatch.setattr(credential_database, "admit_installer_database", Mock())
+    close = Mock()
+    monkeypatch.setattr(connections, "close_all", close)
+    monkeypatch.setattr(parent, "check_candidate", Mock(return_value=True))
+    targets = {
+        "admission": (credential_database, "admit_installer_database"),
+        "context": (parent, "validated_context"),
+        "close": (connections, "close_all"),
+        "helper": (parent, "check_candidate"),
+    }
+    owner, name = targets[stage]
+    monkeypatch.setattr(owner, name, Mock(side_effect=error("synthetic-private")))
+    with pytest.raises(CredentialValidationUnavailable) as raised:
+        parent.request_validator("slack", check=lambda: None)(object(), b"synthetic")
+    assert "synthetic-private" not in str(raised.value)
+    if stage != "close":
+        close.assert_called_once()
 
 
 @pytest.mark.parametrize(
