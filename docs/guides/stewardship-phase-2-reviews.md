@@ -731,3 +731,16 @@ regression passes 28 PostgreSQL cases.
 
 The complete initial installation/recreation/ACK demonstration and integrated
 Phase 2 acceptance/review gate remain open; this is an internal checkpoint.
+
+## Container timezone catalog correction
+
+The full initial-setup Compose demonstration exposed a packaging omission:
+the strict image build context excluded the frozen timezone-name schema asset.
+The first parish form therefore failed in the image even though host tests and
+the separately tested wheel included the catalog. Both synchronized ignore
+files now admit that exact asset, without admitting arbitrary text files.
+
+The two real scratch-build context tests prove inclusion and adjacent private
+text exclusion. Ninety-one packaging/schema tests pass. The rebuilt development
+image contains the catalog; the complete setup demonstration is still running.
+This is a discovered integration correction, not a completed phase review round.
