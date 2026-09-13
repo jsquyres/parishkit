@@ -263,6 +263,14 @@ def bare_request(**overrides):
 def test_sql_rejects_forged_source_scope_or_task_binding(tmp_path, overrides):
     """A caller cannot bypass canonical/current-parent checks using direct INSERT."""
     initialized(tmp_path)
+    if "window_canonical" in overrides:
+        import hashlib
+
+        overrides = overrides | {
+            "window_digest": hashlib.sha256(
+                overrides["window_canonical"].encode()
+            ).hexdigest()
+        }
     with pytest.raises(IntegrityError), work_transaction():
         bare_request(**overrides)
     assert not SourceRefreshRequest.objects.exists()

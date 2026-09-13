@@ -36,6 +36,16 @@ def test_new_unit_is_denied_after_stop_loss_or_completion(signal):
         context.check()
 
 
+@pytest.mark.parametrize("signal", ["failed", "finished"])
+def test_inflight_drain_cannot_ignore_lost_ownership_or_completion(signal):
+    """Only graceful stop is drainable; a failed/finished owner cannot query SQL."""
+    context = execution()
+    context.control.stop.set()
+    getattr(context.control, signal).set()
+    with pytest.raises(ExecutionInterrupted):
+        context.check_inflight()
+
+
 def test_completed_context_does_not_attempt_a_new_heartbeat():
     """A completion racing the timer never tries to renew a terminal TaskRun."""
     context = execution()

@@ -112,7 +112,10 @@ def require_source_refresh(*, campaign_id):
     Restore and purge keep source mutations held; no maintenance flag bypasses
     them. The source mutation lease and corpus validation remain independent.
     """
-    scope = _scope(campaign_id)
+    try:
+        scope = _scope(campaign_id)
+    except PermissionError:
+        raise SourceScopeChanged("Source refresh scope is unavailable.") from None
     if (
         scope.runtime.restore_review_required
         or scope.runtime.current_campaign_id != campaign_id

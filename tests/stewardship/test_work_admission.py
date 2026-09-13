@@ -42,3 +42,17 @@ def test_source_has_no_caller_selectable_maintenance_bypass():
         require_source_refresh(campaign_id=None, maintenance=True)
     with pytest.raises(TypeError):
         require_source_refresh(campaign_id="not-a-uuid")
+
+
+def test_missing_source_scope_is_classified_for_replanning(monkeypatch):
+    """Missing runtime/campaign state remains held, not an unknown read error."""
+    from unittest.mock import Mock
+
+    from parishkit.stewardship.jobs import admission
+    from parishkit.stewardship.source.errors import SourceScopeChanged
+
+    monkeypatch.setattr(
+        admission, "_scope", Mock(side_effect=PermissionError("missing"))
+    )
+    with pytest.raises(SourceScopeChanged):
+        require_source_refresh(campaign_id=None)

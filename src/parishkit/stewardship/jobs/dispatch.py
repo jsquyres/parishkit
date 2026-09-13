@@ -128,6 +128,19 @@ class Execution:
                 self.control.finished.set()
             return result
 
+    def check_inflight(self):
+        """Observe an already-started external unit while allowing graceful drain.
+
+        This grants no scope in which to start a new effect. Renewal failure,
+        lost SQL ownership or revoked domain admission still stops the helper.
+        """
+        with self.control.lock:
+            self.control.check(allow_drain=True)
+            with self.handler.scope(), transaction.atomic():
+                row = lock_task_claim(self.claim)
+                if self.handler.admit("effect", _status(row)) is not True:
+                    raise PermissionError("This in-flight task is not admitted.")
+
     def heartbeat(self, *, seconds=60):
         """Only a still-current owner can extend its lease between bounded steps."""
         return self.transition("heartbeat", lease_seconds=seconds)
