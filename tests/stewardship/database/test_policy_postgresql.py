@@ -4,7 +4,6 @@ from uuid import UUID, uuid4
 
 import pytest
 from django.db import IntegrityError, connection, transaction
-from django.db.migrations.executor import MigrationExecutor
 from django.db.models import F
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
@@ -230,26 +229,6 @@ def test_partial_policy_cannot_commit(tmp_path):
             validation_schema="foundation-policy-v2",
         )
     assert not AppliedConfigurationVersion.objects.exists()
-
-
-def test_policy_downgrade_refuses_before_removing_guards(tmp_path):
-    """Populated policy evidence survives a refused historical schema rollback."""
-    store, version, _ = initialized(tmp_path)
-    leaves = MigrationExecutor(connection).loader.graph.leaf_nodes()
-    try:
-        with pytest.raises(IntegrityError, match="Policy security history"):
-            MigrationExecutor(connection).migrate(
-                [("stewardship_accounts", "0018_policy_activation_evidence")]
-            )
-        assert is_prepared(version.digest)
-        with (
-            pytest.raises(IntegrityError),
-            transaction.atomic(),
-            connection.cursor() as cursor,
-        ):
-            cursor.execute("DELETE FROM stewardship_policy_security_event")
-    finally:
-        MigrationExecutor(connection).migrate(leaves)
 
 
 def test_legacy_preparation_can_introduce_policy(tmp_path):

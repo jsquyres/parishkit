@@ -1,0 +1,30 @@
+{
+  "columns": {
+    "count": 1387,
+    "sha256": "50e9cd68b9c083c54d497673fa35118d53f84b75851eef193a4f8f87e51cda44"
+  },
+  "constraints": {
+    "count": 1974,
+    "sha256": "2f5269afa563b5bc7f410a7ab7f6b25d051cd81bbc75684b4c6d51c3ef0b56a1"
+  },
+  "functions": {
+    "count": 286,
+    "sha256": "8049d47d776f1c2e86640882724270a8debc1d1ee59239646dd287237f54b717"
+  },
+  "indexes": {
+    "count": 624,
+    "sha256": "dd97bdb5294cd39e094b809758eacf2b7ec0339223203bf954e984ff949dbaaf"
+  },
+  "policies": {
+    "count": 28,
+    "sha256": "1c9c3b2d81688a511ada24a15e37646418a108b7da69afab739589e9d4c6bf78"
+  },
+  "relations": {
+    "count": 123,
+    "sha256": "3d330bb0dfc967c49287ec42085304dca00f12c19efe36496d249e82be070750"
+  },
+  "triggers": {
+    "count": 298,
+    "sha256": "ca7f4ab48b5aff89d8bb2060ccbc077de79b5d62c3dec5c55f161c1998227b46"
+  }
+}

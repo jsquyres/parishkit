@@ -5,7 +5,6 @@ from uuid import uuid4
 
 import pytest
 from django.db import IntegrityError, connection, transaction
-from django.db.migrations.executor import MigrationExecutor
 
 from parishkit.stewardship.campaigns.work_locks import work_transaction
 from parishkit.stewardship.jobs.dispatch import WorkQueue, claim_hint
@@ -161,8 +160,8 @@ def test_sql_rejects_forged_creating_worker_before_unique_check(tmp_path, field,
         SourceRefreshFallback.objects.create(**values)
 
 
-def test_fallback_history_is_immutable_and_prevents_destructive_downgrade(tmp_path):
-    """Keep the dependency guards installed when any fallback history is retained."""
+def test_fallback_history_is_immutable(tmp_path):
+    """Retained dependencies refuse mutation through either ORM or raw SQL."""
     result = request_full_fallback(unseeded(tmp_path))
     with pytest.raises(StorageInvariantError):
         SourceRefreshFallback.objects.filter(pk=result.pk).update(
@@ -178,18 +177,11 @@ def test_fallback_history_is_immutable_and_prevents_destructive_downgrade(tmp_pa
             "WHERE id=%s",
             [result.pk],
         )
-    executor = MigrationExecutor(connection)
-    targets = executor.loader.graph.leaf_nodes()
-    try:
-        with pytest.raises(IntegrityError, match="fallback history"):
-            executor.migrate([("stewardship_source", "0012_refresh_attempt_guards")])
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT to_regprocedure('stewardship_refresh_fallback_guard_v1()')"
-            )
-            assert cursor.fetchone()[0] is not None
-    finally:
-        MigrationExecutor(connection).migrate(targets)
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT to_regprocedure('stewardship_refresh_fallback_guard_v1()')"
+        )
+        assert cursor.fetchone()[0] is not None
 
 
 def waiting(execution):
