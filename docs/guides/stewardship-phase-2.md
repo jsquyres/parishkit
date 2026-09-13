@@ -1057,7 +1057,11 @@ attempt's version to reject conflicting tabs. SQL independently checks the
 original live Admin, bootstrap base, declared field vocabulary and lifecycle.
 Cancellation or scheduler expiry clears all public values in the same database
 transaction; retained tombstones cannot be repopulated or deleted. The scheduler
-has scrub-only columns and cannot read the staged settings. Normalized setup
+has scrub-only payload columns and cannot read public draft JSON or rendered
+mail. Delivery eligibility compares database-generated draft digests with the
+explicit candidate metadata needed by its invoker-only guards. The isolated
+Slack target can read equality evidence only for its own Slack step, not other
+draft rows. Normalized setup
 logos use original-login-only, non-cacheable image URLs and the existing durable
 bundle/cleanup owner. They are never public merely because they are ready.
 

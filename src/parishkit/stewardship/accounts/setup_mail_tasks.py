@@ -28,7 +28,22 @@ from .setup_secret_models import SetupSealedCredential
 def bound_delivery(status):
     """Only a current stored Task view can select its immutable journal binding."""
     require_work_order()
-    row = SetupMailDelivery.objects.filter(pk=status.domain_request_id).first()
+    # The scheduler uses this same admission path but cannot read rendered mail.
+    # Only the dedicated consumer's begin_submission owner may load that payload.
+    row = (
+        SetupMailDelivery.objects.only(
+            "id",
+            "task_id",
+            "state",
+            "attempt_id",
+            "attempt_version",
+            "credential_id",
+            "credential_version",
+            "fingerprint",
+        )
+        .filter(pk=status.domain_request_id)
+        .first()
+    )
     if (
         row is None
         or status.task_type != TASK_TYPE

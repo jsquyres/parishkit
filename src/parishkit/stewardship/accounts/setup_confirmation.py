@@ -85,8 +85,9 @@ def freeze_setup(request, service, *, preview_token):
     Ordinary request intake deliberately rejects v7. Its separate transaction
     would leave an unbound request or a frozen attempt after a failure, so this
     narrowly scoped original-setup owner performs the indivisible intake here.
-    Replayed confirmation may observe its original frozen receipt, never create
-    a second request or extend the original login's idle expiry.
+    Within the original signed-preview and live-session window, a replay may
+    observe its original frozen receipt. It never creates a second request,
+    bypasses authentication expiry or extends the original login's idle expiry.
     """
     if connection.in_atomic_block or not connection.get_autocommit():
         raise StorageInvariantError("Setup confirmation must own its transaction.")

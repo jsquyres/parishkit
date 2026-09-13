@@ -24,7 +24,7 @@ def extend_slack_permissions(tables, metadata):
         ("stewardship_address_rule", {"email", "configuration_id", "roles"}),
         (
             "stewardship_setup_draft_section",
-            {"attempt_id", "step", "values", "scrubbed_at"},
+            {"attempt_id", "step", "scope_digest", "scrubbed_at"},
         ),
     ):
         tables[table] = {"SELECT"}

@@ -41,7 +41,7 @@ def mail_runtime_grants():
         "stewardship_portal_session": {"SELECT": set(SESSION_COLUMNS)},
         "stewardship_portal_user": {"SELECT": {"id", "disabled", "email"}},
         "stewardship_setup_draft_section": {
-            "SELECT": {"attempt_id", "step", "values", "scrubbed_at"}
+            "SELECT": {"attempt_id", "step", "scope_digest", "scrubbed_at"}
         },
     }
     from .campaign_mail_grants import add_campaign_mail_grants
@@ -50,13 +50,31 @@ def mail_runtime_grants():
     return tables, columns
 
 
-def add_setup_mail_cleanup_grants(tables, columns):
+def add_setup_mail_cleanup_grants(tables, columns, *, read_payload=False):
     """Expiry can erase sample content and classify stale work, never claim/send."""
     from .setup_notification_grants import add_notification_cleanup
 
     add_notification_cleanup(tables, columns)
-    tables["stewardship_setup_mail_delivery"] = {"SELECT"}
+    if read_payload:
+        tables["stewardship_setup_mail_delivery"] = {"SELECT"}
     columns["stewardship_setup_mail_delivery"] = {
+        "SELECT": {
+            "id",
+            "created_at",
+            "version",
+            "attempt_id",
+            "attempt_version",
+            "credential_id",
+            "credential_version",
+            "fingerprint",
+            "task_id",
+            "state",
+            "run_id",
+            "task_fence",
+            "worker_id",
+            "deadline_at",
+            "scrubbed_at",
+        },
         "UPDATE": {
             "mail",
             "state",
@@ -65,7 +83,7 @@ def add_setup_mail_cleanup_grants(tables, columns):
             "actor_id",
             "correlation_id",
             "version",
-        }
+        },
     }
     columns["stewardship_setup_mail_exchange"] = {
         "SELECT": {"delivery_id", "scrubbed_at", "version"},
@@ -80,7 +98,7 @@ def add_setup_mail_cleanup_grants(tables, columns):
     columns["stewardship_setup_sealed_credential"]["SELECT"].update(CANDIDATE_METADATA)
     if "stewardship_setup_draft_section" in columns:
         columns["stewardship_setup_draft_section"]["SELECT"].update(
-            {"attempt_id", "step", "values", "scrubbed_at"}
+            {"attempt_id", "step", "scope_digest", "scrubbed_at"}
         )
 
 
@@ -96,7 +114,7 @@ def extend_workspace_permissions(tables, metadata):
         ("stewardship_address_rule", {"email", "configuration_id", "roles"}),
         (
             "stewardship_setup_draft_section",
-            {"attempt_id", "step", "values", "scrubbed_at"},
+            {"attempt_id", "step", "scope_digest", "scrubbed_at"},
         ),
         (
             "stewardship_setup_mail_delivery",

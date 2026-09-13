@@ -90,6 +90,19 @@ class SetupDraftSection(MutableRecord):
     attempt = models.ForeignKey(SetupAttempt, on_delete=models.PROTECT)
     step = models.CharField(max_length=48)
     values = models.JSONField()
+    # Invoker-only delivery guards compare settings without exposing draft JSON
+    # to cleanup or unrelated credential identities. PostgreSQL owns the value.
+    scope_digest = models.GeneratedField(
+        expression=models.Func(
+            models.F("values"),
+            template=(
+                "pg_catalog.encode(pg_catalog.sha256("
+                "pg_catalog.jsonb_send(%(expressions)s)), 'hex')"
+            ),
+        ),
+        output_field=models.CharField(max_length=64),
+        db_persist=True,
+    )
     scrubbed_at = UTCDateTimeField(null=True)
 
     class Meta(MutableRecord.Meta):

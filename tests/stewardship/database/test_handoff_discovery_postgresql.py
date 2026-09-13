@@ -20,6 +20,16 @@ from .test_credential_isolation_postgresql import identity, isolated_roles  # no
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+def test_public_handoff_row_security_applies_to_schema_owner():
+    """Owner-scoped SELECT policies must not be bypassed by table ownership."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT relrowsecurity,relforcerowsecurity FROM pg_class "
+            "WHERE oid='public.stewardship_public_credential_handoff'::regclass"
+        )
+        assert cursor.fetchone() == (True, True)
+
+
 @pytest.fixture
 def handoff_roles(request):
     """Extend only disposable fixture roles with the exact public discovery grants."""
