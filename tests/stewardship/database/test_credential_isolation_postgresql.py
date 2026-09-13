@@ -86,6 +86,13 @@ def isolated_roles():
                     "GRANT SELECT(id, configuration_id) ON stewardship_parish "
                     f'TO "{role}"'
                 )
+                # Match production attribution metadata. A generic audit plan
+                # checks this relation even when the bootstrap fallback is not
+                # ultimately needed; short-circuiting is not a grant contract.
+                cursor.execute(
+                    "GRANT SELECT(id, validation_schema) ON "
+                    f'stewardship_configuration_version TO "{role}"'
+                )
                 if role == "pk_stewardship_worker":
                     # SELECT FOR SHARE in the acknowledgement trigger needs one
                     # UPDATE privilege; RLS/immutable guards still deny mutation.

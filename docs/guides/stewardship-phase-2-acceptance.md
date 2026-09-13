@@ -65,8 +65,9 @@ filename alone, define the proof. See the
 ## Integrated validation status
 
 Final corrected implementation: `ea2d5cb974bccbe2fc5ec85fadded17a07a8bbeb`.
-All results below are from that source tree; subsequent handoff edits are
-documentation only. Validation completed September 13, 2026 UTC.
+All results below are from that source tree. Subsequent handoff documentation
+and the CI test-fixture correction below do not change production code.
+Validation completed September 13, 2026 UTC.
 
 - Latest final-run baseline: 4,297 passed; 2,610 explicit profile
   skips; two existing warnings in 65.08 seconds. These skips require their
@@ -98,6 +99,27 @@ are complete. Delivery and final-head CI are tracked on
 local acceptance, not a substitute for that PR's required checks. Human merge
 approval remains required. Do not begin the Family implementation phase or merge
 this branch without that approval.
+
+### CI fixture correction
+
+[The first final-head CI run](https://github.com/epiphany40223/parishkit/actions/runs/34746200392)
+passed validation, browser and operational Compose jobs. Its database job passed
+2,113 tests but errored while setting up the integration-selection migration
+case. The synthetic credential-role fixture lacked column-level
+`SELECT(id, validation_schema)` on configuration versions, already present in
+production installer provisioning. PostgreSQL generic plans check that audit
+fallback relation's privileges even when custom-plan short-circuiting previously
+masked the fixture omission.
+
+The fixture now matches those narrow production metadata grants. Two new
+regressions force custom and generic plans before credential installation,
+verify successful attribution and completion, and still require SQLSTATE
+`42501` when reading the private canonical configuration document. Both failed
+before the fixture correction; the generic-plan case reproduced the CI stack.
+All 47 integration-selection, credential-isolation and integration-view cases
+then passed locally in 77.79 seconds. This is a test-only CI correction, not a
+production permission expansion or a new implementation review round. The PR
+must pass a complete CI rerun before human merge approval.
 
 ## Boundaries retained for later phases
 
