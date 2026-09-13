@@ -116,13 +116,14 @@ def test_scheduler_can_enqueue_and_scan_but_cannot_claim(tmp_path):
         guard.check()
         hints, _ = collect_hints(handlers=handlers)
         assert [hint.run_id for hint in hints] == [task.run_id]
-        with pytest.raises(DatabaseError):
+        with pytest.raises(DatabaseError) as error:
             claim_hint(
                 task.run_id,
                 queue=WorkQueue.GENERAL,
                 worker_id=uuid4(),
                 handlers=handlers,
             )
+        assert error.value.__cause__.sqlstate == "42501"
 
 
 def test_worker_can_claim_progress_complete_and_record_private_safe_audit(tmp_path):
@@ -163,9 +164,9 @@ def test_both_background_roles_can_check_current_credential_gate_without_mutatio
 @pytest.mark.parametrize(
     "statement",
     [
-        "SELECT * FROM stewardship_family_token",
-        "SELECT * FROM stewardship_portal_session",
-        "SELECT * FROM stewardship_audit_context",
+        "SELECT ciphertext FROM stewardship_family_token",
+        "SELECT session_id FROM stewardship_portal_session",
+        "SELECT context FROM stewardship_audit_context",
         "UPDATE stewardship_campaign SET state='active'",
         "UPDATE stewardship_campaign_credentials SET go_live_gate=false",
         "INSERT INTO stewardship_domain_rule DEFAULT VALUES",
@@ -182,11 +183,12 @@ def test_background_sql_cannot_read_private_payloads_or_expand_authority(
     """Exercise the real server, not merely equality against the grant registry."""
     with (
         task_login(service),
-        pytest.raises(DatabaseError),
+        pytest.raises(DatabaseError) as error,
         transaction.atomic(),
         connection.cursor() as cursor,
     ):
         cursor.execute(statement)
+    assert error.value.__cause__.sqlstate == "42501"
 
 
 @pytest.mark.parametrize("service", [ServiceRole.WORKER, ServiceRole.SCHEDULER])

@@ -334,6 +334,7 @@ def seed_expired(intent):
             updated_at=now - timedelta(minutes=2),
             expires_at=now - timedelta(minutes=1),
         )
+        cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
         cursor.execute(
             "ALTER TABLE stewardship_secret_request "
             "ENABLE TRIGGER stewardship_secret_state_v1"

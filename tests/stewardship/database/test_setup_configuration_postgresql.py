@@ -170,19 +170,22 @@ def test_setup_request_cannot_commit_without_original_attempt_binding(setup_serv
 @pytest.mark.parametrize("mutation", ["actor", "version", "base"])
 def test_intent_rejects_changed_attempt_binding(setup_service, mutation):
     """An exact actor alone is insufficient: original frozen version/base also bind."""
-    _, attempt = frozen(setup_service)
+    _, attempt = frozen(setup_service, branding=mutation == "base")
     _, fields = values(setup_service, attempt)
-    with pytest.raises(IntegrityError), work_transaction():
+    if mutation == "base":
+        other = build(setup_service.store.active(), fields["patch"]).candidate
+        prepare_snapshot(other, actor_id=attempt.owner_id, correlation_id=uuid4())
+        fields["base_id"] = other.version_id
+    with pytest.raises(IntegrityError) as error, work_transaction():
         request = ConfigurationChangeRequest.objects.create(**fields)
-        # A new unrelated reference is rejected by either the FK or admission.
-        attempt_id = uuid4() if mutation == "base" else attempt.pk
         SetupConfigurationIntent.objects.create(
-            attempt_id=attempt_id,
+            attempt_id=attempt.pk,
             request=request,
             attempt_version=attempt.version + (mutation == "version"),
             actor_id=uuid4() if mutation == "actor" else attempt.owner_id,
             correlation_id=uuid4(),
         )
+    assert error.value.__cause__.sqlstate == "23514"
     assert not ConfigurationChangeRequest.objects.exists()
 
 

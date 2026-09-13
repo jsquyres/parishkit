@@ -185,6 +185,6 @@ def test_general_worker_and_other_targets_have_no_mail_relay_access(
         pytest.raises(DatabaseError),
         transaction.atomic(),
     ):
-        SetupMailExchange.objects.count()
+        list(SetupMailExchange.objects.values_list("ciphertext", flat=True))
     with target_login("parishsoft"), pytest.raises(DatabaseError), transaction.atomic():
-        SetupMailExchange.objects.count()
+        list(SetupMailExchange.objects.values_list("ciphertext", flat=True))

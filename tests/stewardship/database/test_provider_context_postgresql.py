@@ -185,6 +185,13 @@ def test_context_migration_roundtrip_and_populated_downgrade():
     try:
         MigrationExecutor(connection).migrate(target)
         MigrationExecutor(connection).migrate(leaves)
+        # Recreated tables lose this disposable fixture's explicit consumer grant.
+        # Production upgrades reapply runtime grants after the migration phase.
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "GRANT SELECT ON stewardship_setup_credential_install "
+                "TO pk_stewardship_web"
+            )
         with identity("pk_stewardship_web"):
             stage_secret_request(**intent())
         with pytest.raises(DatabaseError):
