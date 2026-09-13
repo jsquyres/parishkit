@@ -13,6 +13,7 @@ from parishkit.stewardship.jobs.storage import enqueue
 from parishkit.stewardship.storage import StorageInvariantError
 
 from .canonical import canonical_payload
+from .errors import SourceScopeChanged
 from .models import SourceCurrent, SourceMutationLease, SourceSnapshot
 from .refresh_models import REFRESH_CAUSES, SourceRefreshCommand, SourceRefreshRequest
 from .windows import refresh_window
@@ -79,7 +80,7 @@ def admit_refresh_request(action, status):
         _organization(scope) != request.organization_id
         or _window(scope).digest != request.window_digest
     ):
-        raise PermissionError("The source refresh window is no longer current.")
+        raise SourceScopeChanged("The source refresh window is no longer current.")
     return True
 
 

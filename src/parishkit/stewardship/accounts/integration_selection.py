@@ -37,6 +37,7 @@ def _scope(target, records, context):
     """Match authentication inputs without treating an old recipient as readiness."""
     selected = dict(records[target]["values"]["settings"])
     if target == "parishsoft":
+        selected.pop("nightly_time", None)
         organization = selected.get("organization_id")
         if (
             not isinstance(organization, str)

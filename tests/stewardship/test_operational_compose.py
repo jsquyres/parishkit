@@ -206,7 +206,9 @@ def compose_run(file, project, *arguments, check=True, timeout=60):
 
 
 @pytest.mark.parametrize("production", [False, True])
-@pytest.mark.parametrize("provider_mode", ["configured", "initial", "complete"])
+@pytest.mark.parametrize(
+    "provider_mode", ["configured", "initial", "complete", "abort"]
+)
 def test_complete_foundation_bootstrap_and_online_exclusion(
     tmp_path, production, provider_mode
 ):
@@ -215,14 +217,16 @@ def test_complete_foundation_bootstrap_and_online_exclusion(
     configuration, compose = seed_runtime(
         root,
         production=production,
-        provider_mode="initial" if provider_mode == "complete" else provider_mode,
+        provider_mode="initial"
+        if provider_mode in {"complete", "abort"}
+        else provider_mode,
     )
     layout = RuntimeLayout(configuration)
     project = "parishkit-runtime-" + uuid4().hex
     volume = project + "-state"
     file = tmp_path / "compose.json"
     deployment = str(uuid4())
-    if provider_mode == "complete":
+    if provider_mode in {"complete", "abort"}:
         from .runtime_setup_compose import inject_providers
 
         inject_providers(compose)
@@ -382,7 +386,7 @@ def test_complete_foundation_bootstrap_and_online_exclusion(
             str(layout.service_directory / "web.yaml"),
         )
         assert json.loads(diagnosis.stdout)["ready"] is True
-        if provider_mode in {"initial", "complete"}:
+        if provider_mode in {"initial", "complete", "abort"}:
             started = compose_run(
                 file,
                 project,
@@ -450,10 +454,12 @@ def test_complete_foundation_bootstrap_and_online_exclusion(
                     str(layout.service_directory / f"{name}-initial.yaml"),
                 )
                 assert probe.returncode == 0
-        if provider_mode == "complete":
+        if provider_mode in {"complete", "abort"}:
             from .runtime_setup_compose import complete_setup
 
-            complete_setup(file, project, configuration, mountpoint)
+            complete_setup(
+                file, project, configuration, mountpoint, abort=provider_mode == "abort"
+            )
             return
         auth_probe = compose_run(
             file,

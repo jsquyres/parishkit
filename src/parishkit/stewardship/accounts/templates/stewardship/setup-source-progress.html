@@ -5,6 +5,7 @@
 <h1>{% translate "Initial source load" %}</h1>
 <p>{% translate "A normal complete load takes about two to three minutes. The hard two-hour watchdog cannot be extended. If it expires, diagnose the problem before starting a new setup attempt." %}</p>
 <p class="notice">{% translate "Keep this page visible while the load runs. Closing or hiding it stops idle renewal. Only a live, correlated worker can renew this login; its absolute deadline never changes." %}</p>
+<p>{% translate "If the task state is failed, this attempt cannot resume or accept a replacement credential. Return to Setup overview, cancel setup, and sign out. Correct the reported problem before signing in to start a new attempt. Cancellation clears the temporary settings; it does not change an applied configuration." %}</p>
 <section class="panel" data-setup-progress data-progress-now="{{ progress.server_now }}" data-progress-url="{% url 'admin:setup_source_progress' progress.task_id %}?format=json" data-progress-task="{{ progress.task_id }}" data-progress-active="{{ progress.active|yesno:'true,false' }}">
 <p>{% translate "Task:" %} <span>{{ progress.task_id }}</span></p>
 <p>{% translate "State:" %} <span data-task-state>{{ progress.task_state }}</span></p>

@@ -12,7 +12,7 @@ from django.db import connection
 
 from parishkit.parishsoft import ParishSoftAPIError
 from parishkit.parishsoft_pagination import IncompleteSourceCollection
-from parishkit.parishsoft_transport import SourceTransportError
+from parishkit.parishsoft_transport import InvalidSourceResponse, SourceTransportError
 from parishkit.retry import RetryError, TransientRetryError
 from parishkit.stewardship.accounts.cryptography import CryptographicError
 from parishkit.stewardship.audit.schemas import ContextKind, Outcome
@@ -26,6 +26,7 @@ from parishkit.stewardship.storage import StorageInvariantError
 
 from .attempts import _bindings
 from .canonical import InvalidSourcePayload
+from .errors import SourceCredentialChanged, SourceScopeChanged
 from .leases import SourceLeaseUnavailable, release_source, verify_source
 from .models import SourceMutationLease
 from .outcomes import (
@@ -55,13 +56,15 @@ def classify_read_failure(error, *, has_source_claim):
             return None
         seen.add(id(error))
         error = error.last_exception
-    if isinstance(error, (InvalidSourcePayload, IncompleteSourceCollection)):
+    if isinstance(
+        error, (InvalidSourcePayload, IncompleteSourceCollection, InvalidSourceResponse)
+    ):
         return ReadFailure(False, False, Event.SOURCE_INVALID)
     if isinstance(error, SourceLeaseUnavailable):
         return ReadFailure(True, True, Event.SOURCE_HELD)
-    if isinstance(error, PermissionError):
+    if isinstance(error, SourceScopeChanged):
         return ReadFailure(True, False, Event.SOURCE_HELD)
-    if isinstance(error, CryptographicError):
+    if isinstance(error, (CryptographicError, SourceCredentialChanged)):
         # Pre-claim credential intake cannot succeed without an operator repair.
         # A post-load key-inventory rotation may instead require a bounded retry.
         return ReadFailure(has_source_claim, False, Event.SOURCE_CREDENTIAL_FAILED)

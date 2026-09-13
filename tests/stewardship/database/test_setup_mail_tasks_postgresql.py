@@ -101,6 +101,42 @@ def test_failed_private_relay_is_terminal_unsent_and_does_not_block_new_test(
     assert row.state == "cancelled" and row.submitted_at is None
 
 
+def test_cancel_while_waiting_for_private_relay_settles_task_without_submission(
+    setup_service, monkeypatch, tmp_path
+):
+    """A cancellation between credential polls is not a permanently failed send."""
+    from parishkit.stewardship.accounts.setup_staging import cancel_setup
+
+    from .test_runtime_auth_grants_postgresql import web_login
+
+    request, attempt, _, _, delivery = prepared(setup_service, monkeypatch, tmp_path)
+    publish = tasks.publish_recipient
+
+    def cancel_after_publish(recipient):
+        """Commit original-browser cancellation before the first receive poll."""
+        result = publish(recipient)
+        with connection.cursor() as cursor:
+            cursor.execute("RESET SESSION AUTHORIZATION")
+        try:
+            with web_login():
+                cancel_setup(request, setup_service, attempt.attempt_id)
+        finally:
+            with connection.cursor() as cursor:
+                cursor.execute("SET SESSION AUTHORIZATION pk_stewardship_mail_dispatch")
+        return result
+
+    monkeypatch.setattr(tasks, "publish_recipient", cancel_after_publish)
+    provider, receiver = Mock(), Mock()
+    monkeypatch.setattr(tasks, "submit_sample", provider)
+    monkeypatch.setattr(tasks, "receive_credential", receiver)
+    with task_login(ServiceRole.MAIL_DISPATCH, exact=True, reconnect=True):
+        assert execute(delivery)
+    assert TaskRun.objects.get(pk=delivery.task_id).state == "cancelled"
+    assert SetupMailDelivery.objects.get().submitted_at is None
+    provider.assert_not_called()
+    receiver.assert_not_called()
+
+
 def test_lost_owner_cannot_claim_success_or_trigger_automatic_resubmission(
     setup_service, monkeypatch, tmp_path
 ):
@@ -150,7 +186,9 @@ def test_real_ephemeral_relay_reaches_one_maintained_provider_boundary(
     with task_login(ServiceRole.MAIL_DISPATCH, exact=True, reconnect=True):
         assert execute(delivery)
     provider.assert_called_once()
-    assert provider.call_args.args[0] == b"synthetic-private-workspace"
+    from ..test_integration_candidates import account
+
+    assert provider.call_args.args[0] == account()
     assert SetupMailDelivery.objects.get().state == "accepted"
 
 

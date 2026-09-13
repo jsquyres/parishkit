@@ -113,7 +113,10 @@ configuration installer, and then commits the promoted source snapshot, Family
 codes, Testing mode, configured marker, and one redacted setup audit event. The
 configured marker is last and cannot become visible until YAML/DB digests match
 and every required consumer acknowledges its secret fingerprint. A crash or
-failure resumes idempotently from installer checkpoints; before the marker,
+failure resumes idempotently from installer checkpoints only within the original
+Admin session's idle and absolute lifetime. Finalization progress displays both
+deadlines and does not renew them; expiry cancels unfinished setup, and a new
+attempt requires cleanup and a new login. Before the marker,
 normal routes remain unconfigured/fail-closed and cancel cleanup removes sealed
 staging and any wizard-only files without exposing a partial product setup.
 Cancellation after YAML selection uses the

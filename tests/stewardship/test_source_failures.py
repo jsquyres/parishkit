@@ -2,10 +2,12 @@
 
 import pytest
 
+from parishkit.config import ConfigError
 from parishkit.parishsoft import ParishSoftAPIError
 from parishkit.parishsoft_changes import ChangeFeedIncomplete
 from parishkit.parishsoft_pagination import IncompleteSourceCollection
 from parishkit.parishsoft_transport import (
+    InvalidSourceResponse,
     SourceTransportDrainFailure,
     SourceTransportError,
 )
@@ -13,17 +15,56 @@ from parishkit.retry import RetryError, TransientRetryError
 from parishkit.stewardship.accounts.cryptography import CryptographicError
 from parishkit.stewardship.jobs.lifetime import ExecutionInterrupted
 from parishkit.stewardship.source.canonical import InvalidSourcePayload
+from parishkit.stewardship.source.errors import (
+    SourceCredentialChanged,
+    SourceScopeChanged,
+    local_read_admission,
+)
 from parishkit.stewardship.source.failures import classify_read_failure
 from parishkit.stewardship.source.leases import SourceFenceLost, SourceLeaseUnavailable
+from parishkit.stewardship.storage import StorageInvariantError
+
+
+@pytest.mark.parametrize(
+    "kind", [ConfigError, ValueError, TypeError, KeyError, OverflowError]
+)
+def test_local_admission_errors_are_not_provider_data_failures(kind):
+    """The outer shared DTO parser cannot consume a local callback's ValueError."""
+
+    @local_read_admission
+    def callback():
+        """Simulate local configuration parsing or connection cleanup failure."""
+        raise kind("synthetic-private")
+
+    with pytest.raises(StorageInvariantError) as raised:
+        callback()
+    assert "synthetic-private" not in str(raised.value)
+    assert classify_read_failure(raised.value, has_source_claim=True) is None
+
+
+@pytest.mark.parametrize("kind", [SourceScopeChanged, SourceFenceLost, PermissionError])
+def test_local_admission_preserves_typed_ownership_errors(kind):
+    """No new blanket permission-error retry path is introduced."""
+    error = kind("synthetic-private")
+
+    @local_read_admission
+    def callback():
+        """Deliver the original typed ownership result unchanged."""
+        raise error
+
+    with pytest.raises(kind) as raised:
+        callback()
+    assert raised.value is error
 
 
 @pytest.mark.parametrize(
     "error,retry,contention",
     [
         (InvalidSourcePayload("PRIVATE"), False, False),
+        (InvalidSourceResponse("PRIVATE"), False, False),
         (IncompleteSourceCollection("PRIVATE"), False, False),
         (SourceLeaseUnavailable("PRIVATE"), True, True),
-        (PermissionError("PRIVATE"), True, False),
+        (SourceScopeChanged("PRIVATE"), True, False),
         (SourceTransportError("PRIVATE"), True, False),
         (RetryError("PRIVATE", SourceTransportError("PRIVATE")), True, False),
         (ParishSoftAPIError(401, "PRIVATE", "PRIVATE"), False, False),
@@ -62,13 +103,13 @@ def test_cyclic_retry_cause_is_not_a_known_failure():
 
 
 @pytest.mark.parametrize("claimed", [False, True])
+@pytest.mark.parametrize("error_type", [CryptographicError, SourceCredentialChanged])
 def test_credential_intake_and_later_inventory_rotation_have_distinct_retry_policy(
     claimed,
+    error_type,
 ):
     """Missing intake needs repair; a concurrently changing key inventory can retry."""
-    decision = classify_read_failure(
-        CryptographicError("PRIVATE"), has_source_claim=claimed
-    )
+    decision = classify_read_failure(error_type("PRIVATE"), has_source_claim=claimed)
     assert decision.retry is claimed
 
 
@@ -80,6 +121,7 @@ def test_credential_intake_and_later_inventory_rotation_have_distinct_retry_poli
         ExecutionInterrupted("PRIVATE"),
         ChangeFeedIncomplete("PRIVATE"),
         RuntimeError("PRIVATE"),
+        PermissionError("PRIVATE"),
         ValueError("PRIVATE"),
         KeyboardInterrupt(),
     ],

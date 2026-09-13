@@ -2,7 +2,7 @@
 
 # ruff: noqa: F811 -- imported pytest fixtures are injected by name.
 
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import replace
 from uuid import uuid4
 
@@ -185,10 +185,21 @@ def test_lost_source_fence_refuses_delivery_and_consumption(setup_service):
         {"public_key": b"x" * 32},
     ],
 )
-def test_sql_rejects_identity_rebinding_before_and_after_reply(setup_service, mutation):
+@pytest.mark.parametrize("after_reply", [False, True])
+@pytest.mark.parametrize("as_target", [False, True])
+def test_sql_rejects_identity_rebinding_before_and_after_reply(
+    setup_service, mutation, after_reply, as_target
+):
     """Neither an installer nor a schema-owner bypass may rewrite immutable scope."""
-    preparing(setup_service)
-    with pytest.raises(DatabaseError), work_transaction():
+    _, _, private, _, _, _ = preparing(setup_service)
+    if after_reply:
+        with target_login():
+            assert relay_pending(private)
+    with (
+        target_login() if as_target else nullcontext(),
+        pytest.raises(DatabaseError),
+        work_transaction(),
+    ):
         SetupSourceExchange.objects.update(**mutation, version=F("version") + 1)
 
 
@@ -201,4 +212,4 @@ def test_forged_recipient_scope_and_unrelated_target_have_no_authority(setup_ser
     with task_login(ServiceRole.WORKER, exact=True), pytest.raises(PermissionError):
         publish_recipient(invalid)
     with target_login("slack"), pytest.raises(DatabaseError), transaction.atomic():
-        SetupSourceExchange.objects.count()
+        list(SetupSourceExchange.objects.values_list("ciphertext", flat=True))

@@ -82,8 +82,9 @@ It creates empty provider/key/handoff/storage directories, but does not connect
 to a database, initialize an application, start services, or generate provider
 credentials. The private provisioning intent/completion markers are not ordinary
 application config and must not be edited to bypass refusal.
-The broker identities prepare the Phase 2 transport boundary; they do not launch
-workers or grant domain operations. Per-identity Valkey overrides follow the
+Preparation creates the broker identities used by the worker, scheduler and
+mail-dispatch services started in step 7; preparation itself does not start
+those services or grant domain operations. Per-identity Valkey overrides follow the
 [deployment reference](../development/stewardship-deployment.md).
 
 An interrupted preparation resumes with the **same** input configuration, image,
@@ -176,6 +177,14 @@ Progress refreshes do not renew the original login's idle or absolute deadlines.
 If it expires or the Admin cancels before completion, the installer restores
 only unapplied setup state; background owners drain and clean temporary source
 work. A successful completion is never rolled back by the cancellation page.
+If consumers were already recreated with installed provider mounts, cancellation
+or expiry removes those candidate files. After the target installers finish
+rollback, recreate `worker` and `mail-dispatch` from the complete initial-setup
+Compose topology, using the same project name and `up --detach --force-recreate`.
+Do not merely restart the configured consumers: an existing bind mount can retain
+the removed file's inode, and a new container cannot mount that missing file.
+Verify the recreated initial consumers are healthy before another setup attempt.
+The application cannot perform this operator-owned Docker step.
 Restarted services recognize the exact prepared-but-unapplied setup without
 admitting ordinary work under mismatched YAML/SQL authority. The complete
 initial-installation Compose demonstration remains under the Phase 2 gate.
@@ -291,6 +300,21 @@ expand/migrate/contract discipline, verified backup/restore evidence, and readin
 checks before rollout. An incompatible schema requires the approved restore path,
 not an older image pointed at a newer database. Keep credential escrow separate
 from ordinary backup output and retain the matching key material.
+
+Phase 2 changes the worker/mail-dispatch role limits to twice the configured
+rollout overlap, and the scheduler limit to the rollout overlap. Earlier
+development databases may still have the operator reserve as those role limits.
+Such databases intentionally fail both exact-role provisioning checks and runtime
+startup; rerunning first-deployment provisioning cannot upgrade them. Do not
+relax the checks or adopt an unrelated role to work around this mismatch.
+Until OPS-05 provides the guarded upgrade workflow, preserve an existing database
+and use a separately provisioned, disposable development deployment for this
+version. A future authorized offline upgrade must verify the deployment/database
+and role ownership markers, compare every role against `role_limit()` for the
+new runtime budget, explicitly change only the owned mismatching connection
+limits, reapply runtime grants after migrations, and pass startup/readiness
+checks before restarting online services. This note grants no production
+upgrade or destructive development reset permission.
 
 Before authorized real TLS issuance, verify DNS resolves to the VM, public TCP
 80/443 reach only Caddy, no database/broker port is published, and the Google origin

@@ -91,6 +91,26 @@ def test_exact_intake_is_idempotent_and_never_contacts_provider(
     assert not setup_service.configured()
 
 
+def test_collecting_mail_is_not_subject_to_finished_loading_watchdog(
+    setup_service, monkeypatch, tmp_path
+):
+    """An active original login may test mail after the two-hour loading bound."""
+    from parishkit.stewardship.accounts.setup_models import SetupAttempt
+
+    from .test_setup_progress_postgresql import aged_original_load
+
+    request, _, _ = complete_draft(setup_service, monkeypatch, tmp_path)
+    aged_original_load(SetupAttempt.objects.get().source_task_id, minutes=121)
+    with web_login():
+        token = signing.dumps(
+            prepare_preview(request, setup_service).binding(), salt=PREVIEW_SALT
+        )
+        result = request_sample(
+            request, setup_service, preview_token=token, request_key=uuid4()
+        )
+    assert SetupMailDelivery.objects.get(pk=result.identifier).state == "queued"
+
+
 @pytest.mark.parametrize("outcome", list(DeliveryOutcome))
 def test_only_mail_worker_can_submit_and_terminal_result_cannot_replay(
     setup_service, monkeypatch, tmp_path, outcome
@@ -247,8 +267,9 @@ def test_recovery_waits_for_both_fences_and_never_retries(
         )
 
 
+@pytest.mark.parametrize("crossing", [False, True])
 def test_expired_helper_outcome_is_unknown_even_with_live_task(
-    setup_service, monkeypatch, tmp_path
+    setup_service, monkeypatch, tmp_path, crossing
 ):
     """A result arriving outside the finite helper deadline cannot claim readiness."""
     _, _, _, _, delivery = prepared(setup_service, monkeypatch, tmp_path)
@@ -256,6 +277,13 @@ def test_expired_helper_outcome_is_unknown_even_with_live_task(
         owner = claim(delivery)
         begin_submission(delivery.identifier, owner)
     age_delivery(delivery.identifier)
+    if crossing:
+        from parishkit.stewardship.accounts import delivery_results
+
+        original = delivery_results.database_now
+        before = SetupMailDelivery.objects.get(pk=delivery.identifier).deadline_at
+        calls = iter([before - timedelta(seconds=1), original()])
+        monkeypatch.setattr(delivery_results, "database_now", lambda: next(calls))
     with task_login(ServiceRole.MAIL_DISPATCH, exact=True):
         result = finish_submission(delivery.identifier, owner, DeliveryOutcome.ACCEPTED)
         assert result.state == "delivery_unknown"

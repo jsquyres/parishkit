@@ -406,14 +406,6 @@ def index(request):
             # happens after release; chrome must use that observation, not
             # independently choose a newer projection for the same response.
             request._stewardship_display_configuration = config
-            record_action(
-                Action.DASHBOARD_VIEWED,
-                actor_kind=ActorKind.PORTAL_USER,
-                actor_id=principal.identity,
-                parish_id=config.active_configuration.parish.pk,
-                campaign_id=config.current_campaign_id,
-                context={"outcome": Outcome.SUCCEEDED},
-            )
         response = render(
             request,
             "stewardship/home.html",
@@ -423,11 +415,22 @@ def index(request):
                 "dashboard": data,
             },
         )
-        if (
-            authenticated_admin(request, store=service.store, read_only=True)
-            != principal
-        ):
-            return denial(status=403)
+        with transaction.atomic():
+            if (
+                authenticated_admin(request, store=service.store, read_only=True)
+                != principal
+            ):
+                return denial(status=403)
+            # A rendered-but-revoked or failed response never claims a successful
+            # disclosure. The request boundary owns failure/denial diagnostics.
+            record_action(
+                Action.DASHBOARD_VIEWED,
+                actor_kind=ActorKind.PORTAL_USER,
+                actor_id=principal.identity,
+                parish_id=config.active_configuration.parish.pk,
+                campaign_id=config.current_campaign_id,
+                context={"outcome": Outcome.SUCCEEDED},
+            )
         response["Cache-Control"] = "no-store"
         return response
     except (LimiterUnavailable, ConfigError, DatabaseError):

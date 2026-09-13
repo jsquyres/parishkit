@@ -41,6 +41,11 @@ def ready_inputs(preview):
     """Require accepted tests for this exact revision, not merely valid credentials."""
     selected = {}
     draft = preview.draft
+    schedules = preview.compiled.candidate.document()["sections"].get("schedules", [])
+    if sum(row["values"]["kind"] == "initial" for row in schedules) != 1:
+        raise ValueError(
+            "Save one initial invitation schedule before final confirmation."
+        )
     for name, model, required in (
         ("mail", SetupMailDelivery, True),
         ("slack", SetupSlackDelivery, draft.sections["slack"]["enabled"]),

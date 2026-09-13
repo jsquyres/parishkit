@@ -52,6 +52,7 @@ class AppliedConfigurationVersion(ImmutableRecord):
                         "bootstrap-policy-v1",
                         "ministry-activity-v4",
                         "campaign-content-v5",
+                        "source-cadence-v8",
                     ]
                 ),
                 name="configuration_validation_schema",

@@ -3,14 +3,14 @@
 The scheduler owns only metadata. A general worker owns the private media mount
 and checks its Task fence at both durable checkpoints. Retained configurations
 (including prepared versions) pin assets, except for never-applied setup versions
-whose journaled abort has completed. Pending requests still hold cleanup until
-the installer has resolved them.
+whose journaled abort has completed. A pending request pins only the bundles its
+patch explicitly selects; inherited references are already pinned by its base.
 """
 
 from pathlib import Path
 
 from django.db import connection
-from django.db.models import Exists, OuterRef, Q, Subquery
+from django.db.models import BooleanField, Exists, Func, OuterRef, Q
 
 from parishkit.config import ConfigError
 from parishkit.stewardship.campaigns.work_locks import (
@@ -28,7 +28,6 @@ from parishkit.stewardship.storage import StorageInvariantError
 from .branding_models import BrandingAsset, BrandingBundle
 from .branding_staging import cleanup_branding
 from .configuration_models import Parish
-from .request_models import ConfigurationChangeRequest, ConfigurationRequestCheckpoint
 from .runtime_models import SystemConfiguration
 from .setup_models import SetupAttempt
 
@@ -46,28 +45,23 @@ def unpinned_bundles():
         | Q(pk__in=parishes.values("icon_logo_id"))
         | Q(pk__in=parishes.values("favicon_id"))
     ).values("bundle_id")
-    return BrandingBundle.objects.exclude(pk__in=pinned)
+    return (
+        BrandingBundle.objects.exclude(pk__in=pinned)
+        .alias(
+            pending_reference=Func(
+                "pk",
+                function="public.stewardship_branding_pending_v1",
+                output_field=BooleanField(),
+            )
+        )
+        .filter(pending_reference=False)
+    )
 
 
 def available():
-    """A restore hold or unresolved configuration request prevents new deletion."""
+    """A restore hold prevents all deletion; individual request pins are scoped."""
     require_work_order()
-    if not SystemConfiguration.objects.filter(restore_review_required=False).exists():
-        return False
-    latest = ConfigurationRequestCheckpoint.objects.filter(
-        request_id=OuterRef("pk")
-    ).order_by("-sequence")
-    pending = (
-        ConfigurationChangeRequest.objects.annotate(
-            latest_state=Subquery(latest.values("state")[:1])
-        )
-        .filter(
-            Q(latest_state__isnull=True)
-            | ~Q(latest_state__in=["applied", "failed", "cancelled"])
-        )
-        .exists()
-    )
-    return not pending
+    return SystemConfiguration.objects.filter(restore_review_required=False).exists()
 
 
 def eligible(row):

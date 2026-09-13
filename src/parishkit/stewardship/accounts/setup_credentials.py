@@ -5,11 +5,13 @@ from uuid import UUID, uuid4
 
 from django.db.models import F
 
+from parishkit.config import ConfigError
 from parishkit.stewardship.campaigns.work_locks import work_transaction
 from parishkit.stewardship.observability import current_correlation
 from parishkit.stewardship.web.contracts import check_version
 
 from .handoff_discovery import public_handoff
+from .integration_candidates import slack_candidate, workspace_info
 from .metrics_credentials import credential_receipt
 from .provider_context import validated_context
 from .sessions import authenticated_admin, database_now, require_fresh
@@ -121,6 +123,11 @@ def stage_credential(
                 raise ValueError(
                     "The ParishSoft credential has an invalid format."
                 ) from None
+        else:
+            try:
+                (slack_candidate if target == "slack" else workspace_info)(candidate)
+            except ConfigError:
+                raise ValueError("The credential has an invalid format.") from None
         row = (
             SetupSealedCredential.objects.defer("ciphertext")
             .filter(attempt=attempt, target=target)

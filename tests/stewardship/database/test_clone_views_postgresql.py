@@ -161,7 +161,7 @@ def test_clone_seed_and_confirmation_both_expire(auth_service, google, monkeypat
     proposal = token(post(browser, path, data))
     future = signing.time.time() + 901
     monkeypatch.setattr(signing, "time", SimpleNamespace(time=lambda: future))
-    assert post(browser, path, data).status_code == 400
+    assert post(browser, path, data).status_code == 409
     assert (
         post(browser, path, {"action": "confirm", "preview": proposal}).status_code
         == 400

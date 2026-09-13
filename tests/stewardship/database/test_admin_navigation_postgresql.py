@@ -162,6 +162,9 @@ def test_dashboard_render_releases_work_lock_and_rechecks_authority(
     response = browser.get("/admin/")
     assert response.status_code == (403 if revoke else 200)
     assert observed == [True]
+    assert AuditEvent.objects.filter(event_type="dashboard_viewed").count() == (
+        0 if revoke else 1
+    )
     if revoke:
         assert b"test@example.org" not in response.content
 

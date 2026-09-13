@@ -100,7 +100,7 @@ def _family(row, corpus, *, kind):
 
 
 def _record(row, *, kind, fund, organization_id):
-    """Validate reference/date/money before deciding whether a record is in scope."""
+    """Require identity, tenant and a usable date before deciding period scope."""
     if type(row) is not dict:
         raise InvalidSourcePayload("Source giving entry is not a record.")
     identifier = _id(row.get("pledgeID" if kind == "pledge" else "contributionID"))
@@ -116,10 +116,7 @@ def _record(row, *, kind, fund, organization_id):
     day = _date(row.get("pledgeStartDate" if kind == "pledge" else "contributionDate"))
     if day is None:
         raise InvalidSourcePayload("Source giving effective date is unavailable.")
-    amount = _amount(
-        row.get("currentPledgeAmount" if kind == "pledge" else "contributionAmount")
-    )
-    return identifier, date.fromisoformat(day), amount
+    return identifier, date.fromisoformat(day)
 
 
 def load_giving(client, *, corpus, window, as_of):
@@ -170,7 +167,7 @@ def load_giving(client, *, corpus, window, as_of):
                     else "offering/contributiondetail/list"
                 )
                 for row in client.get_paginated(endpoint, parameters):
-                    identifier, day, amount = _record(
+                    identifier, day = _record(
                         row,
                         kind=kind,
                         fund=fund,
@@ -187,6 +184,17 @@ def load_giving(client, *, corpus, window, as_of):
                     ]
                     if not matches:
                         continue
+                    # Out-of-period pledge history is neither stored nor totaled.
+                    # Its money/household fields need not satisfy current-period
+                    # validation. An unknown date cannot prove exclusion and
+                    # still fails closed in _record above.
+                    amount = _amount(
+                        row.get(
+                            "currentPledgeAmount"
+                            if kind == "pledge"
+                            else "contributionAmount"
+                        )
+                    )
                     family = _family(row, corpus, kind=kind)
                     payload = {
                         "family_key": family,

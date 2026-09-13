@@ -143,7 +143,9 @@ def _target(configuration, campaigns, held, campaign_id):
             mode=SystemMode(configuration.mode),
             current_id=configuration.current_campaign_id,
             states=[CampaignState(row.state) for row in campaigns],
-            nonterminal_purge=held,
+            # BG-11/ADM-10 own the future durable purge-request fact. The
+            # existing work/credential hold above is a separate prerequisite.
+            nonterminal_purge=False,
         ):
             raise StaleRecordError("A new campaign is not currently admitted.")
         return None, True

@@ -79,7 +79,9 @@ def test_isolated_workspace_relays_once_without_reading_message_or_family_data(
     row = SetupMailExchange.objects.get(pk=identifier)
     assert row.replied_at is not None and "synthetic-private" not in row.ciphertext
     with task_login(ServiceRole.MAIL_DISPATCH, exact=True):
-        assert receive_credential(recipient).value == b"synthetic-private-workspace"
+        from ..test_integration_candidates import account
+
+        assert receive_credential(recipient).value == account()
         with (
             pytest.raises(DatabaseError),
             transaction.atomic(),
@@ -185,6 +187,6 @@ def test_general_worker_and_other_targets_have_no_mail_relay_access(
         pytest.raises(DatabaseError),
         transaction.atomic(),
     ):
-        SetupMailExchange.objects.count()
+        list(SetupMailExchange.objects.values_list("ciphertext", flat=True))
     with target_login("parishsoft"), pytest.raises(DatabaseError), transaction.atomic():
-        SetupMailExchange.objects.count()
+        list(SetupMailExchange.objects.values_list("ciphertext", flat=True))

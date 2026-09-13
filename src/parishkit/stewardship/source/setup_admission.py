@@ -15,7 +15,9 @@ from parishkit.stewardship.jobs.ownership import database_now
 from parishkit.stewardship.jobs.storage import TaskStatus
 from parishkit.stewardship.storage import StorageInvariantError
 
+from .errors import SourceScopeChanged
 from .models import SourceMutationLease
+from .outcomes import MAX_AUTOMATIC_ATTEMPTS
 
 TASK_TYPE = "setup_source_load"
 
@@ -71,7 +73,7 @@ def require_live_setup(attempt):
             current_campaign_id=None,
         ).exists()
     ):
-        raise PermissionError("The original setup source attempt has expired.")
+        raise SourceScopeChanged("The original setup source attempt has expired.")
     return attempt
 
 
@@ -116,7 +118,11 @@ def recovery_plan(status):
         require_live_setup(attempt)
     except PermissionError:
         return RecoveryPlan("recovery_cancel")
-    return RecoveryPlan("recovery_retry", retry_seconds=30)
+    if status.attempt >= MAX_AUTOMATIC_ATTEMPTS:
+        return RecoveryPlan("recovery_fail")
+    return RecoveryPlan(
+        "recovery_retry", retry_seconds=min(30 * 2 ** max(status.attempt - 1, 0), 600)
+    )
 
 
 def admit_setup_task(action, status):
@@ -126,13 +132,19 @@ def admit_setup_task(action, status):
         return True
     if action == "recovery_hint" and status.state == "running":
         return True
-    if action in {"recovery_hint", "recovery_retry", "recovery_cancel"}:
+    if action in {
+        "recovery_hint",
+        "recovery_retry",
+        "recovery_cancel",
+        "recovery_fail",
+    }:
         plan = recovery_plan(status)
         return plan is not None and (action == "recovery_hint" or action == plan.action)
     if action in {"retryable_failure", "permanent_failure", "safe_cancel"}:
-        # Release preserves the external deadline. A later claim must wait for it.
+        # This task must release its own claim, not another task's reservation.
+        # Release preserves the external deadline; retry admission still waits.
         lease = SourceMutationLease.objects.get(singleton=True)
-        return lease.owner_id is None
+        return lease.owner_id != status.run_id
     require_live_setup(attempt)
     if action in {"claim", "hint"}:
         return source_available()

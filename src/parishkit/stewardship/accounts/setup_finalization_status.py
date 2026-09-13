@@ -8,7 +8,7 @@ from .request_models import ConfigurationRequestCheckpoint
 from .setup_cancellation import _owned
 from .setup_install_models import SetupCredentialInstallation, SetupPreparationReceipt
 from .setup_models import SetupConfigurationIntent
-from .setup_staging import _status
+from .setup_staging import _status, _window
 
 
 def finalization_status(request, service):
@@ -52,4 +52,5 @@ def finalization_status(request, service):
             "credentials": credentials,
             "source": source,
             "prepared": prepared is not None,
+            "deadlines": _window(attempt, request.portal_session),
         }

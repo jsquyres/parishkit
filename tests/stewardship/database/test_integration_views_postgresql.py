@@ -110,12 +110,94 @@ def test_settings_preview_install_and_exact_retry(auth_service, google):
     record = auth_service.store.active().document()["sections"]["integrations"][0][
         "values"
     ]
-    assert record["settings"] == {"organization_id": "54321"}
+    assert record["settings"] == {"organization_id": "54321", "nightly_time": "02:00"}
     assert record["credential_fingerprint"] == "a" * 64
     assert (
         post(browser, URL, {"action": "confirm", "preview": preview})["Location"]
         == response["Location"]
     )
+
+
+def test_nightly_only_edit_uses_parish_time_and_real_scheduler_receipt(
+    auth_service, google
+):
+    """Admin HTTP intent reaches canonical YAML, projections and scheduler slots."""
+    from zoneinfo import ZoneInfo
+
+    from parishkit.stewardship.accounts.configuration_models import (
+        AppliedConfigurationVersion,
+    )
+    from parishkit.stewardship.jobs.scheduler import scheduler_session
+    from parishkit.stewardship.source.models import SourceCurrent, SourceMutationLease
+    from parishkit.stewardship.source.production import produce_refreshes
+    from parishkit.stewardship.source.refresh_models import SourceRefreshTick
+
+    SourceCurrent.objects.get_or_create(singleton=True)
+    SourceMutationLease.objects.get_or_create(singleton=True)
+    browser, _ = signed_in()
+    preview = hidden(
+        post(
+            browser,
+            URL,
+            edit(auth_service.store, organization_id="12345", nightly_time="03:15"),
+        ),
+        "preview",
+    )
+    response = post(browser, URL, {"action": "confirm", "preview": preview})
+    assert response.status_code == 302
+    request = ConfigurationChangeRequest.objects.get(
+        pk=response["Location"].rsplit("/", 1)[-1]
+    )
+    assert request.request_schema == "source-cadence-patch-v8"
+    assert (
+        install_request(
+            auth_service.store, request_id=request.pk, correlation_id=uuid4()
+        ).state
+        == "applied"
+    )
+    configuration = AppliedConfigurationVersion.objects.get(
+        pk=request.candidate_version_id
+    )
+    assert configuration.validation_schema == "source-cadence-v8"
+    with scheduler_session() as guard:
+        assert len(produce_refreshes(guard)) == 2
+    tick = SourceRefreshTick.objects.get(command__cause="nightly")
+    assert tick.configuration_id == configuration.pk
+    assert tick.nightly_time == "03:15"
+    local = tick.due_at.astimezone(ZoneInfo(tick.timezone))
+    assert (local.hour, local.minute) == (3, 15)
+    assert browser.get(URL).status_code == 200
+
+
+def test_cadence_upgrade_does_not_bypass_manual_grant_provenance(auth_service):
+    """A structurally valid new rule still must identify this precise request."""
+    from parishkit.config import ConfigError
+    from parishkit.stewardship.accounts.configuration_requests import record_request
+
+    base = auth_service.store.active()
+    integration = base.document()["sections"]["integrations"][0]
+    rule = address("new-admin@example.org")
+    patch = [
+        {
+            "operation": "update",
+            "section": "integrations",
+            "id": integration["id"],
+            "values": {
+                "settings": integration["values"]["settings"]
+                | {"nightly_time": "03:15"}
+            },
+        },
+        {"operation": "add", "section": "login_rules", **rule},
+    ]
+    with pytest.raises(ConfigError):
+        record_request(
+            base_digest=base.digest,
+            patch=patch,
+            actor_id=uuid4(),
+            request_key=uuid4(),
+            correlation_id=uuid4(),
+        )
+    assert not ConfigurationChangeRequest.objects.exists()
 
 
 @pytest.mark.parametrize(

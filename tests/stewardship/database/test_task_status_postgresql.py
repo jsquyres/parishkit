@@ -240,3 +240,36 @@ def test_task_html_detail_is_bounded_passive_and_preserves_history_filters(
     assert PortalSession.objects.get().last_activity_at == before
     assert browser.get(f"/admin/background/task/{uuid4()}").status_code == 404
     assert Client().get(path).status_code == 403
+
+
+@pytest.mark.parametrize("detail", [False, True])
+@pytest.mark.parametrize("failure", ["render", "revoke"])
+def test_html_render_or_final_revocation_cannot_record_success(
+    auth_service, google, monkeypatch, detail, failure
+):
+    """A JSON intermediate is not proof that an HTML report was displayed."""
+    task = new()
+    browser, _ = signed_in()
+    original = views.render
+
+    def render(*args, **kwargs):
+        """Lose rendering or the actual login after metadata was selected."""
+        assert not AuditEvent.objects.filter(event_type="background_viewed").exists()
+        if failure == "render":
+            raise RuntimeError("Synthetic render failure")
+        result = original(*args, **kwargs)
+        from parishkit.stewardship.accounts.sessions import end_admin
+
+        end_admin(args[0])
+        return result
+
+    monkeypatch.setattr(views, "render", render)
+    path = f"/admin/background/task/{task.run_id}" if detail else "/admin/background"
+    if failure == "render":
+        with pytest.raises(RuntimeError, match="Synthetic"):
+            browser.get(path)
+    else:
+        response = browser.get(path)
+        assert response.status_code == 403
+        assert str(task.run_id).encode() not in response.content
+    assert not AuditEvent.objects.filter(event_type="background_viewed").exists()

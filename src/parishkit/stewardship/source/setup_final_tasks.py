@@ -12,6 +12,7 @@ from parishkit.stewardship.jobs.models import TaskRun
 from parishkit.stewardship.jobs.storage import TaskStatus, enqueue
 
 from .models import SourceMutationLease
+from .outcomes import MAX_AUTOMATIC_ATTEMPTS
 from .setup_admission import source_available
 from .setup_final_scope import require_prepared_setup
 
@@ -84,7 +85,11 @@ def recovery_plan(status, *, store):
         require_final_task(status, store=store)
     except (PermissionError, LookupError):
         return RecoveryPlan("recovery_cancel")
-    return RecoveryPlan("recovery_retry", retry_seconds=30)
+    if status.attempt >= MAX_AUTOMATIC_ATTEMPTS:
+        return RecoveryPlan("recovery_fail")
+    return RecoveryPlan(
+        "recovery_retry", retry_seconds=min(30 * 2 ** max(status.attempt - 1, 0), 600)
+    )
 
 
 def admit_finalization_task(action, status, *, store):
@@ -106,11 +111,16 @@ def admit_finalization_task(action, status, *, store):
         action == "recovery_hint" and status.state == "running"
     ):
         return True
-    if action in {"recovery_hint", "recovery_retry", "recovery_cancel"}:
+    if action in {
+        "recovery_hint",
+        "recovery_retry",
+        "recovery_cancel",
+        "recovery_fail",
+    }:
         plan = recovery_plan(status, store=store)
         return plan is not None and (action == "recovery_hint" or action == plan.action)
     if action in {"retryable_failure", "permanent_failure", "safe_cancel"}:
-        return SourceMutationLease.objects.get(singleton=True).owner_id is None
+        return SourceMutationLease.objects.get(singleton=True).owner_id != status.run_id
     require_final_task(status, store=store)
     if action in {"claim", "hint"}:
         return source_available()

@@ -144,6 +144,66 @@ def test_select_acknowledged_fingerprint_via_real_web_and_config_roles(
     assert CANDIDATE not in value.browser.get(value.url).content
 
 
+@pytest.mark.parametrize("cadence_before", [False, True])
+def test_selection_parser_is_bound_to_preview_not_later_cadence(
+    replacement, cadence_before
+):
+    """Old/new selection receipts replay exactly after an unrelated scheduling edit."""
+    value = replacement
+    complete(value)
+
+    def cadence(time):
+        """Apply a real public settings request without changing authentication."""
+        base = value.service.store.active()
+        record = base.document()["sections"]["integrations"][0]
+        change(
+            value.service.store,
+            base,
+            uuid4(),
+            [
+                {
+                    "operation": "update",
+                    "section": "integrations",
+                    "id": record["id"],
+                    "values": {
+                        "settings": record["values"]["settings"]
+                        | {"nightly_time": time}
+                    },
+                }
+            ],
+        )
+
+    if cadence_before:
+        cadence("03:15")
+    with identity("pk_stewardship_web"):
+        preview = hidden(value.browser.get(value.url), "preview")
+        response = post(
+            value.browser, value.url, {"action": "confirm", "preview": preview}
+        )
+    assert response.status_code == 302, response.content
+    row = ConfigurationChangeRequest.objects.get(
+        pk=response["Location"].rsplit("/", 1)[-1]
+    )
+    assert row.request_schema == (
+        "integration-credential-cadence-v8"
+        if cadence_before
+        else "integration-credential-patch-v6"
+    )
+    assert (
+        install_request(
+            value.service.store, request_id=row.pk, correlation_id=uuid4()
+        ).state
+        == "applied"
+    )
+    cadence("04:15")
+    with identity("pk_stewardship_web"):
+        retry = post(
+            value.browser, value.url, {"action": "confirm", "preview": preview}
+        )
+    assert retry.status_code == 302, retry.content
+    assert retry["Location"] == response["Location"]
+
+
 @pytest.mark.parametrize(
     "failure", ["stale_base", "settings", "freshness", "hidden", "csrf"]
 )

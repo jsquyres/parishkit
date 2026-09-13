@@ -152,7 +152,7 @@ def _detail(identifier, window, instant):
     }, len(events)
 
 
-def _read(request, identifier=None, *, counts_only=False):
+def _read(request, identifier=None, *, counts_only=False, audit=True):
     """Recheck current Admin authority; automatic polls never renew idle activity."""
     try:
         service = runtime()
@@ -188,7 +188,7 @@ def _read(request, identifier=None, *, counts_only=False):
                 return _error(ErrorCode.UNAVAILABLE, 404)
             response = JsonResponse(data)
             response["Cache-Control"] = "no-store"
-            if not counts_only:
+            if not counts_only and audit:
                 record_action(
                     Action.BACKGROUND_VIEWED,
                     actor_kind=ActorKind.PORTAL_USER,
@@ -196,7 +196,36 @@ def _read(request, identifier=None, *, counts_only=False):
                     subject_id=identifier,
                     context={"outcome": Outcome.SUCCEEDED, "count": count},
                 )
+            response.stewardship_read_identity = current.identity
+            response.stewardship_read_count = count
             return response
+    except (ConfigError, LimiterUnavailable, DatabaseError, ValueError, TypeError):
+        return _error(ErrorCode.UNAVAILABLE, 503)
+
+
+def _finish_html(request, result, response, identifier=None):
+    """Audit only rendered HTML still authorized for its original reader."""
+    try:
+        service = runtime()
+        with transaction.atomic():
+            current = authenticated_admin(request, store=service.store, read_only=True)
+            if (
+                not allows(current, Capability.BACKGROUND_WORK)
+                or current.identity != result.stewardship_read_identity
+            ):
+                return _error(ErrorCode.DENIED, 403)
+            record_action(
+                Action.BACKGROUND_VIEWED,
+                actor_kind=ActorKind.PORTAL_USER,
+                actor_id=current.identity,
+                subject_id=identifier,
+                context={
+                    "outcome": Outcome.SUCCEEDED,
+                    "count": result.stewardship_read_count,
+                },
+            )
+        response["Cache-Control"] = "no-store"
+        return response
     except (ConfigError, LimiterUnavailable, DatabaseError, ValueError, TypeError):
         return _error(ErrorCode.UNAVAILABLE, 503)
 
@@ -222,7 +251,7 @@ def task_detail(request, task_id):
 @require_safe
 def background_page(request):
     """Render the same authorized bounded metadata as the passive polling API."""
-    result = _read(request)
+    result = _read(request, audit=False)
     if result.status_code != 200:
         return result
     work = json.loads(result.content)
@@ -241,14 +270,13 @@ def background_page(request):
             "states": ("nonterminal", "all", *TASK_STATES),
         },
     )
-    response["Cache-Control"] = "no-store"
-    return response
+    return _finish_html(request, result, response)
 
 
 @require_safe
 def task_page(request, task_id):
     """Render bounded chronological task history without exposing worker payloads."""
-    result = _read(request, task_id)
+    result = _read(request, task_id, audit=False)
     if result.status_code != 200:
         return result
     work = json.loads(result.content)
@@ -266,5 +294,4 @@ def task_page(request, task_id):
             "next_query": following.urlencode(),
         },
     )
-    response["Cache-Control"] = "no-store"
-    return response
+    return _finish_html(request, result, response, task_id)

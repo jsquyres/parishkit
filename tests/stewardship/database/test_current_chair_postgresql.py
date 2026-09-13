@@ -196,16 +196,19 @@ def test_restricted_installer_can_read_only_narrow_relationships():
             "stewardship_source_contribution",
             "stewardship_snapshot_contact",
         ):
-            with pytest.raises(DatabaseError), connection.cursor() as cursor:
+            with pytest.raises(DatabaseError) as raised, connection.cursor() as cursor:
                 cursor.execute(f'SELECT * FROM "{table}"')
-        for statement in (
-            "UPDATE stewardship_current_chair SET email='other@example.org'",
-            "DELETE FROM stewardship_current_chair",
-            "INSERT INTO stewardship_current_chair (email) "
-            "VALUES ('other@example.org')",
-        ):
-            with pytest.raises(DatabaseError), connection.cursor() as cursor:
-                cursor.execute(statement)
+            assert raised.value.__cause__.sqlstate == "42501"
+        # A JOIN view is non-updatable even with excessive write grants. Check
+        # actual privileges rather than accepting its structural 55000 error.
+        with connection.cursor() as cursor:
+            for privilege in ("INSERT", "UPDATE", "DELETE"):
+                cursor.execute(
+                    "SELECT has_table_privilege(current_user,"
+                    "'stewardship_current_chair',%s)",
+                    [privilege],
+                )
+                assert cursor.fetchone() == (False,)
     with connection.cursor() as cursor:
         cursor.execute(
             "SELECT reloptions FROM pg_class WHERE relname='stewardship_current_chair'"

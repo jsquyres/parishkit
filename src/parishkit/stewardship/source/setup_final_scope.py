@@ -16,6 +16,7 @@ from parishkit.stewardship.accounts.request_models import ConfigurationRequestCh
 from parishkit.stewardship.accounts.setup_credential_installation import ready_live
 from parishkit.stewardship.accounts.setup_install_models import SetupPreparationReceipt
 from parishkit.stewardship.campaigns.work_locks import require_work_order
+from parishkit.stewardship.source.errors import SourceScopeChanged
 
 from .snapshot_models import SourceCurrent
 from .windows import RefreshWindow, refresh_window
@@ -54,7 +55,7 @@ def require_prepared_setup(store, preparation_id):
         .first()
     )
     if receipt is None or not ready_live(receipt.readiness_id):
-        raise PermissionError("Original prepared setup is no longer live.")
+        raise SourceScopeChanged("Original prepared setup is no longer live.")
     intent = receipt.readiness.intent
     request, attempt = intent.request, intent.attempt
     selected = store.active()

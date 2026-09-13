@@ -25,13 +25,14 @@ def test_uncommitted_pin_wins_over_cleanup_selection(tmp_path):
     """Cleanup skips a generation even before its newly locked pin is committed."""
     inputs, owner, old, _ = superseded(tmp_path)
     entered, finish = Event(), Event()
+    parent_id = uuid4()
 
     def pinning():
         """Hold pin installation open on an independent connection."""
         try:
             with transaction.atomic():
                 pin = pin_facts(
-                    old.pk, parent_kind="export", parent_id=uuid4(), admit=permit
+                    old.pk, parent_kind="export", parent_id=parent_id, admit=permit
                 )
                 entered.set()
                 assert finish.wait(10)
@@ -48,7 +49,7 @@ def test_uncommitted_pin_wins_over_cleanup_selection(tmp_path):
             finish.set()
         pin_id = future.result()
     assert compact_facts(inputs.campaign_id, owner, admit=permit) == []
-    release_fact_pin(pin_id, admit=permit)
+    release_fact_pin(pin_id, parent_kind="export", parent_id=parent_id, admit=permit)
     assert compact_facts(inputs.campaign_id, owner, admit=permit) == [old.pk]
 
 

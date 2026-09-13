@@ -15,6 +15,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import requests
+from google.auth.exceptions import RefreshError
 
 from parishkit.config import ConfigError
 from parishkit.email.google_workspace import xoauth2_string
@@ -109,17 +110,31 @@ def _workspace(value, settings, session):
     credentials = workspace_candidate(
         value, delegated_email=settings["delegated_email"]
     )
+    rejected = False
 
     def token_request(url, method="GET", body=None, headers=None, **kwargs):
         """Adapt the Google transport protocol without accepting alternate origins."""
+        nonlocal rejected
         if url != GOOGLE_TOKEN_URI or method != "POST":
             raise ValueError("Unsupported token exchange.")
         response = session.request(method, url, data=body, headers=headers)
+        if response.status_code in {400, 401}:
+            data = response.json()
+            rejected = type(data) is dict and data.get("error") in {
+                "invalid_grant",
+                "unauthorized_client",
+                "invalid_client",
+            }
         return SimpleNamespace(
             status=response.status_code, data=response.content, headers=response.headers
         )
 
-    credentials.refresh(token_request)
+    try:
+        credentials.refresh(token_request)
+    except RefreshError:
+        if rejected:
+            return False
+        raise CredentialValidationUnavailable() from None
     with smtplib.SMTP_SSL(
         "smtp.gmail.com", 465, timeout=10, context=ssl.create_default_context()
     ) as smtp:
@@ -130,6 +145,10 @@ def _workspace(value, settings, session):
             "AUTH",
             "XOAUTH2 " + xoauth2_string(settings["delegated_email"], credentials.token),
         )
+        if code == 334:
+            # Gmail's SASL error challenge requires an empty continuation before
+            # its definitive 535 reply. Never decode or log the private challenge.
+            code, _ = smtp.docmd("")
         if code in {235, 535}:
             return code == 235
         raise CredentialValidationUnavailable()

@@ -28,7 +28,7 @@ from .policy_factory import address, assignment
 @pytest.mark.parametrize(
     "field,value",
     [
-        ("campaign_id", str(uuid4())),
+        pytest.param("campaign_id", str(uuid4()), id="campaign_id-unrelated"),
         ("kind", "other"),
         ("kind", []),
         ("slot", "unknown"),

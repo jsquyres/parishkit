@@ -64,7 +64,7 @@ def pending(attempt_id):
 
 
 def recover_cleanup(status):
-    """A drained cleanup is idempotent; a retry rechecks every remaining row."""
+    """Retry drained cleanup at most five times, retaining explicit failure."""
     _attempt(status)
     if (
         status.state != "abandoned"
@@ -74,7 +74,11 @@ def recover_cleanup(status):
         ).exists()
     ):
         return None
-    return RecoveryPlan("recovery_retry", retry_seconds=30)
+    if status.attempt >= 5:
+        return RecoveryPlan("recovery_fail")
+    return RecoveryPlan(
+        "recovery_retry", retry_seconds=min(30 * 2 ** max(status.attempt - 1, 0), 600)
+    )
 
 
 def admit_cleanup(action, status):
@@ -84,13 +88,14 @@ def admit_cleanup(action, status):
         action == "recovery_hint" and status.state == "running"
     ):
         return True
-    if action in {"recovery_hint", "recovery_retry"}:
-        return recover_cleanup(status) is not None
+    if action in {"recovery_hint", "recovery_retry", "recovery_fail"}:
+        plan = recover_cleanup(status)
+        return plan is not None and (action == "recovery_hint" or action == plan.action)
     if not SystemConfiguration.objects.filter(restore_review_required=False).exists():
         return False
     if action == "complete":
         return not pending(attempt.pk)
-    if action in {"claim", "hint"}:
+    if action in {"claim", "hint", "explicit_retry", "explicit_retry_replay"}:
         return source_available()
     return action in {"enqueue", "effect", "heartbeat", "progress"}
 

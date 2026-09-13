@@ -19,6 +19,7 @@ from parishkit.stewardship.storage import StaleRecordError, StorageInvariantErro
 
 from .content_forms import EMAIL_LABELS, sample_render
 from .credential_database import _identity
+from .delivery_results import settle_result
 from .sessions import authenticated_admin, database_now
 from .setup_delivery_models import SetupMailDelivery
 from .setup_preview import verify_preview
@@ -217,17 +218,20 @@ def finish_submission(identifier, claim, outcome):
             or row.worker_id != claim.worker_id
         ):
             raise PermissionError("Only the original submission owner can finish.")
-        if database_now() >= row.deadline_at:
-            outcome = DeliveryOutcome.UNKNOWN
-        SetupMailDelivery.objects.filter(pk=row.pk, version=row.version).update(
-            state=outcome.value,
-            finished_at=database_now(),
-            actor_id=claim.worker_id,
-            correlation_id=current_correlation(),
-            version=F("version") + 1,
-        )
-        row.refresh_from_db()
-        return _status(row)
+
+        def write(result):
+            """Keep the original claim and row lock across any deadline retry."""
+            SetupMailDelivery.objects.filter(pk=row.pk, version=row.version).update(
+                state=result.value,
+                finished_at=database_now(),
+                actor_id=claim.worker_id,
+                correlation_id=current_correlation(),
+                version=F("version") + 1,
+            )
+            row.refresh_from_db()
+            return _status(row)
+
+        return settle_result(outcome, deadline=row.deadline_at, write=write)
 
 
 def recover_pending(*, limit=100):

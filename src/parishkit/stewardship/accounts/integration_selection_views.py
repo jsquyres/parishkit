@@ -2,6 +2,7 @@
 
 from uuid import uuid4
 
+from django.core import signing
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
@@ -26,11 +27,26 @@ from .integration_selection import (
     integration_records,
 )
 from .integration_views import ERRORS, _checked
-from .request_patch import CREDENTIAL_REQUEST_SCHEMA, build_candidate
+from .request_admission import intake_base
+from .request_patch import build_candidate, credential_request_schema
 from .secret_models import SecretReplacementRequest
 from .sessions import require_fresh
 
 SALT = "stewardship-integration-selection-v1-"
+
+
+def _preview_schema(request, request_id):
+    """Choose the frozen signed base's parser even after a later cadence edit.
+
+    The shared confirmation owner independently checks signature, actor, current
+    receipt and authorization. Reading this immutable base grants no authority.
+    """
+    token = request.POST.get("preview", "")
+    if len(token) > 256_000:
+        raise ValueError("Invalid configuration preview.")
+    intent = signing.loads(token, salt=SALT + str(request_id), max_age=900)
+    _, base = intake_base(intent["base"])
+    return credential_request_schema(base.document())
 
 
 def _selection(service, request_id, actor):
@@ -88,7 +104,7 @@ def select_credential(request, request_id):
                 actor,
                 salt=SALT + str(request_id),
                 current_scope=scope,
-                request_schema=CREDENTIAL_REQUEST_SCHEMA,
+                request_schema=_preview_schema(request, request_id),
             )
         else:
             with work_transaction():
@@ -120,7 +136,7 @@ def select_credential(request, request_id):
                     base,
                     patch,
                     candidate_id=uuid4(),
-                    request_schema=CREDENTIAL_REQUEST_SCHEMA,
+                    request_schema=credential_request_schema(base.document()),
                 )
                 preview = sign_preview(
                     actor=actor,

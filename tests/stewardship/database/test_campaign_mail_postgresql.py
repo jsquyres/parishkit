@@ -1,5 +1,6 @@
 """Real web/mail/scheduler identities for explicit campaign test-mail outcomes."""
 
+from datetime import timedelta
 from uuid import uuid4
 
 import pytest
@@ -136,6 +137,82 @@ def deliver(campaign_test):
             handler.execute(execution)
     row.refresh_from_db()
     return row
+
+
+def test_cancellation_winning_submission_recheck_settles_immediately(
+    campaign_test, monkeypatch
+):
+    """A real scheduler cancellation between effect and submission needs no expiry."""
+    from parishkit.stewardship.accounts import campaign_mail_tasks as tasks
+
+    row, _ = queue(campaign_test)
+    original = tasks.begin_submission
+
+    def cancel_before_begin(identifier, claim):
+        """Model a separate revocation/recovery owner without changing SQL guards."""
+        with connection.cursor() as cursor:
+            cursor.execute("RESET SESSION AUTHORIZATION")
+        try:
+            PortalUser.objects.update(disabled=True, version=F("version") + 1)
+            with task_login(ServiceRole.SCHEDULER, exact=True):
+                assert recover_pending() == 1
+        finally:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    'SET SESSION AUTHORIZATION "pk_stewardship_mail_dispatch"'
+                )
+        return original(identifier, claim)
+
+    monkeypatch.setattr(tasks, "begin_submission", cancel_before_begin)
+    assert deliver(campaign_test).state == "cancelled"
+    task = TaskRun.objects.get(pk=row.task_id)
+    assert task.state == "cancelled" and task.action == "safe_cancel"
+    assert task.lease_expires_at is None
+
+
+def test_campaign_deadline_crossing_settles_unknown_without_lease_expiry(
+    campaign_test, monkeypatch
+):
+    """Late acceptance is uncertain immediately, not an abandoned running task."""
+    from parishkit.stewardship.accounts import campaign_mail_tasks as tasks
+    from parishkit.stewardship.accounts import delivery_results
+    from parishkit.stewardship.accounts.sessions import database_now
+
+    row, _ = queue(campaign_test)
+
+    def accepted(*args, **kwargs):
+        """Only this disposable owner ages a no-network journal fixture."""
+        with connection.cursor() as cursor:
+            cursor.execute("RESET SESSION AUTHORIZATION")
+        try:
+            with transaction.atomic(), connection.cursor() as cursor:
+                cursor.execute(
+                    "ALTER TABLE stewardship_campaign_mail_test DISABLE TRIGGER USER"
+                )
+                cursor.execute(
+                    "UPDATE stewardship_campaign_mail_test SET "
+                    "submitted_at=submitted_at-%s,deadline_at=deadline_at-%s "
+                    "WHERE id=%s",
+                    [timedelta(minutes=3), timedelta(minutes=3), row.pk],
+                )
+                cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
+                cursor.execute(
+                    "ALTER TABLE stewardship_campaign_mail_test ENABLE TRIGGER USER"
+                )
+            deadline = CampaignMailTest.objects.get(pk=row.pk).deadline_at
+            ticks = iter([deadline - timedelta(seconds=1), database_now()])
+            monkeypatch.setattr(delivery_results, "database_now", lambda: next(ticks))
+        finally:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    'SET SESSION AUTHORIZATION "pk_stewardship_mail_dispatch"'
+                )
+        return DeliveryOutcome.ACCEPTED
+
+    monkeypatch.setattr(tasks, "submit_sample", accepted)
+    assert deliver(campaign_test).state == "delivery_unknown"
+    task = TaskRun.objects.get(pk=row.task_id)
+    assert task.state == "failed" and task.lease_expires_at is None
 
 
 @pytest.mark.parametrize("outcome", list(DeliveryOutcome))

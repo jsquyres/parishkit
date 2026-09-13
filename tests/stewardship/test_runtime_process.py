@@ -157,10 +157,16 @@ def test_gunicorn_worker_receipt_hook_sanitizes_private_failures(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "target", ["metrics", "parishsoft", "google_workspace", "slack"]
+    "target,failure",
+    [("metrics", None)]
+    + [
+        (target, failure)
+        for target in ("parishsoft", "google_workspace", "slack")
+        for failure in (None, "relay", "stage")
+    ],
 )
 def test_credential_service_publishes_only_after_admission(
-    tmp_path, monkeypatch, target
+    tmp_path, monkeypatch, target, failure
 ):
     """Key discovery derives from the admitted installer before its queue starts."""
     from parishkit.stewardship.accounts.credential_installation import (
@@ -210,12 +216,30 @@ def test_credential_service_publishes_only_after_admission(
         "parishkit.stewardship.accounts.setup_credential_installation.stage_initial_credential",
         stage_initial,
     )
+    if failure:
+        failing = (
+            stage_initial
+            if failure == "stage"
+            else {
+                "parishsoft": relay,
+                "google_workspace": mail_relay,
+                "slack": slack_send,
+            }[target]
+        )
+        failing.side_effect = RuntimeError("synthetic setup failure")
 
     def serve(run_once, actual_lease):
         """Queue processing cannot race ahead of the advertised encryption key."""
         publish.assert_called_once_with(installer.files.private)
         lease.check.assert_called_once()
         assert actual_lease is lease
+        if failure:
+            with pytest.raises(RuntimeError, match="synthetic setup failure"):
+                run_once()
+            # A stuck exchange cannot starve ordinary rotations or rollback.
+            installer.run_once.assert_called_once()
+            failing.assert_called_once()
+            return 0
         run_once()
         installer.run_once.assert_called_once()
         if target == "parishsoft":
@@ -246,11 +270,17 @@ def test_credential_service_publishes_only_after_admission(
 
 
 @pytest.mark.parametrize(
-    "role", [ServiceRole.WORKER, ServiceRole.SCHEDULER, ServiceRole.MAIL_DISPATCH]
+    "role,held",
+    [
+        (ServiceRole.WORKER, False),
+        (ServiceRole.SCHEDULER, False),
+        (ServiceRole.SCHEDULER, True),
+        (ServiceRole.MAIL_DISPATCH, False),
+    ],
 )
 @pytest.mark.parametrize("fail", [False, True])
 def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
-    tmp_path, monkeypatch, role, fail
+    tmp_path, monkeypatch, role, fail, held
 ):
     """Restore signals and close broker/SQL after normal or failed drainage."""
     import signal
@@ -275,10 +305,14 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
         assert actual is broker and stop is stops[0]
         if role is ServiceRole.SCHEDULER:
             assert kwargs["produce"](guard) == (
-                "finalization-receipt",
-                "source-receipt",
-                "cleanup-receipt",
-                "setup-cleanup-receipt",
+                ("finalization-receipt",)
+                if held
+                else (
+                    "finalization-receipt",
+                    "source-receipt",
+                    "cleanup-receipt",
+                    "setup-cleanup-receipt",
+                )
             )
         signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
         assert stop.is_set()
@@ -290,6 +324,12 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
     guard, cleanup = Mock(), Mock(return_value=("cleanup-receipt",))
     expiry = Mock(return_value=0)
     matching.side_effect = lambda _: expiry.assert_called_once_with(guard)
+    if held:
+        matching.side_effect = ConfigError("Selected initial setup is held.")
+    hold = Mock()
+    monkeypatch.setattr(
+        "parishkit.stewardship.accounts.setup_startup.initial_setup_hold", hold
+    )
     monkeypatch.setattr(runtime_background, "configure_background", configure)
     monkeypatch.setattr(runtime_background, "matching_authority", matching)
     monkeypatch.setattr(
@@ -307,16 +347,17 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
         finalization,
     )
     mail_recovery = Mock(return_value=0)
+    campaign_recovery, slack_recovery = Mock(return_value=0), Mock(return_value=0)
     monkeypatch.setattr(
         "parishkit.stewardship.accounts.campaign_mail_delivery.recover_pending",
-        Mock(return_value=0),
+        campaign_recovery,
     )
     monkeypatch.setattr(
         "parishkit.stewardship.accounts.setup_mail.recover_pending", mail_recovery
     )
     monkeypatch.setattr(
         "parishkit.stewardship.accounts.setup_notifications.recover_pending",
-        Mock(return_value=0),
+        slack_recovery,
     )
     monkeypatch.setattr(
         "parishkit.stewardship.source.setup_cleanup.produce_setup_cleanup",
@@ -346,10 +387,26 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
     closes.assert_called_once()
     if role is ServiceRole.SCHEDULER:
         matching.assert_called_once_with(assembled.store)
+        finalization.assert_called_once_with(assembled.store, guard)
+        expiry.assert_called_once_with(guard)
+        if held:
+            hold.assert_called_once_with(assembled.store)
+            for operation in (
+                producer,
+                cleanup,
+                mail_recovery,
+                campaign_recovery,
+                slack_recovery,
+            ):
+                operation.assert_not_called()
+            return
+        hold.assert_not_called()
         producer.assert_called_once_with(guard)
         cleanup.assert_called_once_with(guard)
         expiry.assert_called_once_with(guard)
         mail_recovery.assert_called_once_with()
+        campaign_recovery.assert_called_once_with()
+        slack_recovery.assert_called_once_with()
         assert guard.check.call_count == 3
     else:
         mail_recovery.assert_not_called()

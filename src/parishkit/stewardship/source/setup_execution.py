@@ -17,6 +17,7 @@ from parishkit.stewardship.storage import StorageInvariantError
 
 from .failures import classify_read_failure
 from .leases import acquire_source, release_source, verify_source
+from .outcomes import MAX_AUTOMATIC_ATTEMPTS
 from .rejection import reject_snapshot
 from .setup_admission import (
     admit_setup_task,
@@ -46,18 +47,24 @@ def _receive(execution, claim):
     from parishkit.stewardship.accounts.setup_secret_models import SetupSealedCredential
 
     with execution.effect():
-        attempt = bound_attempt(_status(lock_task_claim(execution.claim)))
+        attempt = require_live_setup(
+            bound_attempt(_status(lock_task_claim(execution.claim)))
+        )
         candidate_id = SetupSealedCredential.objects.values_list("id", flat=True).get(
             attempt=attempt, target="parishsoft", scrubbed_at=None
         )
     recipient = EphemeralSetupRecipient(
         SetupCredentialScope(attempt.pk, candidate_id, execution.claim, claim.fence)
     )
-    exchange_id = publish_recipient(recipient.public)
+    with execution.effect():
+        require_live_setup(bound_attempt(_status(lock_task_claim(execution.claim))))
+        exchange_id = publish_recipient(recipient.public)
     deadline = monotonic() + 120
     while monotonic() < deadline:
         execution.check()
-        credential = receive_credential(recipient)
+        with execution.effect():
+            require_live_setup(bound_attempt(_status(lock_task_claim(execution.claim))))
+            credential = receive_credential(recipient)
         if credential is not None:
             return exchange_id, credential
         connections.close_all()
@@ -84,7 +91,8 @@ def _failed(execution, error, claim):
             else:
                 action = (
                     "retryable_failure"
-                    if decision.retry and status.attempt < 3
+                    if decision.retry
+                    and (decision.contention or status.attempt < MAX_AUTOMATIC_ATTEMPTS)
                     else "permanent_failure"
                 )
             if claim is not None:
@@ -112,7 +120,11 @@ def _failed(execution, error, claim):
                 correlation_id=execution.correlation_id,
                 fence=execution.claim.fence,
                 admit=admit_setup_task,
-                **({"retry_seconds": 30} if action == "retryable_failure" else {}),
+                **(
+                    {"retry_seconds": min(30 * 2 ** min(status.attempt - 1, 5), 600)}
+                    if action == "retryable_failure"
+                    else {}
+                ),
             )
             operational(
                 decision.event,
@@ -181,10 +193,14 @@ def complete_setup_load(execution, claim):
                 fence=execution.claim.fence,
                 admit=admit_setup_task,
             )
-            SetupAttempt.objects.filter(pk=attempt.pk, version=attempt.version).update(
+            changed = SetupAttempt.objects.filter(
+                pk=attempt.pk, version=attempt.version
+            ).update(
                 state="collecting",
                 actor_id=attempt.owner_id,
                 correlation_id=execution.correlation_id,
                 version=F("version") + 1,
             )
+            if changed != 1:
+                raise StorageInvariantError("Setup changed before source completion.")
         execution.control.finished.set()

@@ -37,6 +37,12 @@ def test_original_browser_can_cancel_selected_yaml_with_actual_web_grants(
         response = browser.get("/admin/setup/cancel")
         assert response.status_code == 200, response.content
         assert b"Cancel initial setup" in response.content
+        assert b"Final setup must complete before these deadlines" in response.content
+        assert response.context["deadlines"].session_id == attempt.session_id
+        assert (
+            response.context["deadlines"].idle_at.isoformat().encode()
+            in response.content
+        )
         assert b"Example Parish" not in response.content
         assert response["Cache-Control"] == "no-store"
         assert SetupAttempt.objects.get(pk=attempt.pk).state == "frozen"

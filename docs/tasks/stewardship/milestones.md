@@ -1669,8 +1669,10 @@ Scope: [Phase 2](../../plans/stewardship/overall.md#phase-2-source-truth-initial
 Evidence: Integrated validation is in progress. Both complete initial-setup
 Compose profiles pass, including actual consumer recreation/acknowledgement and
 atomic configured state. All six operational Compose cases and all 447 browser
-cases pass. The complete PostgreSQL coverage rerun remains in progress,
-followed by the three required complete-phase review/fix rounds. The
+cases pass. Full PostgreSQL diagnostics exposed failures under correction;
+they are not a passing coverage gate. The first dual-model full-phase review
+completed with 36 Medium findings and no High/Critical; its fixes and the two
+remaining required review rounds are still in progress. The
 [acceptance index](../../guides/stewardship-phase-2-acceptance.md) maps the
 demonstrations and records current results without implying phase exit.
 

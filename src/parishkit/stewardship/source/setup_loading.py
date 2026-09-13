@@ -25,6 +25,7 @@ from parishkit.stewardship.jobs.storage import _status
 from parishkit.stewardship.storage import StorageInvariantError
 
 from .cursors import refresh_cursor
+from .errors import SourceCredentialChanged, local_read_admission
 from .leases import reserve_source_request, verify_source
 from .loading import load_full_source
 from .setup_admission import bound_attempt, require_live_setup
@@ -49,11 +50,12 @@ def verify_setup_exchange(execution, claim, exchange_id, credential):
         or row.task_fence != execution.claim.fence
         or row.worker_id != execution.claim.worker_id
         or row.source_fence != claim.fence
-        or row.fingerprint != credential.fingerprint
         or row.replied_at is None
         or SourceCurrent.objects.get(singleton=True).snapshot_id is not None
     ):
         raise PermissionError("The setup source observation is no longer current.")
+    if row.fingerprint != credential.fingerprint:
+        raise SourceCredentialChanged("The setup source credential differs.")
     return row
 
 
@@ -86,6 +88,7 @@ def load_setup_source(execution, claim, *, exchange_id, credential):
             claim, organization_id=organization_id, admit=admitted
         )
 
+    @local_read_admission
     def before_request(seconds):
         """Every retry reserves drainage under fresh admission, then closes SQL."""
         if connection.in_atomic_block:
@@ -94,7 +97,9 @@ def load_setup_source(execution, claim, *, exchange_id, credential):
             with execution.effect():
                 verify_setup_exchange(execution, claim, exchange_id, credential)
                 if session.headers.get("x-api-key") != credential.api_key:
-                    raise PermissionError("The setup source credential differs.")
+                    raise SourceCredentialChanged(
+                        "The setup source credential differs."
+                    )
                 reserve_source_request(
                     claim, timeout_seconds=seconds, safety_seconds=15
                 )

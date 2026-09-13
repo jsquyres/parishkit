@@ -50,10 +50,11 @@ def test_extra_worker_writes_are_not_general_configuration_authority(statement):
     """Knowing the table/role does not provide the exact live completion context."""
     with (
         task_login(ServiceRole.WORKER, exact=True),
-        pytest.raises(DatabaseError),
+        pytest.raises(DatabaseError) as raised,
         connection.cursor() as cursor,
     ):
         cursor.execute(statement)
+    assert raised.value.__cause__.sqlstate in {"23514", "42501"}
 
 
 @pytest.mark.parametrize("financial", [False, True])
@@ -130,6 +131,58 @@ def assert_scrubbed():
             assert cursor.fetchone() == (0,), table
     assert not SetupSealedCredential.objects.exclude(settings={}).exists()
     assert not SetupSealedCredential.objects.filter(ciphertext__isnull=False).exists()
+
+
+@pytest.mark.parametrize("target", ["parishsoft", "google_workspace"])
+def test_prepared_receipt_does_not_replace_current_consumer_proof(
+    setup_service, monkeypatch, tmp_path, config_role, target
+):
+    """Fault-inject a lost ACK after preparation, then exercise real worker SQL."""
+    from django.db import transaction
+
+    from parishkit.stewardship.accounts.secret_models import SecretReplacementRequest
+
+    _, _, identifier = prepared(setup_service, monkeypatch, tmp_path)
+    request_id = SecretReplacementRequest.objects.get(target=target).pk
+    # Only the disposable schema owner may simulate damaged retained evidence.
+    # Runtime admission and all triggers are fully enabled during finalization.
+    with transaction.atomic(), connection.cursor() as cursor:
+        cursor.execute(
+            "ALTER TABLE stewardship_credential_consumer_ack DISABLE TRIGGER USER"
+        )
+        try:
+            cursor.execute(
+                "DELETE FROM stewardship_credential_consumer_ack WHERE request_id=%s",
+                [request_id],
+            )
+        finally:
+            cursor.execute(
+                "ALTER TABLE stewardship_credential_consumer_ack ENABLE TRIGGER USER"
+            )
+    ring = keys()
+    task = queued(setup_service, identifier)
+    fake_provider(monkeypatch, pages())
+
+    def finalize(execution, claim, snapshot):
+        """The prepared YAML is valid, but no partial activation may now commit."""
+        with pytest.raises(DatabaseError) as error:
+            complete_setup(
+                execution,
+                claim,
+                snapshot.pk,
+                store=setup_service.store,
+                general=ring.general,
+                mac=ring.mac,
+                public=ring.public,
+            )
+        assert error.value.__cause__.sqlstate == "23514"
+        assert not SetupCompletion.objects.exists()
+        assert SourceCurrent.objects.get().snapshot_id is None
+        assert SetupAttempt.objects.get().state == "frozen"
+        assert not FamilyCampaign.objects.exists()
+        assert TaskRun.objects.get(pk=task.run_id).state == "running"
+
+    load(setup_service, task, tmp_path / "parishsoft" / "credential", finalize=finalize)
 
 
 def test_late_failures_roll_back_every_effect_and_allow_same_live_owner_retry(
@@ -214,11 +267,16 @@ def test_completion_guards_reverse_and_reapply_before_completed_history():
     migration = import_module(
         "parishkit.stewardship.accounts.migrations.0089_setup_completion_guards"
     )
+    consumers = import_module(
+        "parishkit.stewardship.accounts.migrations.0095_setup_completion_consumer_freshness"
+    )
     with connection.schema_editor() as editor:
+        consumers.backward(None, editor)
         migration.restore_owners(None, editor)
         editor.execute(migration.REVERSE)
         editor.execute(migration.SQL)
         migration.extend_owners(None, editor)
+        consumers.forward(None, editor)
     with connection.cursor() as cursor:
         cursor.execute(
             "SELECT pg_get_functiondef("

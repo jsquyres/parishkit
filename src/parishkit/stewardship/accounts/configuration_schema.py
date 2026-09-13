@@ -21,6 +21,7 @@ from parishkit.stewardship.schema_primitives import (
     typed,
 )
 
+from . import source_cadence_schema
 from .bootstrap_schema import BOOTSTRAP_SCHEMA, validate_bootstrap_sections
 from .content_schema import SCHEMA as CONTENT_SCHEMA
 from .content_schema import validate_content_records
@@ -170,6 +171,7 @@ VALIDATORS = MappingProxyType(
         MINISTRY_SCHEMA: _validate_v4_sections,
         BOOTSTRAP_SCHEMA: validate_bootstrap_sections,
         CONTENT_SCHEMA: _validate_v5_sections,
+        source_cadence_schema.SCHEMA: source_cadence_schema.validate_sections,
     }
 )
 
@@ -189,6 +191,8 @@ def validate_sections(document):
 
 def schema_for(document):
     """Keep legacy documents on their retained schema until new policy is present."""
+    if source_cadence_schema.uses_cadence(document):
+        return source_cadence_schema.SCHEMA
     if set(document["sections"]) == {"login_rules"}:
         return BOOTSTRAP_SCHEMA
     if "content" in document["sections"]:
