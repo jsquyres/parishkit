@@ -79,12 +79,22 @@ def test_ci_explicitly_requires_postgresql_verification():
         step.get("run", "")
         for step in workflow["jobs"]["stewardship-postgresql"]["steps"]
     )
-    assert "parishkit.stewardship.quality --postgresql" in commands
-    release = yaml.safe_load((ROOT / ".github/workflows/release.yml").read_text())
-    assert (
-        release["jobs"]["validate-build"]["services"]
-        == workflow["jobs"]["stewardship-postgresql"]["services"]
+    assert "parishkit.stewardship.quality_ci combine --count 8" in commands
+    shards = workflow["jobs"]["stewardship-postgresql-shard"]
+    gate = workflow["jobs"]["stewardship-postgresql"]
+    assert shards["strategy"]["matrix"]["shard"] == list(range(1, 9))
+    assert shards["strategy"]["fail-fast"] is False
+    assert gate["needs"] == "stewardship-postgresql-shard"
+    assert gate["if"] == "${{ always() }}"
+    assert gate["steps"][0]["run"] == 'test "$SHARD_RESULT" = success'
+    assert shards["timeout-minutes"] == 25
+    assert gate["timeout-minutes"] == 10
+    assert any(
+        "quality_ci shard --index ${{ matrix.shard }} --count 8" in step.get("run", "")
+        for step in shards["steps"]
     )
+    release = yaml.safe_load((ROOT / ".github/workflows/release.yml").read_text())
+    assert release["jobs"]["validate-build"]["services"] == shards["services"]
 
 
 @pytest.mark.parametrize(

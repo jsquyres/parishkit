@@ -24,6 +24,37 @@ Choose a new report path each time; existing files are never overwritten. Withou
 as database-backed functionality grows. CI's PostgreSQL job owns the combined
 coverage gate; the baseline and Compose jobs retain their independent tests.
 
+## Parallel CI and live progress
+
+Pull-request CI runs eight deterministic PostgreSQL partitions on eight separate
+runners, each with its own PostgreSQL/Valkey cluster. Every partition also runs
+the credential-free baseline into its raw coverage database. The required
+`stewardship-postgresql` check independently collects the full database test
+universe, requires successful receipts for all eight exact partitions from the
+same source tree, and combines raw line/branch data before enforcing both 80%
+floors. Missing, failed, skipped, cancelled or stale partition evidence cannot
+pass. Coverage percentages are never averaged across partitions.
+
+Each database test emits UTC `CI_PROGRESS` START and END records, including
+elapsed time after teardown. The last START without an END identifies the active
+test, including a blocked fixture. A test exceeding 120 seconds prints a Python
+stack trace without local variables; this is a diagnostic, not a passing result.
+Each test subprocess has a 20-minute deadline, each shard job has a 25-minute
+limit, and aggregation has a 10-minute limit. Slowest-test summaries are retained
+in job logs. A deadline fails the gate rather than silently skipping work.
+
+The serial command above remains the equivalent developer/release coverage
+gate. To see live progress on a focused local database run, add `--ci-progress`
+and `--durations=20` to pytest. Do not run multiple shards against the same local
+cluster: tests use cluster-wide roles and a shared disposable test database.
+The CI matrix isolates those resources rather than relying on concurrent pytest
+workers sharing them.
+
+Fresh schema creation now uses the
+[unreleased baseline](stewardship-schema.md), not historical development
+upgrade/downgrade cycles. Current constraint, authorization and concurrency
+tests remain mandatory.
+
 ## Local disposable server
 
 Use an unused container name and loopback port. If the chosen name or port is

@@ -185,8 +185,14 @@ def test_release_requires_ci_quality_gates_before_build(step_name):
     )
     steps = release["jobs"]["validate-build"]["steps"]
     matches = [step for step in steps if step.get("name") == step_name]
-    # Compare the complete step, including environment and failure/skip policy.
-    assert matches == [expected]
+    # Release retains the serial complete-suite equivalent; PR CI combines
+    # isolated shards through the same manifest and independent coverage floors.
+    if step_name == "Scoped line and branch coverage":
+        assert len(matches) == 1
+        assert "quality --postgresql" in matches[0]["run"]
+        assert "quality_ci combine --count 8" in expected["run"]
+    else:
+        assert matches == [expected]
     build = next(step for step in steps if step.get("name") == "Build artifacts")
     assert steps.index(matches[0]) < steps.index(build)
 
@@ -247,6 +253,10 @@ def test_checkout_instructions_match_ci_installation(document):
 def test_readme_documents_ci_validation_commands(step_name):
     """Local validation includes CI's coverage gates and test-settings drift check."""
     definition = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())
+    if step_name == "Scoped line and branch coverage":
+        definition = yaml.safe_load(
+            (ROOT / ".github/workflows/release.yml").read_text()
+        )
     step = next(
         step
         for job in definition["jobs"].values()
