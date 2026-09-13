@@ -40,3 +40,20 @@ class SetupCredentialInstallation(ImmutableRecord):
                 name="setup_install_bound_version",
             ),
         ]
+
+
+class SetupPreparationReceipt(ImmutableRecord):
+    """Safe evidence from the config installer to the separate finalization worker.
+
+    Its guarded insert proves exact prepared YAML and all initial consumer ACKs.
+    It does not expose target context/ciphertext or claim that setup is complete.
+    Original attempt expiry invalidates it for activation without deleting history.
+    """
+
+    readiness = models.OneToOneField("SetupReadinessBinding", on_delete=models.PROTECT)
+    configuration = models.OneToOneField(
+        "AppliedConfigurationVersion", on_delete=models.PROTECT
+    )
+
+    class Meta:
+        db_table = "stewardship_setup_prepared"

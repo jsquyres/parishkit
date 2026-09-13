@@ -200,7 +200,10 @@ def _identity_role(role, target):
 
 def runtime_grants(role, *, target=None):
     """Return fresh table/column maps so callers cannot broaden the shared policy."""
-    from .accounts.configuration_service import CONFIGURATION_GRANTS
+    from .accounts.configuration_service import (
+        CONFIGURATION_COLUMNS,
+        CONFIGURATION_GRANTS,
+    )
     from .accounts.credential_database import installer_permissions
     from .accounts.secret_models import SECRET_TARGETS
 
@@ -215,9 +218,10 @@ def runtime_grants(role, *, target=None):
 
         return task_runtime_grants(role)
     if role is ServiceRole.CONFIG_INSTALLER:
-        return {
-            table: set(grants) for table, grants in CONFIGURATION_GRANTS.items()
-        }, {}
+        return {table: set(grants) for table, grants in CONFIGURATION_GRANTS.items()}, {
+            table: {privilege: set(names) for privilege, names in columns.items()}
+            for table, columns in CONFIGURATION_COLUMNS.items()
+        }
     if role is ServiceRole.CREDENTIAL_INSTALLER:
         if target not in SECRET_TARGETS:
             raise ConfigError("A recognized installer target is required.")

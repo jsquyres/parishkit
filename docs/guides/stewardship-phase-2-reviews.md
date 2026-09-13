@@ -532,6 +532,36 @@ The combined initial-installation and ordinary credential-isolation PostgreSQL
 suite passes 22 cases, with 92% coverage of the new service. Runtime and
 acknowledgement tests pass 53 cases. Ruff, formatting, migration drift and
 whitespace checks pass. The full baseline passes 4,031 tests with 2,408 explicit
-profile skips and two existing warnings. Configuration preparation, actual initial consumer
+profile skips and two existing warnings. Configuration preparation, initial consumer
 mount/recreation integration, selected financial coverage and atomic activation
 remain open; no whole ADM-02 task or full-phase review round is complete here.
+
+### Initial YAML preparation and safe finalization handoff
+
+The isolated configuration installer now consumes the frozen v7 request only
+after exact target installation and complete consumer acknowledgement. It
+prepares the immutable public projections, selects the exact YAML and stops at
+`yaml_activated`; it cannot commit database activation. Repeated passes retain
+the same receipt, including recovery after a real post-selection crash.
+
+An immutable preparation receipt provides the subsequent finalization worker
+with safe handoff evidence. Its SQL insert requires the real configuration
+installer, its pinned installation lock, original live setup, exact selected
+candidate checkpoint and every initial credential's consumer acknowledgement.
+The installer gains only the original session's liveness columns, never its
+browser credential. A separate child credential cancellation cannot invalidate
+this proof while its original setup remains live.
+
+Original-attempt cancellation still uses the approved selected-but-unapplied
+abort journal. Cancellation before public preparation now terminates the queue
+item without pretending to restore a manifest, allowing a subsequent attempt.
+
+The combined YAML preparation, setup abort, configuration isolation and
+credential regression passes 59 PostgreSQL cases with 87% new-service coverage.
+Two additional SQL cases reject child rollback outside original setup
+cancellation. The runtime-grant/database unit suite passes 27 tests. The full
+baseline passes 4,031 tests with 2,419 explicit profile skips and two existing
+warnings. Ruff, formatting and migration drift checks pass. Actual initial
+consumer mounting/recreation, selected financial coverage and atomic source/
+Family/configuration completion remain open; this is not a completed phase
+review round or a complete ADM-02 workflow.

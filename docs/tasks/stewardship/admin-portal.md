@@ -119,6 +119,13 @@ regression passes 22 cases with 92% new-service coverage; runtime tests pass 53.
 Initial consumer mounting/recreation, configuration preparation and final
 activation remain necessary before ADM-02 can close.
 
+The [YAML preparation checkpoint](../../guides/stewardship-phase-2-reviews.md#initial-yaml-preparation-and-safe-finalization-handoff)
+adds exact public selection after consumer ACKs, a SQL-guarded safe preparation
+receipt, select-gap recovery and pre-preparation cancellation. The combined
+PostgreSQL regression passes 59 cases with 87% new-service coverage, plus two
+additional child-rollback rejection tests. Consumer mounting/recreation and
+atomic final source/Family/configuration activation still prevent closing ADM-02.
+
 ## ADM-03: Navigation, dashboard, indicators, and configuration
 
 Scope and dependencies: [ADM-03 work package](../../plans/stewardship/admin-portal.md#adm-03-navigation-dashboard-indicators-and-configuration).

@@ -192,3 +192,19 @@ def test_initial_binding_is_append_only_and_other_target_cannot_read_private_int
         connection.cursor() as cursor,
     ):
         cursor.execute("DELETE FROM stewardship_setup_credential_install")
+
+
+@pytest.mark.parametrize("reason", ["failed", "cancelled"])
+def test_live_initial_rollback_cannot_bypass_original_setup_owner(
+    setup_service, monkeypatch, tmp_path, reason
+):
+    """A prepared receipt cannot be invalidated by a separate child cancellation."""
+    _, _, installer = setup_installer(setup_service, monkeypatch, tmp_path, "slack")
+    with target_login("slack"):
+        staged = stage_initial_credential(installer.files)
+        assert installer.run_once().state == "awaiting_ack"
+        with pytest.raises(DatabaseError, match="original setup"):
+            installer._advance(
+                staged.request_id, "awaiting_ack", "cleanup_pending", reason=reason
+            )
+        assert installer.run_once().state == "awaiting_ack"

@@ -16,12 +16,17 @@ from .authority import AuthorityStore
 from .configuration_installation import install_request
 from .configuration_schema import validate_sections
 from .credential_database import _identity, admit_grants
+from .setup_exchange_grants import SESSION_COLUMNS
 
 # Include trigger-owned effects, not just the ORM statements in the installer.
-# No DELETE/TRUNCATE/DDL, secret-staging, Family, source-payload, response or session
-# grants belong here. The current Chairperson view exposes only relationship
-# evidence needed by policy activation, not the underlying census/contact corpus.
+# No DELETE/TRUNCATE/DDL, secret-staging, Family, source-payload or response
+# grants belong here. Session access is limited to original-login liveness
+# columns, never session credentials. The current Chairperson view exposes only
+# relationship evidence, not the underlying census/contact corpus.
 CONFIGURATION_GRANTS = {
+    "stewardship_setup_prepared": {"SELECT", "INSERT"},
+    "stewardship_setup_readiness_binding": {"SELECT"},
+    "stewardship_setup_credential_install": {"SELECT"},
     "stewardship_setup_attempt": {"SELECT"},
     "stewardship_setup_config_intent": {"SELECT"},
     "stewardship_setup_config_abort": {"SELECT", "INSERT"},
@@ -75,11 +80,23 @@ CONFIGURATION_GRANTS = {
     "stewardship_audit_event": {"INSERT"},
 }
 
+CONFIGURATION_COLUMNS = {
+    "stewardship_portal_session": {"SELECT": SESSION_COLUMNS},
+}
+
 
 def admit_configuration_database():
     """Reject impersonation, inherited/owner authority and every excess grant."""
     _identity("pk_stewardship_config_installer")
-    admit_grants(CONFIGURATION_GRANTS)
+    from django.db import connection
+
+    from parishkit.stewardship.runtime_grants import admit_columns
+
+    allowed = {table: set(names) for table, names in CONFIGURATION_GRANTS.items()}
+    for table, privileges in CONFIGURATION_COLUMNS.items():
+        allowed.setdefault(table, set()).update(privileges)
+    admit_grants(allowed)
+    admit_columns(connection, CONFIGURATION_GRANTS, CONFIGURATION_COLUMNS)
 
 
 @dataclass(frozen=True)

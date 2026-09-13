@@ -374,6 +374,10 @@ def _install_request(store, *, request, correlation_id, admit_campaign=None):
 
             verify_intent_receipt(request.pk, admit_campaign)
             return current
+        if request.request_schema == "initial-setup-patch-v7":
+            from .setup_preparation import prepare_setup_configuration
+
+            return prepare_setup_configuration(materializer)
         selected = store.active()
         active_digest = materializer.active_digest()
         if active_digest is None:

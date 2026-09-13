@@ -101,6 +101,25 @@ def recover_setup_abort(materializer):
         if intent.attempt.state != SetupState.EXPIRED:
             return None
         state = _status(request).state
+        if state in {"staged", "validating"} and not materializer.is_prepared(
+            request.candidate_digest
+        ):
+            # No prepared candidate can legitimately have been selected. End
+            # this queue item without inventing an abort/manifest restoration.
+            selected = materializer.store.active()
+            if (
+                selected is None
+                or selected.digest != materializer.active_digest()
+                or selected.version_id == request.candidate_version_id
+                or ConfigurationActivation.objects.filter(request=request).exists()
+            ):
+                raise StorageInvariantError(
+                    "Unprepared setup has unexpected authority."
+                )
+            if state == "staged":
+                materializer.checkpoint("validating")
+            materializer.checkpoint("failed", failure_code="invalid_candidate")
+            return _status(request)
         if state not in {
             "validating",
             "prepared",
