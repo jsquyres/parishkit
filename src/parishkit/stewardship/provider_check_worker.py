@@ -145,6 +145,10 @@ def _workspace(value, settings, session):
             "AUTH",
             "XOAUTH2 " + xoauth2_string(settings["delegated_email"], credentials.token),
         )
+        if code == 334:
+            # Gmail's SASL error challenge requires an empty continuation before
+            # its definitive 535 reply. Never decode or log the private challenge.
+            code, _ = smtp.docmd("")
         if code in {235, 535}:
             return code == 235
         raise CredentialValidationUnavailable()

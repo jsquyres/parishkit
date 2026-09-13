@@ -1,5 +1,6 @@
 """Bounded relay waiting and closed scheduler execution, without provider IO."""
 
+from contextlib import nullcontext
 from types import SimpleNamespace
 from unittest.mock import Mock
 from uuid import uuid4
@@ -12,20 +13,28 @@ from parishkit.stewardship.jobs.ownership import TaskClaim
 from parishkit.stewardship.storage import StorageInvariantError
 
 
-def invocation():
+def invocation(monkeypatch=None):
     """A synthetic execution carries only typed original journal/Task identifiers."""
     execution = SimpleNamespace(
         claim=TaskClaim(uuid4(), 1, uuid4()),
         check=Mock(),
         control=SimpleNamespace(finished=Mock(), active=True),
+        effect=nullcontext,
     )
-    row = SimpleNamespace(pk=uuid4(), credential_id=uuid4(), credential_version=7)
+    row = SimpleNamespace(
+        pk=uuid4(), credential_id=uuid4(), credential_version=7, state="queued"
+    )
+    if monkeypatch is not None:
+        monkeypatch.setattr(tasks, "lock_task_claim", Mock())
+        monkeypatch.setattr(tasks, "_status", Mock())
+        monkeypatch.setattr(tasks, "bound_delivery", Mock(return_value=row))
+        monkeypatch.setattr(tasks, "live", Mock(return_value=True))
     return execution, row
 
 
 def test_bounded_wait_uses_exact_ephemeral_recipient_and_closes_idle_sql(monkeypatch):
     """One public recipient is reused while waiting, never recreated or persisted."""
-    execution, row = invocation()
+    execution, row = invocation(monkeypatch)
     candidate = WorkspaceCandidate(b"synthetic")
     publish, close = Mock(), Mock()
     receive = Mock(side_effect=[None, candidate])
@@ -46,7 +55,7 @@ def test_bounded_wait_uses_exact_ephemeral_recipient_and_closes_idle_sql(monkeyp
 
 def test_target_timeout_stops_without_generating_another_exchange(monkeypatch):
     """The original two-minute relay wait cannot be extended by repeated polling."""
-    execution, row = invocation()
+    execution, row = invocation(monkeypatch)
     publish = Mock()
     monkeypatch.setattr(tasks, "monotonic", Mock(side_effect=[0, 0, 121]))
     monkeypatch.setattr(tasks, "publish_recipient", publish)

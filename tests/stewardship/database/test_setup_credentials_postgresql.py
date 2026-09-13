@@ -24,6 +24,7 @@ from parishkit.stewardship.campaigns.work_locks import work_transaction
 from parishkit.stewardship.deployment import ServiceRole
 from parishkit.stewardship.storage import StaleRecordError
 
+from ..test_integration_candidates import account
 from ..test_setup_forms import VALUES
 from .test_background_grants_postgresql import task_login
 from .test_bootstrap_postgresql import bootstrapped  # noqa: F401
@@ -94,7 +95,7 @@ def staged(service, target="parishsoft"):
             service,
             attempt.attempt_id,
             target=target,
-            candidate=CANDIDATE,
+            candidate=account() if target == "google_workspace" else CANDIDATE,
             expected_version=attempt.version,
             organization_id=1 if target == "parishsoft" else None,
         )
@@ -109,7 +110,9 @@ def test_real_web_seals_to_exact_target_without_queuing_live_install(
     """Only the isolated private key opens staged bytes; receipts expose no secret."""
     request, attempt, receipt, private = staged(setup_service, target)
     row = SetupSealedCredential.objects.get()
-    assert private.open(row.pk, row.ciphertext) == CANDIDATE
+    assert private.open(row.pk, row.ciphertext) == (
+        account() if target == "google_workspace" else CANDIDATE
+    )
     assert CANDIDATE.decode() not in row.ciphertext
     assert not SecretReplacementRequest.objects.exists()
     assert not setup_service.configured()
@@ -151,6 +154,33 @@ def test_replace_collecting_candidate_uses_exact_attempt_version(setup_service):
     assert changed.version == attempt.version + 1
     assert private.open(row.pk, row.ciphertext) == b"corrected"
     assert row.settings == {"organization_id": 2}
+
+
+@pytest.mark.parametrize(
+    "target,candidate",
+    [
+        ("slack", b"x" * 4099),
+        ("slack", b"two lines\nhere"),
+        ("google_workspace", b"not-json"),
+        ("google_workspace", account(token_uri="https://elsewhere.example/token")),
+    ],
+)
+def test_malformed_private_intake_never_replaces_a_staged_candidate(
+    setup_service, target, candidate
+):
+    """Malformed bytes fail locally without a queued check or candidate version."""
+    request, attempt, receipt, _ = staged(setup_service, target)
+    with web_login(), pytest.raises(ValueError, match="invalid format"):
+        stage_credential(
+            request,
+            setup_service,
+            attempt.attempt_id,
+            target=target,
+            candidate=candidate,
+            expected_version=attempt.version,
+        )
+    assert SetupAttempt.objects.get().version == attempt.version
+    assert SetupSealedCredential.objects.get().version == receipt.version
 
 
 @pytest.mark.parametrize("automatic", [False, True])

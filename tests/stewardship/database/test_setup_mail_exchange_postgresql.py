@@ -79,7 +79,9 @@ def test_isolated_workspace_relays_once_without_reading_message_or_family_data(
     row = SetupMailExchange.objects.get(pk=identifier)
     assert row.replied_at is not None and "synthetic-private" not in row.ciphertext
     with task_login(ServiceRole.MAIL_DISPATCH, exact=True):
-        assert receive_credential(recipient).value == b"synthetic-private-workspace"
+        from ..test_integration_candidates import account
+
+        assert receive_credential(recipient).value == account()
         with (
             pytest.raises(DatabaseError),
             transaction.atomic(),

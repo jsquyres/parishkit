@@ -183,6 +183,9 @@ def test_shared_parishsoft_client_checks_exact_uncached_tenant(
         (250, 235, "valid"),
         (250, 535, "invalid"),
         (250, 454, "unavailable"),
+        (250, (334, 535), "invalid"),
+        (250, (334, 454), "unavailable"),
+        (250, (334, 334), "unavailable"),
         (500, 235, "unavailable"),
     ],
 )
@@ -209,7 +212,10 @@ def test_workspace_token_and_smtp_authentication_never_send(
     smtp.__enter__ = Mock(return_value=smtp)
     smtp.__exit__ = Mock(return_value=None)
     smtp.ehlo.return_value = greeting, b"private-response"
-    smtp.docmd.return_value = auth, b"private-response"
+    smtp.docmd.side_effect = [
+        (code, b"private-response")
+        for code in (auth if isinstance(auth, tuple) else (auth,))
+    ]
     smtp_factory = Mock(return_value=smtp)
     monkeypatch.setattr(worker.smtplib, "SMTP_SSL", smtp_factory)
     assert worker.check_request(payload("google_workspace")) == expected
@@ -221,6 +227,9 @@ def test_workspace_token_and_smtp_authentication_never_send(
     assert smtp_factory.call_args.kwargs["timeout"] == 10
     smtp.send_message.assert_not_called()
     smtp.sendmail.assert_not_called()
+    if isinstance(auth, tuple):
+        assert smtp.docmd.call_count == 2
+        assert smtp.docmd.call_args.args == ("",)
 
 
 @pytest.mark.parametrize(

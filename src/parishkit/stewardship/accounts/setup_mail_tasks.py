@@ -123,7 +123,11 @@ def _receive(execution, row):
     deadline = monotonic() + 120
     while monotonic() < deadline:
         execution.check()
-        candidate = receive_credential(recipient)
+        with execution.effect():
+            current = bound_delivery(_status(lock_task_claim(execution.claim)))
+            if current.state != "queued" or not live(current):
+                raise PermissionError("The setup mail request is no longer pending.")
+            candidate = receive_credential(recipient)
         if candidate is not None:
             return candidate
         connections.close_all()
@@ -181,7 +185,13 @@ def _execute(execution):
             # no provider effect. The owner keeps uncertainty, never retries.
             outcome = DeliveryOutcome.UNKNOWN
         else:
-            execution.transition("permanent_failure")
+            with execution.control.lock, work_transaction():
+                current = bound_delivery(_status(lock_task_claim(execution.claim)))
+                execution.transition(
+                    "safe_cancel"
+                    if current.state == "cancelled"
+                    else "permanent_failure"
+                )
             return
     # A failure committing either receipt is left for journal/Task recovery.
     # In particular, never overwrite known acceptance if Task completion fails.

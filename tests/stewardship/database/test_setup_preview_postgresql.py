@@ -20,6 +20,7 @@ from parishkit.stewardship.accounts.setup_staging import cancel_setup
 from parishkit.stewardship.campaigns.models import Campaign
 from parishkit.stewardship.storage import StaleRecordError
 
+from ..test_integration_candidates import account
 from ..test_setup_forms import VALUES
 from .test_bootstrap_postgresql import bootstrapped  # noqa: F401
 from .test_branding_setup_postgresql import graphics
@@ -51,7 +52,7 @@ def complete_draft(service, monkeypatch, tmp_path):
             service,
             status.attempt_id,
             target="google_workspace",
-            candidate=b"synthetic-private-workspace",
+            candidate=account(),
             expected_version=status.version,
         )
         bundle = stage_branding(
