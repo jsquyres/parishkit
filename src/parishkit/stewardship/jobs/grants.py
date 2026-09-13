@@ -42,6 +42,8 @@ def task_runtime_grants(role):
         "stewardship_config_activation",
         "stewardship_setup_config_intent",
         "stewardship_setup_config_abort",
+        "stewardship_setup_readiness_binding",
+        "stewardship_setup_prepared",
         "stewardship_secret_request",
         "stewardship_credential_consumer_ack",
     ):

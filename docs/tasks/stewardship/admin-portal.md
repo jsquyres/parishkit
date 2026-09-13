@@ -132,6 +132,13 @@ startup. It passes 134 focused tests and two rebuilt-image Compose scenarios.
 Finalization and the complete initial install/recreation/ACK demonstration still
 prevent closing ADM-02.05/.06.
 
+The [final-source checkpoint](../../guides/stewardship-phase-2-reviews.md#exact-final-setup-source-coverage)
+adds a fresh selected-financial-window load with original preparation and
+installed-key admission. Eleven PostgreSQL cases pass across two runs, with
+87% focused coverage in the first seven-case run; 22 pure recovery cases pass.
+This internal owner is not registered until atomic completion and cleanup are
+connected. ADM-02.05/.06 and the Phase 2 demonstration remain open.
+
 ## ADM-03: Navigation, dashboard, indicators, and configuration
 
 Scope and dependencies: [ADM-03 work package](../../plans/stewardship/admin-portal.md#adm-03-navigation-dashboard-indicators-and-configuration).

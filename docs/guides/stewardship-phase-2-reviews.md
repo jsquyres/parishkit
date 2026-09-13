@@ -589,3 +589,23 @@ foundation isolation checks. The full baseline passes 4,047 tests with 2,421
 explicit profile skips and two existing warnings. Ruff and formatting pass.
 The atomic finalization owner, real initial provider-install/recreation/ACK
 demonstration and full Phase 2 review gate remain open.
+
+### Exact final-setup source coverage
+
+An internal finalization Task now binds to the immutable installer preparation
+receipt, original frozen Admin and exact selected public YAML. Its fresh full
+load uses the reviewed campaign's selected financial periods and funds. Every
+page and staging boundary repeats original-login admission, mounted-key receipt
+and Task/source ownership. The earlier catalog snapshot remains unchanged;
+neither this new ready snapshot nor its Task implies configured product state.
+The finalization Task remains outside the operational registry until its atomic
+completion owner is connected.
+
+Seven restricted-role PostgreSQL cases pass with 87% coverage across the new
+scope, task and loader modules. Four additional cases pass for stale/changed
+manifests and original cancellation during a provider page. Both loads respect
+the real previous HTTP drainage deadline. Twenty-two pure recovery cases pass;
+the combined grant/preparation/recovery regression passes 59 cases. The baseline
+passes 4,069 tests with 2,432 explicit profile skips and two existing warnings.
+Ruff and formatting pass. Final source-staging cleanup, atomic activation,
+configured-marker routing and the end-to-end demonstration remain open.
