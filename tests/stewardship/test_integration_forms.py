@@ -11,7 +11,11 @@ from parishkit.stewardship.accounts.integration_forms import (
 @pytest.mark.parametrize(
     ("target", "values", "expected"),
     [
-        ("parishsoft", {"organization_id": "123"}, {"organization_id": "123"}),
+        (
+            "parishsoft",
+            {"organization_id": "123"},
+            {"organization_id": "123", "nightly_time": "02:00"},
+        ),
         (
             "google_workspace",
             {"delegated_email": "MAIL@example.org"},

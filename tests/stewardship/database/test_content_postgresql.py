@@ -56,9 +56,32 @@ def prepare(version):
     return prepare_snapshot(version, actor_id=uuid4(), correlation_id=uuid4())
 
 
-def test_content_installation_replacement_and_recovery(tmp_path):
+@pytest.mark.parametrize("cadence", [False, True])
+def test_content_installation_replacement_and_recovery(tmp_path, cadence):
     """The installer retains earlier revisions while activating one new selection."""
     store, campaign, actor = draft_campaign(tmp_path)
+    if cadence:
+        base = store.active()
+        record = base.document()["sections"]["integrations"][0]
+        assert (
+            change(
+                store,
+                base,
+                actor,
+                [
+                    {
+                        "operation": "update",
+                        "section": "integrations",
+                        "id": record["id"],
+                        "values": {
+                            "settings": record["values"]["settings"]
+                            | {"nightly_time": "03:15"}
+                        },
+                    }
+                ],
+            ).state
+            == "applied"
+        )
     old = content(str(campaign.pk))
     assert (
         change(
@@ -78,7 +101,9 @@ def test_content_installation_replacement_and_recovery(tmp_path):
         == "applied"
     )
     historical = SystemConfiguration.objects.get().active_configuration
-    assert historical.validation_schema == "campaign-content-v5"
+    assert historical.validation_schema == (
+        "source-cadence-v8" if cadence else "campaign-content-v5"
+    )
     assert is_prepared(historical.digest)
     new = content(str(campaign.pk), html="<p>Updated</p>", text="Updated")
     assert (
@@ -109,12 +134,57 @@ def test_content_installation_replacement_and_recovery(tmp_path):
     options = arguments()
     result = recover_admin(store, **options)
     assert result.state == "applied"
-    assert (
-        ConfigurationChangeRequest.objects.get(pk=result.request_id).request_schema
-        == "operator-recovery-content-v5"
+    assert ConfigurationChangeRequest.objects.get(
+        pk=result.request_id
+    ).request_schema == (
+        "operator-recovery-cadence-v8" if cadence else "operator-recovery-content-v5"
     )
     assert recover_admin(store, **options) == result
     assert is_prepared(store.active().digest)
+
+
+def test_cadence_preparation_retains_nonempty_projection_families():
+    """Versioned time does not drop campaign, policy, ministry or content records."""
+    document = content_document()
+    document["sections"]["integrations"][0]["values"]["settings"]["nightly_time"] = (
+        "03:15"
+    )
+    document["sections"]["ministries"] = [
+        {
+            "id": str(uuid4()),
+            "values": {
+                "organization_id": 12345,
+                "ministry_duid": 1,
+                "active": False,
+            },
+        }
+    ]
+    version = configuration_version(document)
+    prepare(version)
+    row = AppliedConfigurationVersion.objects.get(pk=version.version_id)
+    assert row.validation_schema == "source-cadence-v8"
+    assert row.ministry_activity.get().active is False
+    assert row.content_versions.get().slot == "welcome"
+    assert is_prepared(version.digest)
+    migration = import_module(
+        "parishkit.stewardship.accounts.migrations.0096_source_cadence_schema"
+    )
+    with (
+        pytest.raises(IntegrityError, match="Cadence history"),
+        connection.schema_editor() as editor,
+    ):
+        migration.backward(None, editor)
+    assert is_prepared(version.digest)
+
+
+def test_empty_cadence_projection_guards_reverse_and_reapply():
+    """Restore predecessor predicates only with no retained v8 configurations."""
+    migration = import_module(
+        "parishkit.stewardship.accounts.migrations.0096_source_cadence_schema"
+    )
+    with connection.schema_editor() as editor:
+        migration.backward(None, editor)
+        migration.forward(None, editor)
 
 
 def test_retired_revision_identity_is_immutable_at_intake(tmp_path):

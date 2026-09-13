@@ -35,6 +35,7 @@ from .content_schema import SCHEMA as CONTENT_SCHEMA
 from .content_schema import remember_content
 from .ministry_activity import SCHEMA as MINISTRY_SCHEMA
 from .ministry_activity import remember_records
+from .source_cadence_schema import SCHEMA as CADENCE_SCHEMA
 
 POLICY_SCHEMAS = {
     "foundation-policy-v2",
@@ -42,8 +43,14 @@ POLICY_SCHEMAS = {
     "bootstrap-policy-v1",
     MINISTRY_SCHEMA,
     CONTENT_SCHEMA,
+    CADENCE_SCHEMA,
 }
-CAMPAIGN_SCHEMAS = {"campaign-foundation-v3", MINISTRY_SCHEMA, CONTENT_SCHEMA}
+CAMPAIGN_SCHEMAS = {
+    "campaign-foundation-v3",
+    MINISTRY_SCHEMA,
+    CONTENT_SCHEMA,
+    CADENCE_SCHEMA,
+}
 HISTORY_BATCH_SIZE = 64
 
 
@@ -56,9 +63,9 @@ def _normalized(document, schema=None):
         names += ("login_rules",)
     if selected in CAMPAIGN_SCHEMAS:
         names += ("campaigns", "schedules")
-    if selected in {MINISTRY_SCHEMA, CONTENT_SCHEMA}:
+    if selected in {MINISTRY_SCHEMA, CONTENT_SCHEMA, CADENCE_SCHEMA}:
         names += ("ministries",)
-    if selected == CONTENT_SCHEMA:
+    if selected in {CONTENT_SCHEMA, CADENCE_SCHEMA}:
         names += ("content",)
     return {name: sections.get(name, []) for name in names}
 
@@ -125,7 +132,7 @@ def _stored_projections(snapshot):
         from parishkit.stewardship.campaigns.projections import stored_campaigns
 
         result.update(stored_campaigns(snapshot))
-    if snapshot.validation_schema in {MINISTRY_SCHEMA, CONTENT_SCHEMA}:
+    if snapshot.validation_schema in {MINISTRY_SCHEMA, CONTENT_SCHEMA, CADENCE_SCHEMA}:
         result["ministries"] = [
             {
                 "id": str(row.record_id),
@@ -139,7 +146,7 @@ def _stored_projections(snapshot):
                 snapshot.ministry_activity.all(), key=lambda item: str(item.record_id)
             )
         ]
-    if snapshot.validation_schema == CONTENT_SCHEMA:
+    if snapshot.validation_schema in {CONTENT_SCHEMA, CADENCE_SCHEMA}:
         result["content"] = [
             {
                 "id": str(row.record_id),
@@ -242,12 +249,17 @@ def _prefetch_history(rows):
         [
             row
             for row in rows
-            if row.validation_schema in {MINISTRY_SCHEMA, CONTENT_SCHEMA}
+            if row.validation_schema
+            in {MINISTRY_SCHEMA, CONTENT_SCHEMA, CADENCE_SCHEMA}
         ],
         "ministry_activity",
     )
     prefetch_related_objects(
-        [row for row in rows if row.validation_schema == CONTENT_SCHEMA],
+        [
+            row
+            for row in rows
+            if row.validation_schema in {CONTENT_SCHEMA, CADENCE_SCHEMA}
+        ],
         "content_versions",
     )
     if campaign_rows:

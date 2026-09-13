@@ -47,6 +47,9 @@ class ConfigurationChangeRequest(ImmutableRecord):
                         "operator-recovery-content-v5",
                         "integration-credential-patch-v6",
                         "initial-setup-patch-v7",
+                        "source-cadence-patch-v8",
+                        "operator-recovery-cadence-v8",
+                        "integration-credential-cadence-v8",
                     ]
                 ),
                 name="config_request_schema",
@@ -71,6 +74,7 @@ class ConfigurationChangeRequest(ImmutableRecord):
                             "operator-recovery-bootstrap-v1",
                             "operator-recovery-ministry-v4",
                             "operator-recovery-content-v5",
+                            "operator-recovery-cadence-v8",
                         ]
                     )
                     | models.Q(
@@ -86,6 +90,7 @@ class ConfigurationChangeRequest(ImmutableRecord):
                             "operator-recovery-bootstrap-v1",
                             "operator-recovery-ministry-v4",
                             "operator-recovery-content-v5",
+                            "operator-recovery-cadence-v8",
                         ],
                     )
                 ),

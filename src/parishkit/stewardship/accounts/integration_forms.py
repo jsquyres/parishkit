@@ -31,6 +31,18 @@ class IntegrationForm(forms.Form):
                 min_value=1,
                 max_value=2**31 - 1,
             )
+            self.fields["nightly_time"] = forms.RegexField(
+                label=_("Nightly full refresh time"),
+                regex=r"^(?:[01][0-9]|2[0-3]):[0-5][0-9]$",
+                initial="02:00",
+                required=False,
+                max_length=5,
+                widget=forms.TimeInput(format="%H:%M", attrs={"type": "time"}),
+                help_text=_(
+                    "Parish-local time; default 2:00 a.m. "
+                    "The next scheduler tick uses the applied setting."
+                ),
+            )
         elif target == "google_workspace":
             self.fields["delegated_email"] = forms.EmailField(
                 label=_("Delegated mailbox"), max_length=254
@@ -67,6 +79,10 @@ class IntegrationForm(forms.Form):
             for name, value in self.cleaned_data.items()
             if name != "base_digest"
         }
+
+    def clean_nightly_time(self):
+        """An omitted time retains the documented default, never browser-local time."""
+        return self.cleaned_data["nightly_time"] or "02:00"
 
 
 class WriteOnlyTextarea(forms.Textarea):

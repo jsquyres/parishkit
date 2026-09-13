@@ -134,7 +134,10 @@ def _preview(request, service, actor, target):
     if form.cleaned_data["base_digest"] != configuration.active_configuration.digest:
         raise StaleRecordError("Reload integration settings.")
     settings = form.public_settings()
-    if settings == record["values"]["settings"]:
+    before = record["values"]["settings"]
+    if target == "parishsoft":
+        before = {"nightly_time": "02:00"} | before
+    if settings == before:
         form.add_error(None, _("No settings have changed."))
         return _page(request, configuration, target, form=form, status=400)
     patch = [
@@ -159,11 +162,11 @@ def _preview(request, service, actor, target):
             "changes": [
                 {
                     "label": form.fields[name].label,
-                    "before": record["values"]["settings"][name],
+                    "before": before[name],
                     "after": value,
                 }
                 for name, value in settings.items()
-                if record["values"]["settings"][name] != value
+                if before[name] != value
             ],
             "preview": sign_preview(
                 actor=actor,
@@ -229,6 +232,7 @@ def _context(configuration, target):
     records = _records(configuration)
     settings = dict(_selected(configuration, target)["values"]["settings"])
     if target == "parishsoft":
+        settings.pop("nightly_time", None)
         value = settings["organization_id"]
         if not value.isascii() or not value.isdecimal() or str(int(value)) != value:
             raise ConfigError("A canonical organization ID is required.")

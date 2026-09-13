@@ -14,6 +14,7 @@ from uuid import UUID
 
 from parishkit.config import ConfigError
 
+from . import source_cadence_schema as cadence
 from .authority import ConfigurationVersion, parse_version
 from .configuration_schema import validator_for
 from .content_schema import RECOVERY_SCHEMA as CONTENT_RECOVERY_SCHEMA
@@ -138,7 +139,7 @@ def _build_v4_candidate(base, patch, *, candidate_id):
     return result
 
 
-def _build_v5_candidate(base, patch, *, candidate_id):
+def _build_v5_candidate(base, patch, *, candidate_id, schema=CONTENT_SCHEMA):
     """Add immutable content while retaining policy, campaign and Ministry fences."""
     from parishkit.stewardship.campaigns.configuration import validate_campaign_change
 
@@ -148,7 +149,7 @@ def _build_v5_candidate(base, patch, *, candidate_id):
         base,
         patch,
         candidate_id=candidate_id,
-        schema=CONTENT_SCHEMA,
+        schema=schema,
         sections={
             "parish",
             "integrations",
@@ -186,7 +187,7 @@ def _credential_schema_v6(document):
     return "parish-integrations-v1"
 
 
-def _build_credential_candidate(base, patch, *, candidate_id):
+def _build_credential_candidate(base, patch, *, candidate_id, schema=None):
     """A separate explicit format changes one fingerprint, never public settings.
 
     Parsing binds immutable intent, not installed-credential authority. The
@@ -210,7 +211,7 @@ def _build_credential_candidate(base, patch, *, candidate_id):
         base,
         patch,
         candidate_id=candidate_id,
-        schema=_credential_schema_v6(base.document()),
+        schema=schema or _credential_schema_v6(base.document()),
         sections={"integrations"},
         credential_reference=True,
     )
@@ -393,6 +394,36 @@ def _build_recovery_content_candidate(base, patch, *, candidate_id):
     )
 
 
+def _build_cadence_candidate(base, patch, *, candidate_id):
+    """Preserve every content, campaign and policy edit rule with nightly settings."""
+    return _build_v5_candidate(
+        base, patch, candidate_id=candidate_id, schema=cadence.SCHEMA
+    )
+
+
+def _build_recovery_cadence_candidate(base, patch, *, candidate_id):
+    """Offline recovery remains additive-only without dropping selected cadence."""
+    return _build_recovery_candidate(
+        base, patch, candidate_id=candidate_id, schema=cadence.SCHEMA
+    )
+
+
+def _build_credential_cadence_candidate(base, patch, *, candidate_id):
+    """Fingerprint-only selection retains public cadence and frozen v6 replay."""
+    return _build_credential_candidate(
+        base, patch, candidate_id=candidate_id, schema=cadence.SCHEMA
+    )
+
+
+def credential_request_schema(document):
+    """Select the new receipt parser only for configuration containing cadence."""
+    return (
+        cadence.CREDENTIAL_SCHEMA
+        if cadence.uses_cadence(document)
+        else CREDENTIAL_REQUEST_SCHEMA
+    )
+
+
 BUILDERS = MappingProxyType(
     {
         "parish-integrations-patch-v1": _build_v1_candidate,
@@ -404,6 +435,9 @@ BUILDERS = MappingProxyType(
         CONTENT_RECOVERY_SCHEMA: _build_recovery_content_candidate,
         CREDENTIAL_REQUEST_SCHEMA: _build_credential_candidate,
         SETUP_REQUEST_SCHEMA: build_setup_candidate,
+        cadence.REQUEST_SCHEMA: _build_cadence_candidate,
+        cadence.RECOVERY_SCHEMA: _build_recovery_cadence_candidate,
+        cadence.CREDENTIAL_SCHEMA: _build_credential_cadence_candidate,
         "operator-recovery-patch-v1": _build_recovery_candidate,
         "operator-recovery-patch-v2": _build_recovery_v2_candidate,
         "operator-recovery-bootstrap-v1": _build_recovery_bootstrap_candidate,
@@ -424,6 +458,20 @@ def build_candidate(base, patch, *, candidate_id, request_schema=None):
 
 def default_schema(base, patch):
     """Choose a new intent schema while keeping every stored retry discriminator."""
+    if (
+        isinstance(base, ConfigurationVersion) and cadence.uses_cadence(base.document())
+    ) or (
+        type(patch) is list
+        and any(
+            type(item) is dict
+            and item.get("section") == "integrations"
+            and type(item.get("values")) is dict
+            and type(item["values"].get("settings")) is dict
+            and "nightly_time" in item["values"]["settings"]
+            for item in patch
+        )
+    ):
+        return cadence.REQUEST_SCHEMA
     if (
         isinstance(base, ConfigurationVersion)
         and "content" in base.document()["sections"]

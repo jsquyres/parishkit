@@ -155,7 +155,12 @@ def record_request(
     """
     _identities(actor_id, request_key, correlation_id)
     _own_transaction()
-    if request_schema is not None and request_schema != CREDENTIAL_REQUEST_SCHEMA:
+    from .source_cadence_schema import CREDENTIAL_SCHEMA
+
+    if request_schema is not None and request_schema not in {
+        CREDENTIAL_REQUEST_SCHEMA,
+        CREDENTIAL_SCHEMA,
+    }:
         raise ConfigError("Unsupported explicit configuration request schema.")
     if (
         type(base_digest) is not str
@@ -199,6 +204,7 @@ def record_request(
             "campaign-foundation-patch-v3",
             "ministry-activity-patch-v4",
             "campaign-content-patch-v5",
+            "source-cadence-patch-v8",
         }:
             from .policy_schema import validate_manual_operation
 
