@@ -8,6 +8,7 @@ from parishkit.config import ConfigError
 from .authentication import runtime
 from .branding_models import BrandingAsset
 from .configuration_installation import coherent_configuration
+from .limiting import LimiterUnavailable
 
 
 def branding_for(parish):
@@ -36,12 +37,16 @@ def parish_branding(request):
         service = runtime()
         if not service.configured():
             return {}
-        root = coherent_configuration(service.store)
+        # An owning view may lend its already verified projection for this
+        # render only. Never consume this presentation hint for authorization.
+        root = getattr(request, "_stewardship_display_configuration", None)
+        if root is None:
+            root = coherent_configuration(service.store)
         if root.restore_review_required:
             return {}
         parish = getattr(root.active_configuration, "parish", None)
         if parish is None:
             return {}
         return {"parish_branding": branding_for(parish)}
-    except (ConfigError, DatabaseError):
+    except (ConfigError, DatabaseError, LimiterUnavailable, OSError):
         return {}

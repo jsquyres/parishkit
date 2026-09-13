@@ -1,5 +1,6 @@
 """Named page/email revision editing with sample-only inert rendering."""
 
+from datetime import date
 from uuid import uuid4
 
 from django import forms
@@ -12,6 +13,7 @@ from parishkit.stewardship.web.content import (
     render_template,
     validate_template,
 )
+from parishkit.stewardship.web.presentation import parish_date
 
 PAGE_LABELS = {
     "welcome": _("Family welcome"),
@@ -137,14 +139,18 @@ def sample_render(value, *, parish, campaign):
         "parish_website": parish.get("website", "https://example.invalid/"),
         "parish_phone": parish.get("phone", "+12025550100"),
         "campaign_name": campaign["name"],
-        "campaign_start": campaign["start_date"],
-        "campaign_end": campaign["end_date"],
+        "campaign_start": parish_date(date.fromisoformat(campaign["start_date"])),
+        "campaign_end": parish_date(date.fromisoformat(campaign["end_date"])),
         "campaign_timezone": campaign["timezone"],
         "campaign_year": campaign.get("year_label") or campaign["start_date"][:4],
-        "financial_start": campaign["financial"]["start"]
+        "financial_start": parish_date(
+            date.fromisoformat(campaign["financial"]["start"])
+        )
         if campaign["financial"]
         else "",
-        "financial_end": campaign["financial"]["end"] if campaign["financial"] else "",
+        "financial_end": parish_date(date.fromisoformat(campaign["financial"]["end"]))
+        if campaign["financial"]
+        else "",
         "family_name": "Sample Family",
         "family_member_names": "Alex and Sam Sample",
         "family_code": "SAMPLE",
@@ -152,7 +158,9 @@ def sample_render(value, *, parish, campaign):
         "generic_family_url": "https://example.invalid/",
         "pronoun": "We",
         "financial_period": (
-            campaign["financial"]["start"] + " – " + campaign["financial"]["end"]
+            parish_date(date.fromisoformat(campaign["financial"]["start"]))
+            + " – "
+            + parish_date(date.fromisoformat(campaign["financial"]["end"]))
             if campaign["financial"]
             else "Sample financial period"
         ),

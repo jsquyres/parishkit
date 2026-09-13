@@ -91,6 +91,39 @@ def test_new_draft_requires_confirmation_and_applied_receipt(auth_service, googl
     assert b"Campaign settings" in browser.get(url(row)).content
 
 
+def test_disabling_financial_preview_warns_before_discarding_custom_sharing(
+    auth_service, google
+):
+    """The required empty disabled-module value must not silently erase labels."""
+    from parishkit.stewardship.accounts.share_forms import default_share_options
+
+    store = auth_service.store
+    record = campaign(modules=["census", "financial"], financial=financial())
+    record["values"]["share_options"] = default_share_options()
+    record["values"]["share_options"][0]["label"] = "Our custom sharing label"
+    add_draft(store, store.active(), uuid4(), record)
+    row = Campaign.objects.get()
+    browser, _ = signed_in()
+    data = fields(store, row, financial_enabled=False)
+    for name in (
+        "financial_start",
+        "financial_end",
+        "comparison_start",
+        "comparison_end",
+        "fund_duids",
+        "comparison_fund_duids",
+        "overlap_confirmed",
+    ):
+        data.pop(name, None)
+    response = post(browser, url(row), data)
+    assert response.status_code == 200, response.content
+    assert b"Re-enabling it starts with the default options" in response.content
+    assert (
+        row.active_configuration.values["share_options"][0]["label"]
+        == "Our custom sharing label"
+    )
+
+
 def test_draft_can_change_timezone_without_changing_parish_default(
     auth_service, google
 ):
@@ -221,6 +254,37 @@ def test_financial_and_ministry_catalogs_work_under_real_web_grants(
     assert Campaign.objects.get().active_configuration.values["financial"][
         "fund_duids"
     ] == [9]
+
+
+def test_inactive_selected_funds_do_not_block_unrelated_draft_edits(
+    auth_service, google
+):
+    """Both pledge and comparison scope retain an explicitly labeled inactive fund."""
+    store = auth_service.store
+    data = source()
+    data.funds[9]["active"] = False
+    publish(data)
+    row = campaign(
+        modules=["financial"],
+        financial=financial(fund_duids=[9], comparison_fund_duids=[9]),
+    )
+    change(
+        store,
+        store.active(),
+        uuid4(),
+        [{"operation": "add", "section": "campaigns", **row}],
+    )
+    current = Campaign.objects.get()
+    browser, _ = signed_in()
+    with task_login(ServiceRole.WEB):
+        page = browser.get(url(current))
+        assert b"Offertory (inactive; retained selection)" in page.content
+        assert (
+            post(
+                browser, url(current), fields(store, current, name="Updated name")
+            ).status_code
+            == 200
+        )
 
 
 @pytest.mark.parametrize("role", ["staff", "ministry_leader"])

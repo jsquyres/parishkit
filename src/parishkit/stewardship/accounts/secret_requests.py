@@ -11,6 +11,7 @@ consume sealed requests: credential_installation owns their file/SQL protocol.
 import re
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import timedelta
 from uuid import UUID
 
 from django.core.exceptions import ValidationError
@@ -18,7 +19,11 @@ from django.db import connection, transaction
 
 from parishkit.config import ConfigError
 from parishkit.stewardship.service_boundaries import ALLOWED_SECRETS
-from parishkit.stewardship.storage import StorageInvariantError, UTCDateTimeField
+from parishkit.stewardship.storage import (
+    StaleRecordError,
+    StorageInvariantError,
+    UTCDateTimeField,
+)
 
 from .cryptography import TokenPublicKeyring, envelope_header
 from .provider_context import validated_context
@@ -30,6 +35,10 @@ from .secret_models import (
     SealedCredentialStaging,
     SecretReplacementRequest,
 )
+
+
+class SecretRequestConflict(ConfigError):
+    """A repeated intake identity carries different immutable request contents."""
 
 
 @dataclass(frozen=True)
@@ -102,7 +111,8 @@ def stage_secret_request(
     staging_reference,
     actor_id,
     reauthenticated_at,
-    expires_at,
+    expires_at=None,
+    staging_lifetime=None,
     expected_fingerprint,
     correlation_id,
     required_consumers=(),
@@ -116,6 +126,8 @@ def stage_secret_request(
     ARC-04/ARC-06 own fresh authentication and may choose a shorter staging TTL;
     this storage layer enforces ordering and a hard 24-hour lifetime ceiling.
     An identical retry returns the original state, including after expiry/cleanup.
+    A server-selected lifetime starts at first intake, never at form rendering;
+    retries reuse that durable deadline rather than extending the reservation.
     """
     _identifiers(request_id, staging_reference, actor_id, correlation_id)
     _target(target)
@@ -145,6 +157,12 @@ def stage_secret_request(
             raise ConfigError("Invalid sealed credential payload.")
         envelope_header(sealed_candidate, TokenPublicKeyring.algorithm)
     field = UTCDateTimeField()
+    if staging_lifetime is not None and (
+        expires_at is not None
+        or type(staging_lifetime) is not timedelta
+        or not timedelta(0) < staging_lifetime <= MAX_STAGING_LIFETIME
+    ):
+        raise ConfigError("Invalid secret staging lifetime.")
     try:
         reauthenticated_at, expires_at = (
             field.to_python(reauthenticated_at),
@@ -152,7 +170,7 @@ def stage_secret_request(
         )
     except ValidationError:
         raise ConfigError("Valid secret request timestamps are required.") from None
-    if reauthenticated_at is None or expires_at is None:
+    if reauthenticated_at is None or (expires_at is None and staging_lifetime is None):
         raise ConfigError("Valid secret request timestamps are required.")
     if expected_fingerprint is not None and (
         type(expected_fingerprint) is not str
@@ -172,19 +190,28 @@ def stage_secret_request(
         if admit is not None and (not callable(admit) or admit() is not True):
             raise PermissionError("Secret request is not admitted.")
         existing = SecretReplacementRequest.objects.filter(pk=request_id).first()
+        if staging_lifetime is not None:
+            expires_at = (
+                existing.expires_at
+                if existing is not None
+                else _now() + staging_lifetime
+            )
+            intent["expires_at"] = expires_at
         if existing is not None:
             if any(getattr(existing, key) != value for key, value in intent.items()):
-                raise ConfigError("Secret request identity is already bound.")
+                raise SecretRequestConflict("Secret request identity is already bound.")
             context = ProviderValidationContext.objects.filter(request=existing).first()
             if (context.settings if context else None) != provider_settings:
-                raise ConfigError("Secret request validation context is already bound.")
+                raise SecretRequestConflict(
+                    "Secret request validation context is already bound."
+                )
             if (
                 required_consumers
                 and not SealedCredentialStaging.objects.filter(
                     request=existing, fingerprint=candidate_fingerprint
                 ).exists()
             ):
-                raise ConfigError("Secret request identity is already bound.")
+                raise SecretRequestConflict("Secret request identity is already bound.")
             return _receipt(existing)
         now = _now()
         if reauthenticated_at > now or expires_at <= now:
@@ -195,6 +222,19 @@ def stage_secret_request(
             target=target, state__in=SECRET_PENDING
         ).exists():
             raise ConfigError("Credential target already has a pending request.")
+        if sealed_candidate is not None:
+            previous = (
+                SecretReplacementRequest.objects.filter(target=target, state="applied")
+                .order_by("-created_at", "-pk")
+                .first()
+            )
+            if (
+                previous is not None
+                and previous.resulting_fingerprint != expected_fingerprint
+            ):
+                raise StaleRecordError(
+                    "Select the installed credential before replacing it again."
+                )
         if SecretReplacementRequest.objects.filter(
             staging_reference=staging_reference
         ).exists():

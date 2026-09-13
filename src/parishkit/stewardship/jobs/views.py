@@ -96,6 +96,14 @@ def _task(row, instant):
     }
 
 
+def _counts(instant):
+    """Count indexed nonterminal work without fetching task identities or payloads."""
+    return TaskRun.objects.filter(state__in=NONTERMINAL_STATES).aggregate(
+        active=Count("id", filter=Q(state="running", lease_expires_at__gt=instant)),
+        **{state: Count("id", filter=Q(state=state)) for state in NONTERMINAL_STATES},
+    )
+
+
 def _listing(window, state, task_type, instant):
     """Bound rows and count only indexed nonterminal work for the header indicator."""
     query = TaskRun.objects.all()
@@ -106,13 +114,9 @@ def _listing(window, state, task_type, instant):
     if task_type:
         query = query.filter(task_type=task_type)
     rows, has_next = window.rows(query.order_by("-created_at", "-id"))
-    counts = TaskRun.objects.filter(state__in=NONTERMINAL_STATES).aggregate(
-        active=Count("id", filter=Q(state="running", lease_expires_at__gt=instant)),
-        **{state: Count("id", filter=Q(state=state)) for state in NONTERMINAL_STATES},
-    )
     return {
         "as_of": instant,
-        "counts": counts,
+        "counts": _counts(instant),
         "page": window.page,
         "size": window.size,
         "has_next": has_next,
@@ -148,7 +152,7 @@ def _detail(identifier, window, instant):
     }, len(events)
 
 
-def _read(request, identifier=None):
+def _read(request, identifier=None, *, counts_only=False):
     """Recheck current Admin authority; automatic polls never renew idle activity."""
     try:
         service = runtime()
@@ -156,7 +160,12 @@ def _read(request, identifier=None):
         if not allows(principal, Capability.BACKGROUND_WORK):
             return _error(ErrorCode.DENIED, 403)
         try:
-            window, state, task_type = _window(request.GET, listing=identifier is None)
+            if counts_only:
+                filters(request.GET, allowed=set())
+            else:
+                window, state, task_type = _window(
+                    request.GET, listing=identifier is None
+                )
         except ValueError:
             return _error(ErrorCode.INVALID, 400)
         with transaction.atomic():
@@ -164,11 +173,14 @@ def _read(request, identifier=None):
             if configuration is None or configuration.restore_review_required:
                 return _error(ErrorCode.UNAVAILABLE, 503)
             instant = database_now()
-            data, count = (
-                _listing(window, state, task_type, instant)
-                if identifier is None
-                else _detail(identifier, window, instant)
-            )
+            if counts_only:
+                data, count = {"as_of": instant, "counts": _counts(instant)}, 0
+            else:
+                data, count = (
+                    _listing(window, state, task_type, instant)
+                    if identifier is None
+                    else _detail(identifier, window, instant)
+                )
             current = authenticated_admin(request, store=service.store, read_only=True)
             if not allows(current, Capability.BACKGROUND_WORK):
                 return _error(ErrorCode.DENIED, 403)
@@ -176,16 +188,23 @@ def _read(request, identifier=None):
                 return _error(ErrorCode.UNAVAILABLE, 404)
             response = JsonResponse(data)
             response["Cache-Control"] = "no-store"
-            record_action(
-                Action.BACKGROUND_VIEWED,
-                actor_kind=ActorKind.PORTAL_USER,
-                actor_id=current.identity,
-                subject_id=identifier,
-                context={"outcome": Outcome.SUCCEEDED, "count": count},
-            )
+            if not counts_only:
+                record_action(
+                    Action.BACKGROUND_VIEWED,
+                    actor_kind=ActorKind.PORTAL_USER,
+                    actor_id=current.identity,
+                    subject_id=identifier,
+                    context={"outcome": Outcome.SUCCEEDED, "count": count},
+                )
             return response
     except (ConfigError, LimiterUnavailable, DatabaseError, ValueError, TypeError):
         return _error(ErrorCode.UNAVAILABLE, 503)
+
+
+@require_safe
+def task_counts(request):
+    """Passive header counts are not an operator report read or an idle renewal."""
+    return _read(request, counts_only=True)
 
 
 @require_safe

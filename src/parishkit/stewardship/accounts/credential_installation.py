@@ -179,7 +179,16 @@ class CredentialInstaller:
             current = self._read(row.pk)
             if current.state != "awaiting_ack":
                 return current
-            if current.expires_at <= _now():
+            from .setup_credential_installation import initial_state
+
+            initial = initial_state(current)
+            if initial is not None and initial[0]:
+                # Initial consumer ACKs are readiness, not final setup commit.
+                # Keep the predecessor and candidate file journal until then.
+                return current
+            if initial is not None:
+                reason = "applied" if initial[1] is not None else "expired"
+            elif current.expires_at <= _now():
                 reason = "expired"
             else:
                 acknowledgements = dict(
@@ -319,7 +328,15 @@ class CredentialInstaller:
                             record_terminal=partial(self._terminal, row.pk),
                         )
                     return _receipt(row)
-                if row.state != "cleanup_pending" and row.expires_at <= _now():
+                from .setup_credential_installation import initial_state
+
+                initial = initial_state(row)
+                expired = (
+                    not initial[0] and initial[1] is None
+                    if initial is not None
+                    else row.expires_at <= _now()
+                )
+                if row.state != "cleanup_pending" and expired:
                     row = self._advance(
                         row.pk, row.state, "cleanup_pending", reason="expired"
                     )

@@ -232,6 +232,20 @@ def test_duplicate_or_dangling_roster_records_fail_before_staging():
         normalize_core(data, as_of=TODAY)
 
 
+def test_null_roster_role_ids_use_distinct_names_without_changing_stint_identity():
+    """Null provider IDs fall back to names; closing a stint remains an update."""
+    data = source()
+    rows = data.ministry_type_memberships[4]["membership"]
+    rows[0]["ministryRoleId"] = None
+    rows.append(dict(rows[0], ministryRoleName="Member"))
+    before = normalize_core(data, as_of=TODAY)["roster"]
+    assert len(before) == 2
+    rows[0]["endDate"] = TODAY.isoformat()
+    after = normalize_core(data, as_of=TODAY)["roster"]
+    assert before.keys() == after.keys()
+    assert before != after
+
+
 @pytest.mark.parametrize(
     "field,value",
     [("emailAddress", True), ("homePhone", 123), ("birthdate", "PRIVATE-INVALID-DATE")],

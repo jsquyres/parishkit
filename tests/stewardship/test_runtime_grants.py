@@ -79,7 +79,7 @@ def test_public_handoff_grants_separate_discovery_from_publication():
     [
         ("unknown", None),
         (ServiceRole.CREDENTIAL_INSTALLER, "unknown"),
-        (ServiceRole.MAIL_DISPATCH, None),
+        (ServiceRole.BACKUP_WORKER, None),
         (ServiceRole.WEB, "metrics"),
         (ServiceRole.CONFIG_INSTALLER, "metrics"),
         (ServiceRole.BOOTSTRAP, "metrics"),
@@ -111,22 +111,95 @@ def test_grant_and_login_resolvers_normalize_string_roles_identically(role):
 
 
 @pytest.mark.parametrize("role", [ServiceRole.WORKER, ServiceRole.SCHEDULER])
-def test_background_grants_exclude_web_secrets_and_campaign_write_authority(role):
-    """Reserved producer/consumer identities cannot inherit web or future tables."""
+def test_background_grants_keep_initial_completion_separate_from_general_authority(
+    role,
+):
+    """The atomic initial owner gains neither private reads nor lifecycle updates."""
     tables, columns = runtime_grants(role)
     for table in (
-        "stewardship_secret_request",
-        "stewardship_portal_session",
+        "stewardship_sealed_credential_staging",
         "stewardship_family_session",
     ):
         assert table not in tables and table not in columns
-    assert tables["stewardship_campaign"] == {"SELECT"}
+    # Consumer acknowledgement needs target-scoped metadata and a row lock,
+    # never candidate ciphertext or ordinary replacement mutation authority.
+    assert tables["stewardship_secret_request"] == {"SELECT"}
+    assert columns["stewardship_secret_request"] == {"UPDATE": {"id"}}
+    assert tables["stewardship_credential_consumer_ack"] == {"SELECT", "INSERT"}
+    if role is ServiceRole.SCHEDULER:
+        assert "stewardship_setup_sealed_credential" not in tables
+        assert (
+            "ciphertext" not in columns["stewardship_setup_sealed_credential"]["SELECT"]
+        )
+        assert columns["stewardship_setup_sealed_credential"]["UPDATE"] == {
+            "settings",
+            "ciphertext",
+            "scrubbed_at",
+            "actor_id",
+            "correlation_id",
+            "version",
+        }
+    else:
+        assert "stewardship_setup_sealed_credential" not in tables
+        assert columns["stewardship_setup_sealed_credential"] == {
+            "SELECT": {
+                "id",
+                "attempt_id",
+                "target",
+                "version",
+                "fingerprint",
+                "settings",
+                "scrubbed_at",
+            },
+            "UPDATE": {
+                "settings",
+                "ciphertext",
+                "scrubbed_at",
+                "actor_id",
+                "correlation_id",
+                "version",
+            },
+        }
+        assert tables["stewardship_setup_source_exchange"] == {"SELECT", "INSERT"}
+    assert tables["stewardship_campaign"] == (
+        {"SELECT", "INSERT"} if role is ServiceRole.WORKER else {"SELECT"}
+    )
     assert tables["stewardship_domain_rule"] == {"SELECT"}
-    assert columns["stewardship_campaign"] == {"UPDATE": {"id"}}
+    assert columns["stewardship_campaign"] == {
+        "UPDATE": {
+            "id",
+            "active_configuration_id",
+            "version",
+            "actor_id",
+            "correlation_id",
+        }
+        if role is ServiceRole.WORKER
+        else {"id"}
+    }
     assert tables["stewardship_audit_event"] == {"INSERT"}
     if role is ServiceRole.WORKER:
         assert tables["stewardship_task_run"] == {"SELECT", "INSERT", "UPDATE"}
+        assert "stewardship_portal_session" not in tables
+        assert columns["stewardship_portal_session"] == {
+            "SELECT": {
+                "id",
+                "principal_id",
+                "revoked_at",
+                "expires_at",
+                "last_activity_at",
+            }
+        }
     else:
+        assert "stewardship_portal_session" not in tables
+        assert columns["stewardship_portal_session"] == {
+            "SELECT": {
+                "id",
+                "principal_id",
+                "revoked_at",
+                "expires_at",
+                "last_activity_at",
+            }
+        }
         assert tables["stewardship_task_run"] == {"SELECT", "INSERT"}
         from parishkit.stewardship.source.grants import SCHEDULER_CANCEL_COLUMNS
 

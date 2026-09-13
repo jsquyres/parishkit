@@ -71,17 +71,7 @@ def _periods(window):
     return window.periods
 
 
-def _aliases(corpus):
-    """Resolve provider FamilyId spellings only when DUID/local-ID evidence agrees."""
-    aliases = {}
-    for key, family in corpus["family"].items():
-        for identifier in (family["familyDUID"], family.get("familyID")):
-            if identifier not in (None, 0):
-                aliases.setdefault(_id(identifier), set()).add(key)
-    return aliases
-
-
-def _family(row, corpus, aliases, *, kind):
+def _family(row, corpus, *, kind):
     """Anonymous giving has no Family aggregate; unknown/ambiguous references fail."""
     family = row.get("familyID" if kind == "pledge" else "familyId")
     member = row.get("memberID" if kind == "pledge" else "memberId")
@@ -97,10 +87,13 @@ def _family(row, corpus, aliases, *, kind):
         member_family = value["family_key"]
     if not family:
         return member_family
-    candidates = aliases.get(_id(family), set())
-    if len(candidates) != 1:
-        raise InvalidSourcePayload("Source giving Family reference is ambiguous.")
-    result = next(iter(candidates))
+    # Keep ParishKit's established link_family_pledges/contributions contract:
+    # the giving DTO's inconsistent Id spelling denotes the Family DUID. The
+    # separately retained parish-local familyID is not an alternate namespace.
+    # Falling back to it can attach money to a different household.
+    result = str(_id(family))
+    if result not in corpus["family"]:
+        raise InvalidSourcePayload("Source giving has no retained Family.")
     if member_family is not None and member_family != result:
         raise InvalidSourcePayload("Source giving Family and Member disagree.")
     return result
@@ -144,7 +137,6 @@ def load_giving(client, *, corpus, window, as_of):
     funds = sorted({fund for period in periods for fund in period.funds})
     if any(str(fund) not in corpus["fund"] for fund in funds):
         raise InvalidSourcePayload("A selected source giving fund is unavailable.")
-    aliases = _aliases(corpus)
     result = {"pledge": {}, "contribution": {}}
     anonymous = {"pledge": set(), "contribution": set()}
     seen = {"pledge": {}, "contribution": {}}
@@ -195,7 +187,7 @@ def load_giving(client, *, corpus, window, as_of):
                     ]
                     if not matches:
                         continue
-                    family = _family(row, corpus, aliases, kind=kind)
+                    family = _family(row, corpus, kind=kind)
                     payload = {
                         "family_key": family,
                         "fund_key": str(fund),

@@ -90,6 +90,10 @@ def _pending(*, organization_id, digest, kind):
     A retained lease and a committed promotion also exclude their retry root;
     this closes the release-to-task-completion interval. The global work order
     serializes creation with every compiled refresh claim/effect.
+    An abandoned root without a lease or promotion may still be waiting for a
+    fallback or admission hold. Coalesce it until its owning recovery disposes
+    it; receipts identify that actual state, not a promise of a running read.
+    Repeated manual commands must not create another root for the same hold.
     """
     active_roots = TaskRun.objects.filter(state="running").values("root_id")
     leased_roots = SourceMutationLease.objects.filter(owner__isnull=False).values(

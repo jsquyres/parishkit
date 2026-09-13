@@ -3,6 +3,7 @@
 import io
 import re
 from html import unescape
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -122,6 +123,37 @@ def test_other_login_cannot_preview_an_unapplied_upload(auth_service, google, me
     assert another.get(preview).status_code == 404
     assert another.get(f"{URL}/assets/{asset.pk}.png").status_code == 404
     assert another.get(f"/branding/{asset.pk}.png").status_code == 404
+
+
+@pytest.mark.parametrize("missing", [True, False])
+def test_preview_refuses_a_changed_yaml_base(
+    auth_service, google, media, monkeypatch, missing
+):
+    """A selection race cannot sign a preview against a different verified snapshot."""
+    from parishkit.stewardship.accounts import branding_views
+
+    browser, _ = signed_in()
+    preview = stage(browser, auth_service)
+    original = branding_views.editable_configuration
+
+    def changed_after_verification(service):
+        """Change only the subsequent external read, after the coherent SQL check."""
+        result = original(service)
+        monkeypatch.setattr(
+            service.store,
+            "active",
+            lambda: None if missing else SimpleNamespace(digest="f" * 64),
+        )
+        return result
+
+    monkeypatch.setattr(
+        branding_views, "editable_configuration", changed_after_verification
+    )
+    with task_login(ServiceRole.WEB):
+        response = browser.get(preview)
+    assert response.status_code == 409
+    assert b'name="preview"' not in response.content
+    assert not ConfigurationChangeRequest.objects.exists()
 
 
 @pytest.mark.parametrize(

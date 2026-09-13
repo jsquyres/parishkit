@@ -210,6 +210,33 @@ def test_presence_sql_rejects_idle_renewal_and_clamps_timestamp(family_service):
         )
 
 
+@pytest.mark.parametrize("idle_minutes", [45, 61])
+def test_presence_uses_the_family_idle_deadline(
+    family_service, monkeypatch, idle_minutes
+):
+    """The real SQL clock accepts 45-minute idle sessions but refuses expired ones."""
+    from parishkit.stewardship.accounts import family_authentication
+
+    instant = database_now() - timedelta(minutes=idle_minutes)
+    with monkeypatch.context() as patch:
+        patch.setattr(family_authentication, "database_now", lambda: instant)
+        browser, _ = login(family_service.code)
+    row = FamilySession.objects.get()
+    assert row.last_activity_at == instant
+    with task_login(ServiceRole.WEB):
+        assert beat(browser).status_code == (200 if idle_minutes == 45 else 403)
+    row.refresh_from_db()
+    assert (row.presence_at is not None) == (idle_minutes == 45)
+    assert row.last_activity_at == instant
+    if idle_minutes == 61:
+        with pytest.raises(IntegrityError, match="Presence"), transaction.atomic():
+            FamilySession.objects.filter(pk=row.pk).update(
+                presence_at=database_now(),
+                presence_section="review",
+                version=F("version") + 1,
+            )
+
+
 def test_real_web_grants_support_family_presence_and_admin_names(
     family_service, google
 ):

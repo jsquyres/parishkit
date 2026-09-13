@@ -2,7 +2,6 @@
 
 import hashlib
 import json
-from datetime import timedelta
 from importlib import import_module
 
 from django.conf import settings
@@ -20,11 +19,18 @@ from parishkit.stewardship.audit.models import AuditEvent
 
 from .models import AdminRevocation, PortalSession, PortalUser
 from .policy import current_principal
-
-ADMIN_IDLE = timedelta(minutes=30)
-ADMIN_ABSOLUTE = timedelta(hours=12)
-FAMILY_IDLE = timedelta(minutes=60)
-FAMILY_ABSOLUTE = timedelta(hours=4)
+from .session_policy import (
+    ADMIN_ABSOLUTE as ADMIN_ABSOLUTE,
+)
+from .session_policy import (
+    ADMIN_IDLE as ADMIN_IDLE,
+)
+from .session_policy import (
+    FAMILY_ABSOLUTE as FAMILY_ABSOLUTE,
+)
+from .session_policy import (
+    FAMILY_IDLE as FAMILY_IDLE,
+)
 
 
 class NamespacedSessionMiddleware:

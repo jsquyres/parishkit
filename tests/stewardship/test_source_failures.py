@@ -9,7 +9,7 @@ from parishkit.parishsoft_transport import (
     SourceTransportDrainFailure,
     SourceTransportError,
 )
-from parishkit.retry import RetryError
+from parishkit.retry import RetryError, TransientRetryError
 from parishkit.stewardship.accounts.cryptography import CryptographicError
 from parishkit.stewardship.jobs.lifetime import ExecutionInterrupted
 from parishkit.stewardship.source.canonical import InvalidSourcePayload
@@ -36,6 +36,29 @@ def test_known_classification_is_value_free(error, retry, contention):
     decision = classify_read_failure(error, has_source_claim=False)
     assert decision.retry is retry and decision.contention is contention
     assert "PRIVATE" not in repr(decision)
+    assert (
+        classify_read_failure(
+            RetryError("PRIVATE", RetryError("PRIVATE", error)), has_source_claim=False
+        )
+        == decision
+    )
+
+
+@pytest.mark.parametrize("kind", [TransientRetryError, TimeoutError, ConnectionError])
+def test_shared_retry_transport_failures_settle_without_abandonment(kind):
+    """All shared retry transport types retain the bounded source retry policy."""
+    decision = classify_read_failure(
+        RetryError("PRIVATE", kind("PRIVATE")), has_source_claim=True
+    )
+    assert decision.retry and not decision.contention
+    assert "PRIVATE" not in repr(decision)
+
+
+def test_cyclic_retry_cause_is_not_a_known_failure():
+    """A malformed wrapper cannot recurse forever or manufacture settlement."""
+    error = RetryError("PRIVATE", ValueError("PRIVATE"))
+    error.last_exception = error
+    assert classify_read_failure(error, has_source_claim=True) is None
 
 
 @pytest.mark.parametrize("claimed", [False, True])
@@ -66,3 +89,7 @@ def test_unknown_ownership_drain_and_fallback_cases_cannot_use_failure_settlemen
 ):
     """These cases retain their distinct recovery or full-fallback owners."""
     assert classify_read_failure(error, has_source_claim=True) is None
+    assert (
+        classify_read_failure(RetryError("PRIVATE", error), has_source_claim=True)
+        is None
+    )

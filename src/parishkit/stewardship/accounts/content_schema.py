@@ -6,6 +6,9 @@ configuration versions retain the old content. Opaque legacy references remain
 unresolved until their owner is configured and never count as readiness.
 """
 
+import hashlib
+import json
+
 from parishkit.config import ConfigError
 from parishkit.stewardship.schema_primitives import invalid, typed
 from parishkit.stewardship.web.content import prepare_content, validate_template
@@ -105,7 +108,17 @@ def validate_content_records(document):
 def remember_content(document, identities):
     """A revision identity can never acquire new text or a different campaign owner."""
     for record in document["sections"].get("content", []):
-        if identities.setdefault(record["id"], record["values"]) != record["values"]:
+        # Retain only fixed-size evidence while the ancestry reader releases
+        # batches of potentially large page/email bodies.
+        fingerprint = hashlib.sha256(
+            json.dumps(
+                record["values"],
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+            ).encode("utf-8")
+        ).digest()
+        if identities.setdefault(record["id"], fingerprint) != fingerprint:
             raise ConfigError("Content revision identities must remain immutable.")
 
 

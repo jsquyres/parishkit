@@ -2,8 +2,9 @@
 
 The scheduler owns only metadata. A general worker owns the private media mount
 and checks its Task fence at both durable checkpoints. Retained configurations
-(including prepared versions) pin assets forever; a pending configuration holds
-cleanup conservatively until the installer has resolved its request.
+(including prepared versions) pin assets, except for never-applied setup versions
+whose journaled abort has completed. Pending requests still hold cleanup until
+the installer has resolved them.
 """
 
 from pathlib import Path
@@ -36,7 +37,9 @@ TASK_TYPE = "branding_cleanup"
 
 def unpinned_bundles():
     """Exclude any historical/prepared reference before paging, avoiding starvation."""
-    parishes = Parish.objects.all()
+    from .setup_cleanup import aborted_setup_candidates
+
+    parishes = Parish.objects.exclude(configuration_id__in=aborted_setup_candidates())
     pinned = BrandingAsset.objects.filter(
         Q(pk__in=parishes.values("large_logo_id"))
         | Q(pk__in=parishes.values("menu_logo_id"))
@@ -107,7 +110,15 @@ def _bundle(status, *, creating=False):
 def admit_cleanup(action, status):
     """Completion requires its durable scrub receipt; work requires current gates."""
     row = _bundle(status, creating=action == "enqueue")
-    if action in {"lease_expired", "recovery_hint"}:
+    if action in {
+        "lease_expired",
+        "recovery_hint",
+        "retryable_failure",
+        "permanent_failure",
+        "explicit_retry_replay",
+    }:
+        # A failure acknowledges this exact claim; it performs no new file IO
+        # and remains recordable after an unrelated configuration hold arrives.
         return True
     if action in {"complete", "recovery_complete"}:
         return row.state == "scrubbed"
@@ -121,8 +132,7 @@ def admit_cleanup(action, status):
         "effect",
         "heartbeat",
         "progress",
-        "retryable_failure",
-        "permanent_failure",
+        "explicit_retry",
     }:
         return False
     # A completed filesystem checkpoint can be acknowledged after other gates

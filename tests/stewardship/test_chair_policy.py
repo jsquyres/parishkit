@@ -1,6 +1,7 @@
 """Seed suspension binds to a selected Member, not merely a matching address."""
 
 from copy import deepcopy
+from types import SimpleNamespace
 from uuid import UUID
 
 import pytest
@@ -116,3 +117,38 @@ def test_relationships_must_be_explicit_and_private_values_are_not_represented()
     assert "leader@example.org" not in repr(arguments["relationships"])
     with pytest.raises(TypeError, match="explicit frozen"):
         seed_decisions(document, **dict(arguments, relationships=None))
+
+
+@pytest.mark.parametrize(
+    "identities", [None, [], {"not-a-uuid": SeedIdentity(1, 2)}, {UUID(int=1): None}]
+)
+def test_wrong_identity_shapes_cannot_create_bulk_revocation(identities):
+    """Malformed evidence is not an empty binding set; missing bindings remain valid."""
+    document, arguments = inputs()
+    with pytest.raises(TypeError, match="UUID keys"):
+        seed_decisions(document, **dict(arguments, identities=identities))
+
+
+@pytest.mark.parametrize("organization", [None, "", "wrong", "0123", "0", "2147483648"])
+def test_unavailable_chair_organization_fails_before_reading_source(organization):
+    """Missing or malformed scope produces a domain refusal before any source read."""
+    from parishkit.stewardship.accounts.chair_reconciliation import _decisions
+    from parishkit.stewardship.storage import StorageInvariantError
+
+    sections = (
+        {}
+        if organization is None
+        else {
+            "integrations": [
+                {
+                    "values": {
+                        "kind": "parishsoft",
+                        "settings": {"organization_id": organization},
+                    }
+                }
+            ]
+        }
+    )
+    configuration = SimpleNamespace(canonical_document={"sections": sections})
+    with pytest.raises(StorageInvariantError, match="configured ParishSoft"):
+        _decisions(configuration, None)

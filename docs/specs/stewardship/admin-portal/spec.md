@@ -116,6 +116,10 @@ and every required consumer acknowledges its secret fingerprint. A crash or
 failure resumes idempotently from installer checkpoints; before the marker,
 normal routes remain unconfigured/fail-closed and cancel cleanup removes sealed
 staging and any wizard-only files without exposing a partial product setup.
+Cancellation after YAML selection uses the
+[initial-setup abort journal](../data/spec.md#parish-and-integrations), never a
+rollback of applied configuration. Final database activation and the configured
+marker share one transaction so cancellation cannot fall between those commits.
 
 Restore is an operator command performed before bootstrap/wizard. A restored,
 valid configured database skips initial setup after version/migration and

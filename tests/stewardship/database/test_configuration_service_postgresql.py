@@ -10,6 +10,7 @@ from django.db import DatabaseError, connection
 from parishkit.config import ConfigError
 from parishkit.stewardship.accounts.configuration_requests import record_request
 from parishkit.stewardship.accounts.configuration_service import (
+    CONFIGURATION_COLUMNS,
     CONFIGURATION_GRANTS,
     ConfigurationInstaller,
     admit_configuration_database,
@@ -42,6 +43,12 @@ def config_role():
                 cursor.execute(
                     f'GRANT {", ".join(sorted(grants))} ON "{table}" TO "{ROLE}"'
                 )
+            for table, privileges in CONFIGURATION_COLUMNS.items():
+                for privilege, columns in privileges.items():
+                    cursor.execute(
+                        f"GRANT {privilege} ({', '.join(sorted(columns))}) "
+                        f'ON "{table}" TO "{ROLE}"'
+                    )
         yield
     finally:
         with connection.cursor() as cursor:

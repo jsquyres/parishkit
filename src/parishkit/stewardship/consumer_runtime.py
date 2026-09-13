@@ -110,7 +110,11 @@ def _children(supervisor):
 
 def loaded_service_receipts(configuration):
     """Refuse partial startup, stale PIDs, disagreement or unsupported replicas."""
-    if configuration.service_role in {ServiceRole.WORKER, ServiceRole.SCHEDULER}:
+    if configuration.service_role in {
+        ServiceRole.WORKER,
+        ServiceRole.SCHEDULER,
+        ServiceRole.MAIL_DISPATCH,
+    }:
         return _single_process_receipts(configuration)
     if (
         configuration.service_role is not ServiceRole.WEB
@@ -175,7 +179,11 @@ def loaded_service_receipts(configuration):
 
 def publish_single_process_receipts(configuration, receipts):
     """Record actual loaded bytes only for an admitted single-process background app."""
-    if configuration.service_role not in {ServiceRole.WORKER, ServiceRole.SCHEDULER}:
+    if configuration.service_role not in {
+        ServiceRole.WORKER,
+        ServiceRole.SCHEDULER,
+        ServiceRole.MAIL_DISPATCH,
+    }:
         raise ConfigError("Single-process receipts require an isolated background app.")
     private_directory(DIRECTORY, create=True)
     _, started = process_identity(os.getpid())

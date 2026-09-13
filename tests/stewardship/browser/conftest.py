@@ -15,6 +15,7 @@ from PIL import Image
 
 from parishkit.stewardship.accounts.branding_views import LogoForm
 from parishkit.stewardship.accounts.campaign_forms import CampaignForm
+from parishkit.stewardship.accounts.campaign_mail_views import CampaignMailForm
 from parishkit.stewardship.accounts.content_forms import ContentForm
 from parishkit.stewardship.accounts.integration_forms import (
     CredentialForm,
@@ -22,6 +23,19 @@ from parishkit.stewardship.accounts.integration_forms import (
 )
 from parishkit.stewardship.accounts.parish_views import ParishForm
 from parishkit.stewardship.accounts.schedule_forms import Schedules, ScheduleWindow
+from parishkit.stewardship.accounts.setup_branding_views import SetupLogoForm
+from parishkit.stewardship.accounts.setup_campaign_views import SetupCampaignForm
+from parishkit.stewardship.accounts.setup_confirmation_views import (
+    SetupConfirmationForm,
+)
+from parishkit.stewardship.accounts.setup_content_views import SetupContentForm
+from parishkit.stewardship.accounts.setup_credential_views import SetupCredentialForm
+from parishkit.stewardship.accounts.setup_forms import FORMS, STEPS
+from parishkit.stewardship.accounts.setup_mail_views import SetupMailForm
+from parishkit.stewardship.accounts.setup_notification_views import (
+    SetupNotificationForm,
+)
+from parishkit.stewardship.accounts.setup_schedule_views import SetupScheduleWindow
 from parishkit.stewardship.accounts.share_forms import (
     ShareOptions,
     default_share_options,
@@ -102,6 +116,13 @@ def component_origin():
         "included": True,
     }
     branding_asset = {"pk": uuid4(), "label": "large", "width": 1024, "height": 512}
+    setup_draft = {
+        "status": {"attempt_id": uuid4(), "state": "collecting", "version": 2},
+        "sections": {},
+        "idle_at": NOW + timedelta(minutes=30),
+        "absolute_at": NOW + timedelta(hours=12),
+        "watchdog_at": None,
+    }
     responses = {
         "/login": ("text/html", render_to_string("stewardship/login.html", context)),
         "/family-login": (
@@ -327,6 +348,271 @@ def component_origin():
             },
         ),
         (
+            "/setup-content-edit",
+            "setup-content-edit",
+            {
+                "draft": setup_draft,
+                "label": "Family welcome",
+                "visual": "<p>Hello Sample Family</p>",
+                "placeholders": ["family_name", "parish_name"],
+                "form": SetupContentForm(
+                    kind="page",
+                    initial={
+                        "html": "<p>Hello Sample Family</p>",
+                        "text": "Hello Sample Family",
+                        "generate_text": True,
+                    },
+                ),
+                "sample": {
+                    "html": "<p>Hello Sample Family</p>",
+                    "text": "Hello Sample Family",
+                },
+            },
+        ),
+        (
+            "/setup-shares",
+            "setup-shares",
+            {
+                "draft": setup_draft,
+                "campaign_name": "Sample campaign",
+                "formset": ShareOptions(
+                    prefix="options", previous=default_share_options()
+                ),
+            },
+        ),
+        (
+            "/setup-slack-test",
+            "setup-notification",
+            {
+                "draft": setup_draft,
+                "channel_id": "CFIXTURE",
+                "pending": True,
+                "unknown": False,
+                "form": SetupNotificationForm(
+                    initial={
+                        "preview_token": "synthetic-preview",
+                        "request_key": uuid4(),
+                    }
+                ),
+                "items": [
+                    {
+                        "id": "synthetic-delivery",
+                        "state": "queued",
+                        "label": "Awaiting Slack installer",
+                        "created_at": NOW.isoformat(),
+                        "current": True,
+                    }
+                ],
+            },
+        ),
+        (
+            "/setup-mail-test",
+            "setup-mail",
+            {
+                "draft": setup_draft,
+                "testing_recipient": "testing@example.org",
+                "pending": True,
+                "unknown": False,
+                "form": SetupMailForm(
+                    initial={
+                        "preview_token": "synthetic-preview",
+                        "request_key": uuid4(),
+                        "slot": "initial",
+                    }
+                ),
+                "items": [
+                    {
+                        "id": "synthetic-delivery",
+                        "state": "queued",
+                        "label": "Awaiting mail worker",
+                        "created_at": NOW.isoformat(),
+                        "current": True,
+                    }
+                ],
+            },
+        ),
+        (
+            "/campaign-mail",
+            "campaign-mail",
+            {
+                "campaign": {
+                    "pk": mail_campaign["id"],
+                    "active_configuration": mail_campaign["values"],
+                },
+                "form": CampaignMailForm(
+                    initial={"preview_token": "synthetic-preview"}
+                ),
+                "sample": {
+                    "subject": "[TEST] Sample invitation",
+                    "html": "<p>Hello Sample Family.</p>",
+                    "text": "Hello Sample Family.",
+                },
+                "testing_recipient": "testing@example.org",
+                "pending": False,
+                "unknown": False,
+                "items": [
+                    {
+                        "id": uuid4(),
+                        "label": "Provider accepted the test",
+                        "created_at": NOW,
+                        "current": True,
+                    }
+                ],
+            },
+        ),
+        (
+            "/campaign-mail-unknown",
+            "campaign-mail",
+            {
+                "campaign": {
+                    "pk": mail_campaign["id"],
+                    "active_configuration": mail_campaign["values"],
+                },
+                "form": CampaignMailForm(
+                    initial={"preview_token": "synthetic-preview"}
+                ),
+                "sample": {
+                    "subject": "[TEST] Sample invitation",
+                    "html": "<p>Hello Sample Family.</p>",
+                    "text": "Hello Sample Family.",
+                },
+                "testing_recipient": "testing@example.org",
+                "pending": False,
+                "unknown": True,
+                "items": [
+                    {
+                        "id": uuid4(),
+                        "label": "Delivery uncertain",
+                        "created_at": NOW,
+                        "current": False,
+                    }
+                ],
+            },
+        ),
+        (
+            "/campaign-mail-pending",
+            "campaign-mail",
+            {
+                "campaign": {
+                    "pk": mail_campaign["id"],
+                    "active_configuration": mail_campaign["values"],
+                },
+                "form": CampaignMailForm(
+                    initial={"preview_token": "synthetic-preview"}
+                ),
+                "sample": {
+                    "subject": "[TEST] Sample invitation",
+                    "html": "<p>Hello Sample Family.</p>",
+                    "text": "Hello Sample Family.",
+                },
+                "testing_recipient": "testing@example.org",
+                "pending": True,
+                "unknown": False,
+                "items": [
+                    {
+                        "id": uuid4(),
+                        "label": "Awaiting mail worker",
+                        "created_at": NOW,
+                        "current": True,
+                    }
+                ],
+            },
+        ),
+        (
+            "/setup-confirmation",
+            "setup-confirmation",
+            {
+                "draft": setup_draft,
+                "form": SetupConfirmationForm(
+                    initial={"preview_token": "synthetic-preview"}
+                ),
+                "candidate_digest": "a" * 64,
+            },
+        ),
+        (
+            "/setup-confirmation-unready",
+            "setup-confirmation",
+            {
+                "draft": setup_draft,
+                "form": SetupConfirmationForm(
+                    initial={"preview_token": "synthetic-preview"}
+                ),
+                "candidate_digest": "a" * 64,
+                "readiness_problem": "The reviewed email test must be accepted.",
+            },
+        ),
+        (
+            "/setup-finalization",
+            "setup-cancel",
+            {
+                "attempt": {"state": "frozen", "attempt_id": uuid4()},
+                "checkpoint": "yaml_activated",
+                "prepared": True,
+                "credentials": [
+                    {"target": "parishsoft", "request__state": "awaiting_ack"}
+                ],
+                "source": {
+                    "id": uuid4(),
+                    "state": "running",
+                    "phase": "loading",
+                    "progress": Percentage(1234, 5678),
+                },
+            },
+        ),
+        (
+            "/setup-installation",
+            "setup-cancel",
+            {
+                "attempt": {"state": "frozen", "attempt_id": uuid4()},
+                "checkpoint": "validating",
+                "prepared": False,
+                "credentials": [],
+            },
+        ),
+        (
+            "/setup-preview",
+            "setup-preview",
+            {
+                "draft": setup_draft,
+                "parish": {
+                    "name": "Sample Parish",
+                    "website": "https://example.invalid/",
+                    "phone": "+12025550123",
+                },
+                "campaign": mail_campaign["values"],
+                "testing_recipient": "testing@example.org",
+                "candidate_digest": "a" * 64,
+                "document": '{"sections": {"campaigns": []}}',
+                "samples": [
+                    {
+                        "label": "Family welcome",
+                        "sample": {
+                            "html": "<p>Hello Sample Family</p>",
+                            "text": "Hello Sample Family",
+                        },
+                    }
+                ],
+            },
+        ),
+        (
+            "/setup-schedules",
+            "setup-schedules",
+            {
+                "draft": setup_draft,
+                "campaign_name": "Sample campaign",
+                "window": SetupScheduleWindow(
+                    prefix="window", previous=mail_campaign["values"]
+                ),
+                "schedules": Schedules(
+                    prefix="schedules",
+                    previous=[mail],
+                    templates=[],
+                    campaign_id=mail_campaign["id"],
+                    campaign=mail_campaign["values"],
+                ),
+            },
+        ),
+        (
             "/content-history",
             "content-history",
             {
@@ -382,12 +668,85 @@ def component_origin():
                 "next_page": 3,
             },
         ),
+        (
+            "/setup",
+            "setup",
+            {
+                "draft": setup_draft,
+                "steps": [
+                    {"key": key, "label": label, "saved": False}
+                    for key, label in STEPS.items()
+                ],
+            },
+        ),
+        (
+            "/setup-branding",
+            "setup-branding",
+            {"draft": setup_draft, "form": SetupLogoForm(), "assets": []},
+        ),
+        (
+            "/setup-credential",
+            "setup-credential",
+            {
+                "draft": setup_draft,
+                "form": SetupCredentialForm("parishsoft"),
+                "label": "ParishSoft",
+                "saved": True,
+            },
+        ),
+        (
+            "/setup-campaign",
+            "setup-campaign",
+            {
+                "draft": setup_draft,
+                "form": SetupCampaignForm(
+                    initial={"timezone": "America/New_York"},
+                    ministries=[("1", "Music ministry")],
+                    funds=[("9", "Offertory")],
+                ),
+            },
+        ),
+        (
+            "/setup-source-progress",
+            "setup-source-progress",
+            {
+                "progress": {
+                    "server_now": NOW.isoformat(),
+                    "task_id": uuid4(),
+                    "task_state": "running",
+                    "setup_state": "loading",
+                    "phase": "fetching",
+                    "current": 0,
+                    "total": 0,
+                    "active": True,
+                    "idle_at": (NOW + timedelta(minutes=30)).isoformat(),
+                    "watchdog_at": (NOW + timedelta(hours=2)).isoformat(),
+                    "absolute_at": (NOW + timedelta(hours=12)).isoformat(),
+                }
+            },
+        ),
         ("/availability", "availability", {"setup": True, "admin": True}),
         ("/denied", "denied", {"retry_path": "/admin/login"}),
     ):
         responses[path] = (
             "text/html",
             render_to_string(f"stewardship/{template}.html", {**context, **extra}),
+        )
+    for step, form_type in FORMS.items():
+        if step == "branding":
+            continue
+        responses["/setup-" + step] = (
+            "text/html",
+            render_to_string(
+                "stewardship/setup-step.html",
+                context
+                | {
+                    "draft": setup_draft,
+                    "form": form_type(),
+                    "step": step,
+                    "step_label": STEPS[step],
+                },
+            ),
         )
     for path, template, extra in (
         (

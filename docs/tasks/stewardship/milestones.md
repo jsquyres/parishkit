@@ -1660,13 +1660,19 @@ release, or merging the next PR.
 
 Scope: [Phase 2](../../plans/stewardship/overall.md#phase-2-source-truth-initial-setup-and-campaign-preparation).
 
-- [ ] M2.01 — Demonstrate empty deployment through a configured Testing campaign.
+- [x] M2.01 — Demonstrate empty deployment through a configured Testing campaign.
 - [ ] M2.02 — Prove YAML/database agreement and safe installer/wizard interruption.
 - [ ] M2.03 — Demonstrate atomic full/delta refresh and stable campaign identities.
 - [ ] M2.04 — Preview each Family page/email without creating live fulfillment.
 - [ ] M2.05 — Complete the focused import/setup correction pass before the Family slice.
 
-Evidence: Not started.
+Evidence: Integrated validation is in progress. Both complete initial-setup
+Compose profiles pass, including actual consumer recreation/acknowledgement and
+atomic configured state. All six operational Compose cases and all 447 browser
+cases pass. The complete PostgreSQL coverage rerun remains in progress,
+followed by the three required complete-phase review/fix rounds. The
+[acceptance index](../../guides/stewardship-phase-2-acceptance.md) maps the
+demonstrations and records current results without implying phase exit.
 
 ## Phase 3: Family response
 

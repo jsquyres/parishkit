@@ -37,9 +37,127 @@ Scope and dependencies: [ADM-02 work package](../../plans/stewardship/admin-port
 - [ ] ADM-02.06 — Test wizard aborts, concurrency, and installer recovery.
 
 Evidence: Bootstrap and independent keyring preparation are implemented and
-covered by Phase 2 offline/database tests. Session-isolated wizard staging,
-worker credential handoff and final configured-marker activation remain open.
+covered by Phase 2 offline/database tests. Original-login public wizard forms
+and private logo staging now pass 73 focused cases with 98% coverage and 42 new
+browser cases. Scheduler expiry clears public values atomically and fences
+original-session artifacts. Staged source work,
+delivery checks and final configured-marker activation remain open.
 See [Phase 2 evidence](../../guides/stewardship-phase-2.md).
+
+September 12 correction checkpoint: setup timing/session, private integration,
+configuration readiness and review regressions are recorded in the
+[review ledger](../../guides/stewardship-phase-2-reviews.md). The owner approved
+the [narrow setup cancellation exception](../../guides/stewardship-phase-2-reviews.md#setup-finalization-specification-decision)
+for ADM-02.05. Its original-login cancellation page, immutable setup-abort journal,
+installer-first recovery and temporary-logo cleanup now pass the
+[focused acceptance cases](../../guides/stewardship-phase-2-reviews.md#approved-setup-cancellation-implementation-checkpoint).
+Separate sealed wizard intake and its write-only HTTP forms now have actual
+web/scheduler isolation, expiry, audit and browser evidence in the
+[subsequent checkpoint](../../guides/stewardship-phase-2-reviews.md#subsequent-regression-and-credential-intake-checkpoint).
+This completes that intake slice of ADM-02.02/.04, not those whole tasks.
+The final source/Family/configured-marker transaction and remaining wizard work
+are still open; no whole checklist item or phase review gate is closed by this
+partial implementation checkpoint.
+
+The [source execution checkpoint](../../guides/stewardship-phase-2-reviews.md#ephemeral-exchange-and-staged-source-execution-checkpoint)
+adds original-login Task intake, target-isolated ephemeral credential exchange,
+the bounded full loader and atomic ready-result/Task completion. Its integrated
+PostgreSQL run passes 62 cases with 91% focused coverage. An additional 35-case
+HTTP/grant run includes real CSRF-protected source-load intake and deduplication.
+Remaining source-row cleanup and finalization still prevent closing ADM-02.
+
+Source-row cleanup now passes its 55-case source/retention regression, including
+exact deletion guards, shared payloads and rollback-safe batches. The subsequent
+[first-campaign staging checkpoint](../../guides/stewardship-phase-2-reviews.md#first-campaign-structural-staging-checkpoint)
+passes 27 PostgreSQL cases with 95% focused coverage and six browser cases.
+Wizard content/share/schedule editing, provider test delivery and coherent
+installer finalization still prevent closing ADM-02 as a whole.
+
+The subsequent [wizard preparation checkpoint](../../guides/stewardship-phase-2-reviews.md#first-campaign-content-and-schedule-preparation-checkpoint)
+implements temporary content, share and schedule editing, with 73 combined
+PostgreSQL regressions, 96% focused wizard coverage and 36 selected browser cases.
+Final preview, target delivery checks and atomic activation remain open.
+
+The [exact public preview checkpoint](../../guides/stewardship-phase-2-reviews.md#exact-public-setup-preview-checkpoint)
+now covers original-login deterministic compilation and private fictional
+previews. It passes 50 pure cases, 40 combined PostgreSQL cases and six browser
+cases. Target delivery checks, consumer coordination and atomic activation
+still prevent closing ADM-02.
+
+The [setup mail journal checkpoint](../../guides/stewardship-phase-2-reviews.md#setup-mail-journal-and-private-delivery-checkpoint)
+adds explicit draft-bound test intent, a committed one-way submission boundary,
+unknown-outcome recovery and cancellation scrubbing under restricted SQL roles.
+The private provider/helper tests and ephemeral Workspace-transfer primitives
+are implemented; actual relay/runtime/web integration and setup activation
+remain open. No whole ADM-02 task or phase review gate is closed by this checkpoint.
+
+The subsequent [mail integration checkpoint](../../guides/stewardship-phase-2-reviews.md#setup-mail-runtime-and-web-integration)
+implements the persisted isolated Workspace relay, maintained worker execution,
+evidence-based no-retry recovery and original-Admin send/status UI. It passes
+41 combined PostgreSQL/pure tests with 95% focused coverage and 21 selected
+browser checks. Slack readiness, initial mounts/ACKs and atomic finalization
+remain necessary before ADM-02 can close.
+
+The [Slack readiness checkpoint](../../guides/stewardship-phase-2-reviews.md#optional-slack-readiness-integration)
+adds the isolated target's explicit test notification, durable outcomes and
+passive original-Admin controls. The combined SQL regression passes 38 cases;
+the provider/helper suite passes 85 cases and selected browser checks pass 36.
+Initial mounting/consumer ACKs, financial coverage and atomic activation remain
+open, so these checkpoints do not close ADM-02 or Phase 2.
+
+The [confirmation-intake checkpoint](../../guides/stewardship-phase-2-reviews.md#exact-confirmation-intake)
+pins accepted readiness and source receipts with one frozen configuration
+request. Ten PostgreSQL cases pass with 98% service coverage; the combined
+existing cancellation regression passes 25 cases before the final two added
+confirmation tests. The internal service is not exposed as a finish button;
+installation/ACK and atomic activation ownership are still required.
+
+The [initial installation checkpoint](../../guides/stewardship-phase-2-reviews.md#initial-credential-installation-and-rollback-retention)
+binds target-isolated installation to frozen readiness and retains rollback
+through consumer acknowledgement until setup commits. Its combined PostgreSQL
+regression passes 22 cases with 92% new-service coverage; runtime tests pass 53.
+Initial consumer mounting/recreation, configuration preparation and final
+activation remain necessary before ADM-02 can close.
+
+The [YAML preparation checkpoint](../../guides/stewardship-phase-2-reviews.md#initial-yaml-preparation-and-safe-finalization-handoff)
+adds exact public selection after consumer ACKs, a SQL-guarded safe preparation
+receipt, select-gap recovery and pre-preparation cancellation. The combined
+PostgreSQL regression passes 59 cases with 87% new-service coverage, plus two
+additional child-rollback rejection tests. Consumer mounting/recreation and
+atomic final source/Family/configuration activation still prevent closing ADM-02.
+
+The [initial runtime checkpoint](../../guides/stewardship-phase-2-reviews.md#initial-background-runtime-and-provider-mount-variants)
+adds generated provider-mount variants and actual initial worker/scheduler/mail
+startup. It passes 134 focused tests and two rebuilt-image Compose scenarios.
+Finalization and the complete initial install/recreation/ACK demonstration still
+prevent closing ADM-02.05/.06.
+
+The [final-source checkpoint](../../guides/stewardship-phase-2-reviews.md#exact-final-setup-source-coverage)
+adds a fresh selected-financial-window load with original preparation and
+installed-key admission. Eleven PostgreSQL cases pass across two runs, with
+87% focused coverage in the first seven-case run; 22 pure recovery cases pass.
+This internal owner is not registered until atomic completion and cleanup are
+connected. ADM-02.05/.06 and the Phase 2 demonstration remain open.
+
+The [final-load disposal checkpoint](../../guides/stewardship-phase-2-reviews.md#cancelled-final-load-disposal)
+now covers cancellation of both finalization chains through real source drainage
+and cleanup. Two integrated cases and 24 surrounding source/disposal regressions
+pass. Atomic successful completion and its cleanup still prevent closing ADM-02.
+
+The [atomic completion checkpoint](../../guides/stewardship-phase-2-reviews.md#atomic-initial-completion-and-configured-status)
+now commits fresh source, prepared configuration, first Testing draft, Family
+codes, terminal input scrubbing and the configured marker together. Twelve
+PostgreSQL cases pass with 96% focused coverage; the strengthened checks also
+pass with four restart-hold cases. Runtime scheduling/consumption, final web
+confirmation, successful catalog cleanup and the full initial Compose
+demonstration remain open. No whole ADM-02 task or Phase 2 gate is closed.
+
+The [compiled finalization checkpoint](../../guides/stewardship-phase-2-reviews.md#compiled-setup-finalization-and-public-confirmation)
+connects the original-Admin confirmation/progress UI, actual scheduler and final
+worker, selected-YAML restart recognition and successful catalog cleanup. Its
+combined PostgreSQL tests pass with 93% focused coverage, plus 27 browser cases
+and both initial-startup Compose scenarios. The complete installation/consumer
+recreation/ACK demonstration and integrated acceptance still keep ADM-02 open.
 
 ## ADM-03: Navigation, dashboard, indicators, and configuration
 
@@ -80,7 +198,7 @@ Scope and dependencies: [ADM-04 work package](../../plans/stewardship/admin-port
 - [ ] ADM-04.01 — Build guarded campaign creation and cloning.
 - [ ] ADM-04.02 — Build structural campaign configuration forms.
 - [ ] ADM-04.03 — Build named content and email-template editors.
-- [ ] ADM-04.04 — Build page previews and readiness-test emails.
+- [x] ADM-04.04 — Build page previews and readiness-test emails.
 - [ ] ADM-04.05 — Build atomic schedule reconciliation previews.
 - [ ] ADM-04.06 — Test campaign editing, previews, and schedule races.
 
@@ -100,8 +218,12 @@ admission. Archived campaign cloning now has exact previews, fresh child IDs and
 explicit new-date/current-fund entry; its combined run passes 44 tests with 91%
 focused coverage and eighteen selected browser cases. Read-only retained content
 previews preserve the campaign's selected configuration, Parish name and logo.
-Readiness-test mail and
-complete integration/regression/review acceptance remain open.
+Applied-template readiness-test mail now has an explicit fictional preview/send,
+exact Testing routing, compiled mail consumer and non-retrying recovery. Its
+[focused evidence](../../guides/stewardship-phase-2-reviews.md#applied-campaign-readiness-test-mail)
+records 32 cases at 92% coverage and 21 browser checks. Production/restore
+delivery admission remains with its later phase owners. Complete integrated
+Phase 2 regression/review acceptance remains open.
 See [Phase 2 evidence](../../guides/stewardship-phase-2.md#immutable-content-and-template-editing).
 
 ## ADM-05: Production transition and pre-start withdrawal

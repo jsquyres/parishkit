@@ -9,7 +9,7 @@ import pytest
 from django.db import connections, transaction
 
 from parishkit.stewardship.audit.models import AuditContext
-from parishkit.stewardship.source import snapshots
+from parishkit.stewardship.source import compaction, snapshots
 from parishkit.stewardship.source.canonical import InvalidSourcePayload
 from parishkit.stewardship.source.compaction import compact_source
 from parishkit.stewardship.source.leases import _now, acquire_source, release_source
@@ -113,6 +113,25 @@ def test_compaction_preserves_manifests_anchors_current_and_shared_payloads(hist
     context = AuditContext.objects.get(event__subject_id=result.pk).context
     assert context == {"count": 9, "version": 3, "outcome": "succeeded"}
     assert result.recent_cutoff == result.cutoff_at - timedelta(days=90)
+
+
+def test_recent_history_is_retained_by_sql_not_materialized_uuid_sets(
+    history, monkeypatch
+):
+    """Frequent recent polls do not enlarge the Python anchor set or SQL IN list."""
+    original = compaction.retention_anchors
+    observed = []
+
+    def anchors(stamps, *, now):
+        """Inspect only the real SQL iterator passed to the unchanged pure policy."""
+        values = list(stamps)
+        observed.extend(row[0] for row in values)
+        return original(values, now=now)
+
+    monkeypatch.setattr(compaction, "retention_anchors", anchors)
+    assert cleanup().snapshot_count == 1
+    assert set(observed) == {history[0].pk, history[1].pk}
+    assert reconstruct_snapshot(history[2].pk)
 
 
 @pytest.mark.parametrize(

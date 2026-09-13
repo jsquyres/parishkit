@@ -101,10 +101,10 @@ def test_slack_auth_check_has_no_delivery_or_channel_read(monkeypatch):
         (b'{"ok":false,"error":"ratelimited"}', "unavailable"),
         (b'{"ok":false,"error":"internal_error"}', "unavailable"),
         (b'{"ok":false,"error":"service_unavailable"}', "unavailable"),
-        (b'{"ok":"true"}', "invalid"),
-        (b"[]", "invalid"),
-        (b'{"ok":false,"ok":true}', "invalid"),
-        (b"private-invalid-json", "invalid"),
+        (b'{"ok":"true"}', "unavailable"),
+        (b"[]", "unavailable"),
+        (b'{"ok":false,"ok":true}', "unavailable"),
+        (b"private-invalid-json", "unavailable"),
     ],
 )
 def test_slack_classification_is_closed(monkeypatch, body, expected):
@@ -116,8 +116,8 @@ def test_slack_classification_is_closed(monkeypatch, body, expected):
 @pytest.mark.parametrize(
     ("status", "expected"),
     [
-        (301, "invalid"),
-        (307, "invalid"),
+        (301, "unavailable"),
+        (307, "unavailable"),
         (401, "invalid"),
         (429, "unavailable"),
         (500, "unavailable"),
@@ -138,7 +138,7 @@ def test_response_size_bound_and_no_arbitrary_origins(monkeypatch):
     """A huge successful response fails before JSON parsing or credential success."""
     response = Response(body=b"x" * (worker.MAX_RESPONSE + 1))
     calls = http(monkeypatch, response)
-    assert worker.check_request(payload()) == "invalid" and response.closed
+    assert worker.check_request(payload()) == "unavailable" and response.closed
     with worker.CheckSession() as session:
         for method, url, options in [
             ("GET", "https://slack.com/api/auth.test", {}),
@@ -155,10 +155,10 @@ def test_response_size_bound_and_no_arbitrary_origins(monkeypatch):
     ("body", "expected"),
     [
         (b'[{"organizationID":123}]', "valid"),
-        (b'[{"organizationID":124}]', "invalid"),
-        (b'[{"organizationID":123},{"organizationID":124}]', "invalid"),
-        (b'[{"organizationID":"123"}]', "invalid"),
-        (b"[]", "invalid"),
+        (b'[{"organizationID":124}]', "unavailable"),
+        (b'[{"organizationID":123},{"organizationID":124}]', "unavailable"),
+        (b'[{"organizationID":"123"}]', "unavailable"),
+        (b"[]", "unavailable"),
     ],
 )
 def test_shared_parishsoft_client_checks_exact_uncached_tenant(
@@ -180,7 +180,7 @@ def test_shared_parishsoft_client_checks_exact_uncached_tenant(
         (250, 235, "valid"),
         (250, 535, "invalid"),
         (250, 454, "unavailable"),
-        (500, 235, "invalid"),
+        (500, 235, "unavailable"),
     ],
 )
 def test_workspace_token_and_smtp_authentication_never_send(
@@ -253,6 +253,15 @@ def test_transport_exceptions_have_safe_retry_outcome(monkeypatch, error):
     """Transient failures retain the sealed request for an ordinary bounded retry."""
     monkeypatch.setattr(requests.Session, "request", Mock(side_effect=error))
     assert worker.check_request(payload()) == "unavailable"
+
+
+def test_unknown_adapter_defect_does_not_reject_the_private_candidate(
+    monkeypatch, capsys
+):
+    """Local failures neither echo private context nor claim provider refusal."""
+    monkeypatch.setattr(worker, "_slack", Mock(side_effect=RuntimeError("private-key")))
+    assert worker.check_request(payload()) == "unavailable"
+    assert capsys.readouterr() == ("", "")
 
 
 def test_worker_main_returns_only_closed_outcome(monkeypatch, capsys):
@@ -339,7 +348,7 @@ def test_parent_private_ipc_and_closed_output(monkeypatch, output, code, expecte
 
 
 def test_parent_timeout_reaps_child_and_never_resends_input(monkeypatch):
-    """Repeated communicate calls retain stdin state; deadline always kills/reaps."""
+    """A single bounded communicate call owns stdin; timeout always kills/reaps."""
     process = Process(returncode=None)
 
     def communicate(*, input, timeout):
@@ -348,13 +357,46 @@ def test_parent_timeout_reaps_child_and_never_resends_input(monkeypatch):
 
     process.communicate = communicate
     monkeypatch.setattr(parent.subprocess, "Popen", lambda *args, **kwargs: process)
-    instants = iter([0, 0, 1, 31])
-    monkeypatch.setattr(parent.time, "monotonic", lambda: next(instants))
     with pytest.raises(CredentialValidationUnavailable):
         invoke()
-    assert len(process.inputs) == 2 and process.inputs[1] is None
+    assert len(process.inputs) == 1 and process.inputs[0] is not None
     assert process.killed and process.returncode == -9
     assert process.stdin.closed and process.stdout.closed
+
+
+def test_large_input_survives_slow_child_startup(monkeypatch):
+    """Real pipes finish a payload larger than capacity after a polling interval."""
+    original = subprocess.Popen
+    processes = []
+    candidate = b"synthetic-private" * 4096
+
+    def launch(args, **options):
+        """Replace only the helper with an isolated, entirely offline pipe reader."""
+        assert args[-1] == "parishkit.stewardship.provider_check_worker"
+        process = original(
+            [
+                sys.executable,
+                "-I",
+                "-c",
+                "import base64,json,sys,time; time.sleep(0.5); "
+                "request=json.load(sys.stdin); "
+                "candidate=base64.b64decode(request['candidate']); "
+                "print('valid' if candidate == b'synthetic-private'*4096 "
+                "else 'invalid')",
+            ],
+            **options,
+        )
+        processes.append(process)
+        return process
+
+    monkeypatch.setattr(parent.subprocess, "Popen", launch)
+    check = Mock()
+    assert parent.check_candidate(
+        "slack", {"channel_id": "C123"}, candidate, seconds=5, check=check
+    )
+    assert check.call_count >= 3
+    assert processes[0].poll() == 0
+    assert processes[0].stdin.closed and processes[0].stdout.closed
 
 
 def test_failed_drain_is_fatal(monkeypatch):
@@ -364,16 +406,28 @@ def test_failed_drain_is_fatal(monkeypatch):
     monkeypatch.setattr(parent.subprocess, "Popen", lambda *args, **kwargs: process)
     with pytest.raises(parent.ProviderCheckDrainFailure):
         invoke()
-    assert process.killed and process.stdin.closed
+    assert process.killed
+    assert not process.stdin.closed  # A still-owned pipe must not block fatal exit.
 
 
 def test_lost_admission_starts_no_child(monkeypatch):
     """A closed startup interlock cannot launch even an authentication-only helper."""
     launch = Mock()
     monkeypatch.setattr(parent.subprocess, "Popen", launch)
-    with pytest.raises(PermissionError):
+    with pytest.raises(parent.ProviderCheckOwnershipLost):
         invoke(check=Mock(side_effect=PermissionError("denied")))
     launch.assert_not_called()
+
+
+def test_lost_ownership_during_check_drains_child_without_rejecting_secret(monkeypatch):
+    """An interlock lost after spawn cannot be converted into credential invalidity."""
+    process = Process(returncode=None)
+    monkeypatch.setattr(parent.subprocess, "Popen", lambda *args, **kwargs: process)
+    check = Mock(side_effect=[None, ValueError("synthetic-private-owner")])
+    with pytest.raises(parent.ProviderCheckOwnershipLost) as caught:
+        invoke(check=check)
+    assert process.killed and process.stdin.closed and process.stdout.closed
+    assert "synthetic-private-owner" not in str(caught.value)
 
 
 @pytest.mark.parametrize("seconds", [0, -1, 31, True, float("nan"), float("inf"), "30"])

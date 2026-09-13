@@ -73,8 +73,11 @@ For native volumes add `--bind-source-root DAEMON_RUNTIME_ROOT`. For development
 reload add `--checkout ABSOLUTE_HOST_CHECKOUT`; the generated consumer source mount
 is read-only and only its `src` subtree is exposed. Do not put secrets in source.
 
-This creates independent SQL and web/worker/scheduler Valkey passwords, the restricted server ACL,
-the stable startup inode, exact per-service YAML, and `config/services/compose.json`.
+This creates independent SQL and web/worker/scheduler/mail-dispatch Valkey passwords, the restricted server ACL,
+the stable startup inode, exact per-service YAML, and three complete Compose files
+under `config/services/`: `compose-initial.json`, `compose.json` and
+`compose-slack.json`. They describe the same service identities and durable
+storage; only worker/mail provider mount selections differ.
 It creates empty provider/key/handoff/storage directories, but does not connect
 to a database, initialize an application, start services, or generate provider
 credentials. The private provisioning intent/completion markers are not ordinary
@@ -116,7 +119,7 @@ No other provider credential is needed for this pre-wizard foundation.
 
 ## First database and application startup
 
-Use the generated Compose file and a stable explicit project name for **every**
+Use `compose-initial.json` and a stable explicit project name for **every**
 command. The following arguments follow that common `docker compose` prefix;
 replace the placeholders with the exact generated profile configuration paths.
 Generate and retain one deployment UUID and select the initial Admin Google email.
@@ -136,14 +139,46 @@ Generate and retain one deployment UUID and select the initial Admin Google emai
    Only exact empty/matching database/YAML/key state can be materialized.
    Purpose-bound key inventories are installed before private journal retirement,
    so online key admission does not require a later rotation to become usable.
-7. Start `web`, `config-installer` and target credential installers. After readiness
-   and authorized ingress prerequisites, start `caddy` for production. Later worker,
-   scheduler, provider and product workflows remain owned by subsequent phases.
+7. Start `web`, `worker`, `scheduler`, `mail-dispatch`, `config-installer` and target
+   credential installers. The initial worker/mail profiles omit uninstalled
+   ParishSoft, Workspace and optional Slack files; isolated setup checks use
+   their sealed handoffs. After readiness and authorized ingress prerequisites,
+   start `caddy` for production.
 
 Initial bootstrap is not the product setup wizard. The initialized minimal Testing
 authority lets the initial Google Admin reach the pre-wizard state; the completed
 parish/campaign setup UX is Phase 2. Existing application data without a matching
 initialized authority is not imported or silently adopted.
+
+On the original Admin login's setup preview, select **Check readiness and
+finish setup**, review the pinned settings and explicitly confirm. Its progress
+page displays installation checkpoints and the final source Task.
+
+Once the initial target installers report `awaiting_ack`, use `compose.json`
+(without Slack) or `compose-slack.json` (with Slack) to recreate the entire
+`worker` and `mail-dispatch` services with `up --detach --force-recreate`.
+Select exactly one Compose file, not an overlay combination: otherwise Compose
+volume merging can retain a superseded configuration mount. Keep the same
+explicit project name. Neither the application nor an installer controls Docker.
+Run `acknowledge-credential` inside each actual recreated consumer using its
+selected service configuration and each exact pending request UUID. Do not use
+`compose run` for acknowledgement. See the
+[whole-service acknowledgement protocol](stewardship-credential-installers.md).
+These initial ACKs retain rollback files until atomic setup completion; they do
+not themselves make the application configured. After all acknowledgements, the
+configuration installer prepares/selects YAML and the scheduler queues the
+final worker. That worker fetches fresh data for the selected financial periods
+and atomically activates configuration, source, Family codes and the configured
+marker. The next progress refresh returns the Admin to the main portal. The
+system remains in Testing with a draft campaign; no live invitations are sent.
+
+Progress refreshes do not renew the original login's idle or absolute deadlines.
+If it expires or the Admin cancels before completion, the installer restores
+only unapplied setup state; background owners drain and clean temporary source
+work. A successful completion is never rolled back by the cancellation page.
+Restarted services recognize the exact prepared-but-unapplied setup without
+admitting ordinary work under mismatched YAML/SQL authority. The complete
+initial-installation Compose demonstration remains under the Phase 2 gate.
 
 Long-running production services use `unless-stopped`; one-shot offline profiles
 and development services do not automatically restart. Explicitly stop online
@@ -177,7 +212,12 @@ Readiness and metrics observations have short caches and bounded response waits;
 a hung dependency cannot spawn unlimited monitoring threads. Their two possible
 SQL observation connections per web process are included across rollout overlap
 in the deployment's auxiliary reserve and actual web-role connection limit.
-The default total connection budget is now 91, including 8 auxiliary connections.
+The default total connection budget is now 95, including 8 auxiliary connections
+and 36 background connections. Mail-dispatch reserves its own execution/renewal
+connections across rollout overlap and receives only its individual SQL/Valkey
+credentials plus the mail key inventory. The three provider credential installers
+have outbound access for their bounded validation and setup delivery checks;
+other target installers remain on the internal backend network.
 Metrics omit dependency samples while no observation is available; readiness
 still fails closed. A missing sample is not manufactured into a dependency-down
 value. Loopback Host aliases are admitted only for internal health/metrics probes,

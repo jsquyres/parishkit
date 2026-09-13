@@ -13,17 +13,28 @@ from parishkit.stewardship.storage import StorageInvariantError
 
 from .chair_models import ChairReconciliation, ChairSeedEvidence
 from .chair_policy import ChairRelationship, SeedIdentity, seed_decisions
+from .provider_context import validated_context
 from .runtime_models import SystemConfiguration
 
 
 def _decisions(configuration, current):
     """Read narrow source evidence and exact retained selections under ownership."""
     document = configuration.canonical_document
-    integration = next(
-        row["values"]
-        for row in document["sections"]["integrations"]
-        if row["values"]["kind"] == "parishsoft"
-    )
+    try:
+        integration = next(
+            row["values"]
+            for row in document["sections"].get("integrations", [])
+            if row["values"]["kind"] == "parishsoft"
+        )
+        raw = integration["settings"]["organization_id"]
+        organization = int(raw)
+        if raw != str(organization):
+            raise ValueError("Organization is not canonical.")
+        validated_context("parishsoft", {"organization_id": organization})
+    except (KeyError, TypeError, ValueError, StopIteration):
+        raise StorageInvariantError(
+            "Chair effects require the configured ParishSoft organization."
+        ) from None
     with connection.cursor() as cursor:
         cursor.execute(
             "SELECT DISTINCT organization_id,member_duid,ministry_duid,email "
@@ -47,7 +58,7 @@ def _decisions(configuration, current):
         }
         for row in seed_decisions(
             document,
-            organization_id=int(integration["settings"]["organization_id"]),
+            organization_id=organization,
             relationships=relationships,
             identities=identities,
         )

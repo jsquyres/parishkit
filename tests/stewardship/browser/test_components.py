@@ -1,5 +1,8 @@
 """WCAG automated checks plus keyboard, mobile, timezone and activity behavior."""
 
+from datetime import timedelta
+from urllib.parse import urlsplit
+
 import pytest
 
 from .conftest import NOW
@@ -7,6 +10,99 @@ from .conftest import NOW
 pytestmark = pytest.mark.parametrize(
     "browser_engine", ["chromium", "firefox", "webkit"], indirect=True
 )
+
+
+@pytest.mark.parametrize("clock_skew_hours", [-48, 0, 48])
+def test_setup_progress_only_polls_visible_correlated_work_and_stops_at_deadline(
+    page, component_origin, clock_skew_hours
+):
+    """Visible-page polling carries only CSRF and stops at local deadlines."""
+    page.clock.install(time=NOW + timedelta(hours=clock_skew_hours))
+    requests = []
+
+    def observe(route):
+        """The synthetic server response has no Family values or renewal promises."""
+        requests.append(route.request)
+        route.fulfill(
+            json={
+                "server_now": NOW.isoformat(),
+                "task_id": urlsplit(route.request.url).path.split("/")[-1],
+                "task_state": "running",
+                "setup_state": "loading",
+                "phase": "fetching",
+                "active": True,
+                "current": 1234,
+                "total": 5000,
+                "idle_at": (NOW + timedelta(minutes=30)).isoformat(),
+                "watchdog_at": (NOW + timedelta(hours=2)).isoformat(),
+                "absolute_at": (NOW + timedelta(hours=12)).isoformat(),
+            }
+        )
+
+    page.route("**/admin/setup/source/*?format=json", observe)
+    page.goto(component_origin + "/setup-source-progress")
+    page.wait_for_function(
+        "() => document.querySelector('[data-task-counts]')"
+        ".textContent.includes('1,234')"
+    )
+    assert page.locator("[data-task-counts]").inner_text() == "1,234 out of 5,000 (25%)"
+    assert len(requests) == 1 and requests[0].method == "POST"
+    assert requests[0].post_data.startswith("csrfmiddlewaretoken=")
+    assert "&" not in requests[0].post_data
+    page.clock.set_system_time(NOW + timedelta(days=7))
+    page.evaluate(
+        "Object.defineProperty(document, 'hidden', {configurable:true, get:()=>true})"
+    )
+    page.clock.fast_forward(60000)
+    assert len(requests) == 1
+    page.evaluate(
+        "Object.defineProperty(document, 'hidden', {configurable:true, get:()=>false})"
+    )
+    with page.expect_response("**/admin/setup/source/*?format=json"):
+        page.clock.fast_forward(15000)
+    assert len(requests) == 2
+    page.clock.fast_forward(13 * 60 * 60 * 1000)
+    assert len(requests) == 2
+
+
+def test_setup_progress_terminal_response_stops_automatic_posts(page, component_origin):
+    """Expired setup does not look successful or keep sending renewal requests."""
+    page.clock.install(time=NOW)
+    requests = []
+
+    def expired(route):
+        """A terminal server verdict is final even before the local timer expires."""
+        requests.append(route.request)
+        route.fulfill(
+            json={
+                "server_now": NOW.isoformat(),
+                "task_id": urlsplit(route.request.url).path.split("/")[-1],
+                "task_state": "cancelled",
+                "setup_state": "expired",
+                "phase": "fetching",
+                "active": False,
+                "current": 0,
+                "total": 0,
+                "idle_at": (NOW + timedelta(minutes=30)).isoformat(),
+                "watchdog_at": (NOW + timedelta(hours=2)).isoformat(),
+                "absolute_at": (NOW + timedelta(hours=12)).isoformat(),
+            }
+        )
+
+    page.route("**/admin/setup/source/*?format=json", expired)
+    page.goto(component_origin + "/setup-source-progress")
+    page.wait_for_function(
+        "() => document.querySelector('[data-task-state]').textContent === 'cancelled'"
+    )
+    page.clock.fast_forward(60000)
+    assert len(requests) == 1
+    page.route(
+        "**/setup-source-progress",
+        lambda route: route.fulfill(content_type="text/html", body="Manual progress"),
+    )
+    with page.expect_request("**/setup-source-progress") as submitted:
+        page.get_by_role("button", name="Check source progress").click()
+    assert submitted.value.method == "POST"
 
 
 def test_csp_permits_the_fixed_google_form_destination(page, component_origin):
@@ -85,6 +181,9 @@ def test_csp_blocks_an_unrelated_form_destination(page, component_origin):
         "/content-settings",
         "/content-preview",
         "/content-history",
+        "/campaign-mail",
+        "/campaign-mail-unknown",
+        "/campaign-mail-pending",
         "/schedule-settings",
         "/schedule-preview",
         "/clone-settings",
@@ -97,6 +196,26 @@ def test_csp_blocks_an_unrelated_form_destination(page, component_origin):
         "/credential-selection",
         "/branding-settings",
         "/branding-preview",
+        "/setup",
+        "/setup-parish",
+        "/setup-branding",
+        "/setup-credential",
+        "/setup-campaign",
+        "/setup-content-edit",
+        "/setup-shares",
+        "/setup-schedules",
+        "/setup-preview",
+        "/setup-confirmation",
+        "/setup-confirmation-unready",
+        "/setup-finalization",
+        "/setup-installation",
+        "/setup-mail-test",
+        "/setup-slack-test",
+        "/setup-access",
+        "/setup-mail",
+        "/setup-slack",
+        "/setup-testing",
+        "/setup-source-progress",
     ],
 )
 @pytest.mark.parametrize("width", [320, 1280])
@@ -124,6 +243,44 @@ def test_components_accessible_and_responsive(
     assert violations == []
 
 
+def test_setup_confirmation_requires_acknowledgement_and_stores_no_draft(
+    page, component_origin
+):
+    """An explicit checkbox gates submission and no browser storage persists setup."""
+    page.goto(component_origin + "/setup-confirmation")
+    checkbox = page.get_by_role("checkbox")
+    assert not checkbox.is_checked()
+    assert not page.locator("form.panel").evaluate("form => form.checkValidity()")
+    checkbox.check()
+    assert page.locator("form.panel").evaluate("form => form.checkValidity()")
+    assert page.evaluate("localStorage.length + sessionStorage.length") == 0
+    page.goto(component_origin + "/setup-confirmation-unready")
+    page.get_by_role("checkbox").check()
+    assert page.get_by_role("button", name="Confirm and finish setup").is_disabled()
+
+
+def test_campaign_mail_preview_is_passive_and_shows_uncertainty(page, component_origin):
+    """Preview/reload never submits mail, and in-flight work disables another send."""
+    sends = []
+    page.on(
+        "request",
+        lambda request: (
+            sends.append(request.url)
+            if request.method == "POST" and "campaign-mail" in request.url
+            else None
+        ),
+    )
+    page.goto(component_origin + "/campaign-mail-unknown")
+    assert "uncertain" in page.get_by_role("alert").inner_text()
+    assert not page.get_by_role("checkbox").is_checked()
+    assert "2026-09-10T12:00:00" not in page.locator("time").inner_text()
+    page.reload()
+    assert not page.get_by_role("checkbox").is_checked()
+    page.goto(component_origin + "/campaign-mail-pending")
+    assert page.get_by_role("button", name="Send this test email").is_disabled()
+    assert not sends
+
+
 def test_skip_link_and_error_summary_focus(page, component_origin):
     """Keyboard users can reach the main landmark and exact failing field."""
     page.goto(component_origin + "/login")
@@ -137,11 +294,12 @@ def test_skip_link_and_error_summary_focus(page, component_origin):
     assert page.locator(":focus").get_attribute("id") == "family-code"
 
 
+@pytest.mark.parametrize("path", ["/content-settings", "/setup-content-edit"])
 def test_visual_content_editor_never_executes_source_or_pasted_markup(
-    page, component_origin
+    page, component_origin, path
 ):
     """Visual edits sync source; raw source waits for the server sanitizer."""
-    page.goto(component_origin + "/content-settings")
+    page.goto(component_origin + path)
     editor = page.locator("[data-content-editor]")
     assert editor.is_visible()
     editor.fill("A visual edit")

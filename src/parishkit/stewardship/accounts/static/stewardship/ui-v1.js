@@ -30,6 +30,164 @@
     });
   });
 
+  // Readiness status is a passive GET, never the source-load idle-renewal
+  // exception. No message content, key or answer is retained by this poller.
+  document.querySelectorAll("[data-setup-mail]").forEach((panel) => {
+    const button = panel.querySelector("[data-mail-send]");
+    const warning = panel.querySelector("[data-mail-status-error]");
+    const uncertain = panel.querySelector("[data-mail-uncertain]");
+    const acknowledgement = uncertain?.querySelector("input");
+    const states = new Set([
+      "queued", "submitting", "accepted", "not_sent", "delivery_unknown", "cancelled"
+    ]);
+    if (!button || !warning || !uncertain || !acknowledgement) return;
+    acknowledgement.required = !uncertain.hidden;
+    let pending = panel.dataset.mailPending === "true";
+    let inFlight = false;
+    let stopped = false;
+    let activeRequest = null;
+    async function refresh() {
+      if (!pending || inFlight || stopped || document.hidden) return;
+      inFlight = true;
+      const controller = new AbortController();
+      activeRequest = controller;
+      const timeout = window.setTimeout(() => controller.abort(), 10000);
+      try {
+        const response = await fetch(panel.dataset.mailStatusUrl, {
+          method: "GET", credentials: "same-origin", cache: "no-store",
+          headers: {"Accept": "application/json"}, signal: controller.signal
+        });
+        if (!response.ok) throw new Error("status unavailable");
+        const data = await response.json();
+        if (!Number.isSafeInteger(data.revision) ||
+            String(data.revision) !== panel.dataset.mailRevision ||
+            typeof data.pending !== "boolean" || typeof data.unknown !== "boolean" ||
+            !Array.isArray(data.items) || data.items.length > 25) {
+          throw new Error("status changed");
+        }
+        const nodes = new Map([...panel.querySelectorAll("[data-mail-id]")]
+          .map((node) => [node.dataset.mailId, node.querySelector("[data-mail-state]")]));
+        for (const item of data.items) {
+          if (!states.has(item.state) || typeof item.label !== "string" ||
+              item.label.length > 512 || !nodes.get(item.id)) {
+            throw new Error("status changed");
+          }
+        }
+        for (const item of data.items) nodes.get(item.id).textContent = item.label;
+        pending = data.pending;
+        button.disabled = pending;
+        uncertain.hidden = !data.unknown;
+        acknowledgement.required = data.unknown;
+      } catch {
+        stopped = true;
+        button.disabled = true;
+        warning.hidden = false;
+      } finally {
+        window.clearTimeout(timeout);
+        activeRequest = null;
+        inFlight = false;
+      }
+    }
+    const timer = window.setInterval(refresh, 5000);
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("pagehide", () => {
+      stopped = true;
+      window.clearInterval(timer);
+      activeRequest?.abort();
+    });
+    refresh();
+  });
+
+  // Only the exact source-progress page posts this renewal exception. The
+  // server checks the original login, task/source leases and five-minute limit;
+  // visibility and local deadlines merely stop unnecessary browser requests.
+  document.querySelectorAll("[data-setup-progress]").forEach((panel) => {
+    const form = panel.querySelector("form");
+    const warning = panel.querySelector("[data-progress-unavailable]");
+    const deadlines = [...panel.querySelectorAll("[data-progress-deadline]")];
+    const number = new Intl.NumberFormat("en-US");
+    const localTime = new Intl.DateTimeFormat("en-US", {
+      year: "numeric", month: "short", day: "numeric",
+      hour: "numeric", minute: "2-digit", timeZoneName: "short"
+    });
+    let active = panel.dataset.progressActive === "true";
+    let closed = false, pending = false, timer = null, controller = null;
+    // Anchor server instants to monotonic elapsed time, not the browser's wall
+    // clock. Clock skew or a later system-clock correction must not stop renewal.
+    let serverAt = Date.parse(panel.dataset.progressNow), observedAt = performance.now();
+    const live = () => {
+      const until = Math.min(...deadlines.map(node => Date.parse(node.dateTime)));
+      const now = serverAt + performance.now() - observedAt;
+      return !closed && active && Number.isFinite(until) && Number.isFinite(now) && now < until;
+    };
+    const schedule = () => {
+      window.clearTimeout(timer);
+      if (live()) timer = window.setTimeout(refresh, 15000);
+    };
+    async function refresh() {
+      if (!live() || pending) return;
+      if (document.hidden) { schedule(); return; }
+      pending = true;
+      controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 5000);
+      try {
+        const response = await fetch(panel.dataset.progressUrl, {
+          method: "POST", credentials: "same-origin", cache: "no-store",
+          headers: {"Content-Type": "application/x-www-form-urlencoded"},
+          body: new URLSearchParams(new FormData(form)), signal: controller.signal
+        });
+        if (!response.ok) throw new Error("unavailable");
+        const data = await response.json();
+        if (data.task_id !== panel.dataset.progressTask || typeof data.active !== "boolean"
+            || !Number.isFinite(Date.parse(data.server_now))
+            || !Number.isSafeInteger(data.current) || !Number.isSafeInteger(data.total)
+            || data.current < 0 || data.total < data.current
+            || !["queued", "running", "retry_wait", "abandoned", "succeeded", "failed", "cancelled"].includes(data.task_state)
+            || !["collecting", "loading", "frozen", "completed", "expired"].includes(data.setup_state)
+            || typeof data.phase !== "string"
+            || deadlines.some(node => !Number.isFinite(Date.parse(data[node.dataset.progressDeadline])))) {
+          throw new Error("unavailable");
+        }
+        if (closed || document.hidden) return;
+        serverAt = Date.parse(data.server_now);
+        observedAt = performance.now();
+        active = data.active;
+        panel.querySelector("[data-task-state]").textContent = data.task_state;
+        panel.querySelector("[data-setup-state]").textContent = data.setup_state;
+        panel.querySelector("[data-task-phase]").textContent = data.phase;
+        const percentage = data.total ? Math.round(data.current * 100 / data.total) : 0;
+        panel.querySelector("[data-task-counts]").textContent =
+          `${number.format(data.current)} out of ${number.format(data.total)} (${percentage}%)`;
+        deadlines.forEach(node => {
+          node.dateTime = data[node.dataset.progressDeadline];
+          node.textContent = localTime.format(new Date(node.dateTime));
+        });
+        warning.hidden = true;
+      } catch (_) {
+        if (!closed && !document.hidden) warning.hidden = false;
+      } finally {
+        window.clearTimeout(timeout);
+        pending = false;
+        controller = null;
+        schedule();
+      }
+    }
+    form.addEventListener("submit", event => {
+      // A stopped automatic poller must not disable the normal manual form.
+      if (live()) { event.preventDefault(); refresh(); }
+    });
+    window.addEventListener("pagehide", () => {
+      closed = true;
+      window.clearTimeout(timer);
+      if (controller) controller.abort();
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden && controller) controller.abort();
+      if (!document.hidden) refresh();
+    });
+    refresh();
+  });
+
   // Optional modules remain ordinary accessible fieldsets without JavaScript.
   // Hidden fields are disabled, not silently copied into submitted data. The
   // server independently rejects stray data for every disabled module.
@@ -148,7 +306,7 @@
     backgroundPending = true;
     const unavailable = document.querySelector("[data-background-unavailable]");
     try {
-      const response = await fetch("/admin/background/tasks?size=1", {
+      const response = await fetch("/admin/background/counts", {
         credentials: "same-origin", cache: "no-store"
       });
       if (!response.ok) throw new Error("Background work unavailable");

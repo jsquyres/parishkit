@@ -13,7 +13,7 @@ from django.db import connection
 from parishkit.parishsoft import ParishSoftAPIError
 from parishkit.parishsoft_pagination import IncompleteSourceCollection
 from parishkit.parishsoft_transport import SourceTransportError
-from parishkit.retry import RetryError
+from parishkit.retry import RetryError, TransientRetryError
 from parishkit.stewardship.accounts.cryptography import CryptographicError
 from parishkit.stewardship.audit.schemas import ContextKind, Outcome
 from parishkit.stewardship.audit.services import operational
@@ -49,6 +49,12 @@ class ReadFailure:
 
 def classify_read_failure(error, *, has_source_claim):
     """Classify known read errors only; uncertain drainage/lost ownership propagate."""
+    seen = set()
+    while isinstance(error, RetryError):
+        if id(error) in seen:
+            return None
+        seen.add(id(error))
+        error = error.last_exception
     if isinstance(error, (InvalidSourcePayload, IncompleteSourceCollection)):
         return ReadFailure(False, False, Event.SOURCE_INVALID)
     if isinstance(error, SourceLeaseUnavailable):
@@ -65,10 +71,16 @@ def classify_read_failure(error, *, has_source_claim):
             False,
             Event.SOURCE_PROVIDER_FAILED,
         )
-    if isinstance(error, RetryError):
-        error = error.last_exception
     if isinstance(
-        error, (SourceTransportError, requests.ConnectionError, requests.Timeout)
+        error,
+        (
+            SourceTransportError,
+            requests.ConnectionError,
+            requests.Timeout,
+            TransientRetryError,
+            TimeoutError,
+            ConnectionError,
+        ),
     ):
         return ReadFailure(True, False, Event.SOURCE_PROVIDER_FAILED)
     return None

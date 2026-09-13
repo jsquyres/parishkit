@@ -3,6 +3,8 @@
 These values are observations supplied by authenticated, locked database owners,
 not credentials or permission to resume a wizard. In particular, no request may
 substitute another session or TaskRun for the attempt's immutable bindings.
+The setup-attempt and setup-draft SQL guards also enforce the frozen intervals;
+their installed-policy tests must accompany any future interval migration.
 """
 
 from dataclasses import dataclass
@@ -10,7 +12,8 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from uuid import UUID
 
-IDLE_LIMIT = timedelta(minutes=30)
+from .session_policy import ADMIN_IDLE as IDLE_LIMIT
+
 RENEWAL_INTERVAL = timedelta(minutes=5)
 SOURCE_WATCHDOG = timedelta(hours=2)
 

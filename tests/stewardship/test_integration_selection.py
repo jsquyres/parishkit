@@ -50,6 +50,29 @@ def test_only_explicit_reference_format_can_nominate_a_fingerprint():
     )
 
 
+def test_receipt_replay_does_not_select_the_future_emitted_schema(monkeypatch):
+    """An existing v6 intent keeps identical canonical output after emission evolves."""
+    base = configuration_version()
+    change = patch(base, credential_fingerprint="b" * 64)
+    identifier = uuid4()
+    expected = build_candidate(
+        base, change, candidate_id=identifier, request_schema=CREDENTIAL_REQUEST_SCHEMA
+    )
+    monkeypatch.setattr(
+        "parishkit.stewardship.accounts.configuration_schema.schema_for",
+        lambda doc: "future-v99",
+    )
+    assert (
+        build_candidate(
+            base,
+            change,
+            candidate_id=identifier,
+            request_schema=CREDENTIAL_REQUEST_SCHEMA,
+        )
+        == expected
+    )
+
+
 @pytest.mark.parametrize(
     "values",
     [

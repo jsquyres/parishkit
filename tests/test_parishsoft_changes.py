@@ -92,6 +92,23 @@ def test_wrong_organization_stops_before_fetching_family_data(tmp_path):
     assert len(source.session.calls) == 1
 
 
+def test_coherent_tenant_failure_is_not_feed_ambiguity_or_full_refresh_authority(
+    tmp_path,
+):
+    """A validated key loses its old tenant when revalidation fails."""
+    from test_parishsoft_source import initialized
+
+    from parishkit.parishsoft_pagination import IncompleteSourceCollection
+
+    source = initialized(tmp_path, [[{"organizationID": 9}]])
+    with pytest.raises(IncompleteSourceCollection, match="expected tenant"):
+        load(source)
+    assert len(source.session.calls) == 2
+    with pytest.raises(IncompleteSourceCollection, match="not been validated"):
+        source.get_uncached("families/change/list")
+    assert len(source.session.calls) == 2
+
+
 @pytest.mark.parametrize(
     "payload",
     [

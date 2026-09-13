@@ -220,9 +220,10 @@ def branding_preview(request, bundle_id):
                     },
                 }
             ]
-            candidate = build_candidate(
-                service.store.active(), patch, candidate_id=uuid4()
-            )
+            base = service.store.active()
+            if base is None or base.digest != configuration.active_configuration.digest:
+                raise StaleRecordError("The branding preview base changed.")
+            candidate = build_candidate(base, patch, candidate_id=uuid4())
             validate_installation(
                 candidate.candidate.document(), actor_id=actor.identity
             )

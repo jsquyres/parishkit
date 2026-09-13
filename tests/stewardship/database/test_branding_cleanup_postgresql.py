@@ -17,7 +17,7 @@ from parishkit.stewardship.jobs.dispatch import claim_hint, execute_hint, recove
 from parishkit.stewardship.jobs.models import TaskRun
 from parishkit.stewardship.jobs.queues import WorkQueue
 from parishkit.stewardship.jobs.scheduler import scheduler_session
-from parishkit.stewardship.jobs.storage import _status, change_run
+from parishkit.stewardship.jobs.storage import _status, change_run, retry_failed
 from parishkit.stewardship.storage import StorageInvariantError
 
 from .campaign_builders import change, initialized, restored_runtime
@@ -109,13 +109,18 @@ def test_unexpired_uploads_restore_and_pending_configuration_are_holds(
     assert TaskRun.objects.get(pk=task.run_id).state == "running"
 
 
-def test_filesystem_failure_keeps_checkpoint_and_bounded_retry(staged, monkeypatch):
+@pytest.mark.parametrize("held", [False, True])
+def test_filesystem_failure_keeps_checkpoint_and_bounded_retry(
+    staged, monkeypatch, held
+):
     """No private exception text enters task rows; files remain until retry succeeds."""
     _, _, _, row, _, media = staged
     (task,) = produce()
 
     def fail(*args):
         """A synthetic filesystem error must not be treated as successful scrubbing."""
+        if held:
+            monkeypatch.setattr(cleanup, "available", lambda: False)
         raise ConfigError("private filesystem detail")
 
     monkeypatch.setattr(
@@ -177,6 +182,31 @@ def test_cleanup_checks_current_task_view_and_actual_scrub_receipt(staged):
             cleanup.recover_cleanup(status)
     with pytest.raises(PermissionError):
         execution.transition("complete")
+
+
+def test_terminal_cleanup_requires_explicit_retry_and_can_recover(staged):
+    """A repaired mount can be retried without an unbounded automatic producer loop."""
+    _, _, actor, row, _, media = staged
+    (task,) = produce()
+    execution = claim_hint(task.run_id, **arguments(media))
+    execution.transition("permanent_failure")
+    assert produce() == ()
+    command = dict(
+        run_id=task.run_id,
+        command_id=uuid4(),
+        actor_id=actor,
+        correlation_id=uuid4(),
+        admit=cleanup.admit_cleanup,
+    )
+    with task_login(ServiceRole.WORKER):
+        with work_transaction():
+            retried = retry_failed(**command)
+            assert retry_failed(**command) == retried
+        assert execute_hint(retried.run_id, **arguments(media))
+        with work_transaction():
+            assert retry_failed(**command).run_id == retried.run_id
+    row.refresh_from_db()
+    assert row.state == "scrubbed" and produce() == ()
 
 
 def test_scheduler_cannot_mutate_media_receipts_or_run_cleanup(staged):

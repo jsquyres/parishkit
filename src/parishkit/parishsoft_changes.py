@@ -72,6 +72,8 @@ def load_family_changes(client, *, organization_id, start_date, end_date, maximu
     before their deterministically sorted distinct identities are returned.
     Relationship/organization transitions cannot be applied as ordinary deltas.
     This function does not update the caller's durable watermark or source data.
+    Authentication/tenant-validation failure is not feed ambiguity: it propagates
+    and must not trigger a larger read under an unverified organization.
     """
     _identifier(organization_id)
     if (

@@ -109,6 +109,10 @@ def _catalog(configuration, source, previous):
         if row["values"]["organization_id"] == source.organization_id
     }
     selected = set(previous.get("ministry_duids", []))
+    financial = previous.get("financial") or {}
+    retained_funds = set(financial.get("fund_duids", [])) | set(
+        financial.get("comparison_fund_duids", [])
+    )
     catalogs = []
     for model in (SnapshotMinistry, SnapshotFund):
         choices = []
@@ -121,7 +125,8 @@ def _catalog(configuration, source, previous):
                 # Upstream Ministry activity is not reliable; the local override
                 # alone owns activity for a Ministry present in this snapshot.
                 active = overrides.get(duid, True)
-            if active or (model is SnapshotMinistry and duid in selected):
+            retained = selected if model is SnapshotMinistry else retained_funds
+            if active or duid in retained:
                 name = payload["name"]
                 if not active:
                     name = _("%(name)s (inactive; retained selection)") % {"name": name}
@@ -264,6 +269,8 @@ def _preview(request, service, actor, state, campaign, form):
         "stewardship/campaign-preview.html",
         {
             "creating": campaign is None,
+            "removes_share_options": bool(previous.get("share_options"))
+            and "financial" not in values["modules"],
             "changes": describe_changes(
                 previous,
                 values,

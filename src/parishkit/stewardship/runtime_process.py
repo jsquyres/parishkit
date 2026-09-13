@@ -248,7 +248,36 @@ def serve_credential_installer(configuration, lease):
 
     lease.check()
     publish_handoff(installer.files.private)
-    return serve_installer_loop(installer.run_once, lease)
+
+    def run_once():
+        """Relay, stage frozen initial input, then reconcile target-owned files."""
+        if configuration.credential_target == "parishsoft":
+            from .source.setup_exchange import relay_pending
+
+            lease.check()
+            relay_pending(installer.files.private)
+        elif configuration.credential_target == "google_workspace":
+            from .accounts.setup_mail_exchange import relay_pending
+
+            lease.check()
+            relay_pending(installer.files.private)
+        elif configuration.credential_target == "slack":
+            from .accounts.setup_notifications import run_pending
+
+            lease.check()
+            run_pending(installer.files.private, check=lease.check)
+        if configuration.credential_target in {
+            "parishsoft",
+            "google_workspace",
+            "slack",
+        }:
+            from .accounts.setup_credential_installation import stage_initial_credential
+
+            lease.check()
+            stage_initial_credential(installer.files)
+        installer.run_once()
+
+    return serve_installer_loop(run_once, lease)
 
 
 def serve_installer_loop(run_once, lease):
@@ -278,12 +307,9 @@ def serve_background(configuration, lease):
     """Assemble one admitted queue process and retain exclusion through final drain."""
     from uuid import uuid4
 
-    from .accounts.branding_cleanup import produce_cleanup
     from .consumer_runtime import publish_single_process_receipts
     from .installer_health import publish_heartbeat
-    from .jobs.processes import serve_consumer, serve_scheduler
     from .runtime_background import configure_background, matching_authority
-    from .source.production import SourceProducer
 
     stop = StopEvent()
 
@@ -303,18 +329,60 @@ def serve_background(configuration, lease):
     try:
         lease.check()
         assembled = configure_background(configuration, stop=stop, heartbeat=heartbeat)
+        # Model-dependent runtime owners may be imported only after the fresh
+        # process has configured Django and admitted its SQL identity.
+        from .accounts.branding_cleanup import produce_cleanup
+        from .accounts.setup_mail import recover_pending as recover_setup_mail
+        from .accounts.setup_notifications import recover_pending as recover_setup_slack
+        from .accounts.setup_staging import produce_setup_expiry
+        from .jobs.processes import serve_consumer, serve_scheduler
+        from .source.production import SourceProducer
+        from .source.setup_cleanup import produce_setup_cleanup
+        from .source.setup_final_production import produce_finalization
+
         publish_single_process_receipts(configuration, assembled.receipts)
         emit(Event.STARTUP_VALIDATED)
-        if configuration.service_role is ServiceRole.WORKER:
+        if configuration.service_role in {
+            ServiceRole.WORKER,
+            ServiceRole.MAIL_DISPATCH,
+        }:
             return serve_consumer(
                 assembled.broker, lease=lease, stop=stop, heartbeat=heartbeat
             )
         producer = SourceProducer(uuid4())
 
         def produce(guard):
-            """A later YAML/SQL mismatch cannot enqueue or cancel scheduled work."""
-            matching_authority(assembled.store)
-            return (*producer(guard), *produce_cleanup(guard))
+            """Expire abandoned setup even while exact candidate recovery is pending.
+
+            Expiry uses its original SQL-bound login, never selects configuration,
+            and is needed to unblock a selected-but-unapplied setup abort. Normal
+            source production and file cleanup still require matching authority.
+            """
+            produce_setup_expiry(guard)
+            finalization = produce_finalization(assembled.store, guard)
+            try:
+                matching_authority(assembled.store)
+            except ConfigError:
+                from .accounts.setup_startup import initial_setup_hold
+
+                # A dead original session can still be expired above. While
+                # awaiting installer rollback, no ordinary producer is admitted.
+                initial_setup_hold(assembled.store)
+                return finalization
+            guard.check()
+            recover_setup_mail()
+            guard.check()
+            recover_setup_slack()
+            from .accounts.campaign_mail_delivery import recover_pending
+
+            guard.check()
+            recover_pending()
+            return (
+                *finalization,
+                *producer(guard),
+                *produce_cleanup(guard),
+                *produce_setup_cleanup(guard),
+            )
 
         return serve_scheduler(
             assembled.broker,
@@ -330,9 +398,11 @@ def serve_background(configuration, lease):
             signal.signal(sig, handler)
         if assembled is not None:
             assembled.broker.app.close()
+        from django.conf import settings
         from django.db import connections
 
-        connections.close_all()
+        if settings.configured:
+            connections.close_all()
 
 
 def execute_runtime(args):
@@ -348,6 +418,7 @@ def execute_runtime(args):
             ServiceRole.CREDENTIAL_INSTALLER: serve_credential_installer,
             ServiceRole.WORKER: serve_background,
             ServiceRole.SCHEDULER: serve_background,
+            ServiceRole.MAIL_DISPATCH: serve_background,
         }
         runner = runners.get(configuration.service_role)
         if runner is None:

@@ -7,6 +7,7 @@ from .accounts import (
     access_gate,
     authentication,
     branding_views,
+    campaign_mail_views,
     campaign_views,
     clone_views,
     code_reports,
@@ -19,6 +20,19 @@ from .accounts import (
     parish_views,
     presence,
     schedule_views,
+    setup_branding_views,
+    setup_campaign_views,
+    setup_cancellation_views,
+    setup_confirmation_views,
+    setup_content_views,
+    setup_credential_views,
+    setup_mail_views,
+    setup_notification_views,
+    setup_preview_views,
+    setup_progress_views,
+    setup_schedule_views,
+    setup_share_views,
+    setup_views,
     share_views,
 )
 from .jobs import views as job_views
@@ -39,6 +53,16 @@ family_patterns = [
     path("logout", family_authentication.logout, name="logout"),
 ]
 admin_patterns = [
+    path(
+        "setup/slack-test",
+        setup_notification_views.setup_notification,
+        name="setup_notification",
+    ),
+    path(
+        "setup/slack-test/status",
+        setup_notification_views.setup_notification_status,
+        name="setup_notification_status",
+    ),
     path(
         "configuration/credentials/<uuid:request_id>/select",
         integration_selection_views.select_credential,
@@ -106,6 +130,11 @@ admin_patterns = [
         name="content_history_revision",
     ),
     path(
+        "campaign/<uuid:campaign_id>/content/test/<uuid:revision_id>",
+        campaign_mail_views.campaign_mail,
+        name="campaign_mail",
+    ),
+    path(
         "campaign/<uuid:campaign_id>/content/<str:kind>/<str:slot>",
         content_views.content_settings,
         name="content_edit",
@@ -143,12 +172,56 @@ admin_patterns = [
         name="background_task_page",
     ),
     path("background/tasks", job_views.task_list, name="background_tasks"),
+    path("background/counts", job_views.task_counts, name="background_counts"),
     path(
         "background/tasks/<uuid:task_id>",
         job_views.task_detail,
         name="background_task",
     ),
-    path("setup", access_gate.setup, name="setup"),
+    path("setup", setup_views.setup, name="setup"),
+    path(
+        "setup/cancel", setup_cancellation_views.setup_cancellation, name="setup_cancel"
+    ),
+    path(
+        "setup/source/<uuid:task_id>",
+        setup_progress_views.setup_source_progress,
+        name="setup_source_progress",
+    ),
+    path("setup/branding", setup_branding_views.setup_branding, name="setup_branding"),
+    path(
+        "setup/credentials/<str:target>",
+        setup_credential_views.setup_credential,
+        name="setup_credential",
+    ),
+    path(
+        "setup/branding/assets/<uuid:asset_id>.png",
+        setup_branding_views.setup_branding_asset,
+        name="setup_branding_asset",
+    ),
+    path("setup/campaign", setup_campaign_views.setup_campaign, name="setup_campaign"),
+    path("setup/shares", setup_share_views.setup_shares, name="setup_shares"),
+    path("setup/preview", setup_preview_views.setup_preview, name="setup_preview"),
+    path(
+        "setup/confirm",
+        setup_confirmation_views.setup_confirmation,
+        name="setup_confirmation",
+    ),
+    path("setup/mail-test", setup_mail_views.setup_mail, name="setup_mail"),
+    path(
+        "setup/mail-test/status",
+        setup_mail_views.setup_mail_status,
+        name="setup_mail_status",
+    ),
+    path(
+        "setup/schedules", setup_schedule_views.setup_schedules, name="setup_schedules"
+    ),
+    path("setup/content", setup_content_views.setup_content, name="setup_content"),
+    path(
+        "setup/content/<str:kind>/<str:slot>",
+        setup_content_views.setup_content_edit,
+        name="setup_content_edit",
+    ),
+    path("setup/<str:step>", setup_views.setup_step, name="setup_step"),
     path("maintenance", access_gate.maintenance, name="maintenance"),
     path(
         "campaign/<uuid:campaign_id>/family-codes",

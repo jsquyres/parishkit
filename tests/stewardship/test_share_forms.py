@@ -83,6 +83,9 @@ def test_edit_order_delete_and_add_preserve_surviving_ids():
         "{% logic %}",
         "{{ parish_name",
         "bad\x00label",
+        "bad\tlabel",
+        "bad\x85label",
+        "bad\x7flabel",
         "x" * 1025,
     ],
 )

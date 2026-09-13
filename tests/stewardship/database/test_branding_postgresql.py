@@ -10,6 +10,12 @@ from django.db.models import F
 from django.utils import timezone
 
 from parishkit.stewardship.accounts.branding_models import BrandingAsset, BrandingBundle
+from parishkit.stewardship.accounts.configuration_errors import (
+    ConfigurationReadinessUnavailable,
+)
+from parishkit.stewardship.accounts.configuration_installation import install_request
+from parishkit.stewardship.accounts.configuration_requests import record_request
+from parishkit.stewardship.accounts.request_models import ConfigurationRequestCheckpoint
 
 from .campaign_builders import change, initialized
 
@@ -77,6 +83,36 @@ def branding_patch(version, values):
             "values": {"branding": values},
         }
     ]
+
+
+def test_normalizing_branding_holds_the_same_configuration_intent_for_retry(tmp_path):
+    """An unfinished valid bundle is not a permanently invalid configuration."""
+    store, version, actor = initialized(tmp_path)
+    row = bundle(version, actor)
+    values = {
+        label: str(asset(row, label).pk)
+        for label in ("large", "menu", "icon", "favicon")
+    }
+    request = record_request(
+        base_digest=version.digest,
+        patch=branding_patch(version, values),
+        actor_id=actor,
+        request_key=uuid4(),
+        correlation_id=uuid4(),
+    )
+    with pytest.raises(ConfigurationReadinessUnavailable):
+        install_request(store, request_id=request.request_id, correlation_id=uuid4())
+    assert store.active() == version
+    assert not ConfigurationRequestCheckpoint.objects.filter(
+        request_id=request.request_id, state="failed"
+    ).exists()
+    advance(row, "ready")
+    assert (
+        install_request(
+            store, request_id=request.request_id, correlation_id=uuid4()
+        ).state
+        == "applied"
+    )
 
 
 def test_complete_bundle_can_apply_and_historical_configuration_pins_it(tmp_path):

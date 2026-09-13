@@ -16,13 +16,19 @@ from types import SimpleNamespace
 
 import requests
 
+from parishkit.config import ConfigError
 from parishkit.email.google_workspace import xoauth2_string
-from parishkit.parishsoft import DEFAULT_API_BASE_URL, ParishSoftConfig
+from parishkit.parishsoft import (
+    DEFAULT_API_BASE_URL,
+    ParishSoftAPIError,
+    ParishSoftConfig,
+)
 from parishkit.parishsoft_source import CoherentParishSoftClient
 from parishkit.parishsoft_transport import ExactSourceResponse
 from parishkit.retry import RetryError, RetryPolicy
 
 from .accounts.credential_errors import CredentialValidationUnavailable
+from .accounts.cryptography import CryptographicError
 from .accounts.integration_candidates import (
     GOOGLE_TOKEN_URI,
     slack_candidate,
@@ -119,14 +125,14 @@ def _workspace(value, settings, session):
     ) as smtp:
         code, _ = smtp.ehlo()
         if code != 250:
-            return False
+            raise CredentialValidationUnavailable()
         code, _ = smtp.docmd(
             "AUTH",
             "XOAUTH2 " + xoauth2_string(settings["delegated_email"], credentials.token),
         )
-        if 400 <= code < 500:
-            raise CredentialValidationUnavailable()
-        return code == 235
+        if code in {235, 535}:
+            return code == 235
+        raise CredentialValidationUnavailable()
 
 
 def _slack(value, settings, session):
@@ -138,14 +144,24 @@ def _slack(value, settings, session):
         headers={"Authorization": "Bearer " + token},
         data={},
     )
+    if response.status_code in {401, 403}:
+        return False
     if response.status_code != 200:
-        return False
-    body = response.json()
-    if type(body) is not dict:
-        return False
-    if body.get("error") in {"ratelimited", "internal_error", "service_unavailable"}:
         raise CredentialValidationUnavailable()
-    return body.get("ok") is True
+    body = response.json()
+    if type(body) is not dict or type(body.get("ok")) is not bool:
+        raise CredentialValidationUnavailable()
+    if body["ok"]:
+        return True
+    if body.get("error") in {
+        "invalid_auth",
+        "not_authed",
+        "token_revoked",
+        "account_inactive",
+        "token_expired",
+    }:
+        return False
+    raise CredentialValidationUnavailable()
 
 
 def decode_request(raw):
@@ -168,6 +184,9 @@ def check_request(raw):
     """Return a fixed classification; transport outages are not rejected credentials."""
     try:
         target, settings, value = decode_request(raw)
+    except (ValueError, TypeError, ConfigError, RecursionError):
+        return "invalid"
+    try:
         with CheckSession() as session:
             valid = {
                 "parishsoft": _parishsoft,
@@ -175,6 +194,11 @@ def check_request(raw):
                 "slack": _slack,
             }[target](value, settings, session)
         return "valid" if valid is True else "invalid"
+    except (ConfigError, CryptographicError):
+        # Closed candidate parsers reject malformed private bytes locally.
+        return "invalid"
+    except ParishSoftAPIError as error:
+        return "invalid" if error.status_code in {401, 403} else "unavailable"
     except (
         CredentialValidationUnavailable,
         requests.ConnectionError,
@@ -185,8 +209,9 @@ def check_request(raw):
     ):
         return "unavailable"
     except Exception:
-        # Even local parser/provider exceptions can contain private key material.
-        return "invalid"
+        # Unknown adapter/DTO/library failures are not evidence of bad credentials.
+        # Suppress all private exception text without manufacturing a rejection.
+        return "unavailable"
 
 
 def main():

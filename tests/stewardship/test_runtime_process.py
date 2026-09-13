@@ -156,7 +156,9 @@ def test_gunicorn_worker_receipt_hook_sanitizes_private_failures(monkeypatch):
     assert error.value.__suppress_context__
 
 
-@pytest.mark.parametrize("target", ["metrics", "parishsoft"])
+@pytest.mark.parametrize(
+    "target", ["metrics", "parishsoft", "google_workspace", "slack"]
+)
 def test_credential_service_publishes_only_after_admission(
     tmp_path, monkeypatch, target
 ):
@@ -191,19 +193,61 @@ def test_credential_service_publishes_only_after_admission(
     monkeypatch.setattr(
         "parishkit.stewardship.accounts.handoff_discovery.publish_handoff", publish
     )
+    relay = Mock()
+    monkeypatch.setattr(
+        "parishkit.stewardship.source.setup_exchange.relay_pending", relay
+    )
+    mail_relay = Mock()
+    monkeypatch.setattr(
+        "parishkit.stewardship.accounts.setup_mail_exchange.relay_pending", mail_relay
+    )
+    slack_send = Mock()
+    monkeypatch.setattr(
+        "parishkit.stewardship.accounts.setup_notifications.run_pending", slack_send
+    )
+    stage_initial = Mock()
+    monkeypatch.setattr(
+        "parishkit.stewardship.accounts.setup_credential_installation.stage_initial_credential",
+        stage_initial,
+    )
 
     def serve(run_once, actual_lease):
         """Queue processing cannot race ahead of the advertised encryption key."""
         publish.assert_called_once_with(installer.files.private)
         lease.check.assert_called_once()
-        assert actual_lease is lease and run_once is installer.run_once
+        assert actual_lease is lease
+        run_once()
+        installer.run_once.assert_called_once()
+        if target == "parishsoft":
+            relay.assert_called_once_with(installer.files.private)
+            assert lease.check.call_count == 3
+        else:
+            relay.assert_not_called()
+        if target == "google_workspace":
+            mail_relay.assert_called_once_with(installer.files.private)
+            assert lease.check.call_count == 3
+        else:
+            mail_relay.assert_not_called()
+        if target == "slack":
+            slack_send.assert_called_once_with(
+                installer.files.private, check=lease.check
+            )
+            assert lease.check.call_count == 3
+        else:
+            slack_send.assert_not_called()
+        if target == "metrics":
+            stage_initial.assert_not_called()
+        else:
+            stage_initial.assert_called_once_with(installer.files)
         return 0
 
     monkeypatch.setattr(runtime_process, "serve_installer_loop", serve)
     assert runtime_process.serve_credential_installer(configuration, lease) == 0
 
 
-@pytest.mark.parametrize("role", [ServiceRole.WORKER, ServiceRole.SCHEDULER])
+@pytest.mark.parametrize(
+    "role", [ServiceRole.WORKER, ServiceRole.SCHEDULER, ServiceRole.MAIL_DISPATCH]
+)
 @pytest.mark.parametrize("fail", [False, True])
 def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
     tmp_path, monkeypatch, role, fail
@@ -230,7 +274,12 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
         """Substitute the external process loop, not runtime lifecycle logic."""
         assert actual is broker and stop is stops[0]
         if role is ServiceRole.SCHEDULER:
-            assert kwargs["produce"](guard) == ("source-receipt", "cleanup-receipt")
+            assert kwargs["produce"](guard) == (
+                "finalization-receipt",
+                "source-receipt",
+                "cleanup-receipt",
+                "setup-cleanup-receipt",
+            )
         signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
         assert stop.is_set()
         if fail:
@@ -239,6 +288,8 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
 
     producer, matching = Mock(return_value=("source-receipt",)), Mock()
     guard, cleanup = Mock(), Mock(return_value=("cleanup-receipt",))
+    expiry = Mock(return_value=0)
+    matching.side_effect = lambda _: expiry.assert_called_once_with(guard)
     monkeypatch.setattr(runtime_background, "configure_background", configure)
     monkeypatch.setattr(runtime_background, "matching_authority", matching)
     monkeypatch.setattr(
@@ -246,6 +297,30 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
     )
     monkeypatch.setattr(
         "parishkit.stewardship.accounts.branding_cleanup.produce_cleanup", cleanup
+    )
+    monkeypatch.setattr(
+        "parishkit.stewardship.accounts.setup_staging.produce_setup_expiry", expiry
+    )
+    finalization = Mock(return_value=("finalization-receipt",))
+    monkeypatch.setattr(
+        "parishkit.stewardship.source.setup_final_production.produce_finalization",
+        finalization,
+    )
+    mail_recovery = Mock(return_value=0)
+    monkeypatch.setattr(
+        "parishkit.stewardship.accounts.campaign_mail_delivery.recover_pending",
+        Mock(return_value=0),
+    )
+    monkeypatch.setattr(
+        "parishkit.stewardship.accounts.setup_mail.recover_pending", mail_recovery
+    )
+    monkeypatch.setattr(
+        "parishkit.stewardship.accounts.setup_notifications.recover_pending",
+        Mock(return_value=0),
+    )
+    monkeypatch.setattr(
+        "parishkit.stewardship.source.setup_cleanup.produce_setup_cleanup",
+        Mock(return_value=("setup-cleanup-receipt",)),
     )
     monkeypatch.setattr("parishkit.stewardship.jobs.processes.serve_consumer", serve)
     monkeypatch.setattr("parishkit.stewardship.jobs.processes.serve_scheduler", serve)
@@ -273,8 +348,13 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
         matching.assert_called_once_with(assembled.store)
         producer.assert_called_once_with(guard)
         cleanup.assert_called_once_with(guard)
+        expiry.assert_called_once_with(guard)
+        mail_recovery.assert_called_once_with()
+        assert guard.check.call_count == 3
     else:
+        mail_recovery.assert_not_called()
         cleanup.assert_not_called()
+        expiry.assert_not_called()
 
 
 def test_background_failed_admission_restores_signals_without_publishing_receipts(

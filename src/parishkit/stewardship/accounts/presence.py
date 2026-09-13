@@ -18,6 +18,7 @@ from parishkit.config import ConfigError
 from parishkit.stewardship.audit.schemas import Action, ActorKind, Outcome
 from parishkit.stewardship.audit.services import record_action
 from parishkit.stewardship.campaigns.credential_models import (
+    PRESENCE_SECTIONS,
     CampaignCredentialState,
     DeploymentCredentialState,
     FamilySession,
@@ -44,9 +45,7 @@ from .limiting import LimiterUnavailable
 from .policy import Capability, allows
 from .sessions import FAMILY_IDLE, authenticated_admin, database_now
 
-SECTIONS = frozenset(
-    {"welcome", "census", "members", "ministry", "financial", "additional", "review"}
-)
+SECTIONS = frozenset(PRESENCE_SECTIONS)
 INTERVAL = timedelta(seconds=30)
 VISIBLE = timedelta(seconds=90)
 
@@ -155,7 +154,13 @@ def _names(configuration, rows):
 
 @require_safe
 def active_families(request):
-    """Admin-only passive read; no answers, codes, email links or session cookies."""
+    """Admin-only passive read with one coherent eligibility/source observation.
+
+    The work lock prevents population reconciliation, mode/epoch selection and
+    source promotion between session filtering and name lookup. A plain READ
+    COMMITTED transaction does not provide that multi-query invariant. Keep the
+    page bounded; no provider IO or unbounded roster is loaded under the lock.
+    """
     try:
         service = admin_runtime()
         actor = principal(request, service, passive=True)

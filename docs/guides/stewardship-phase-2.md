@@ -15,7 +15,34 @@ refreshed `origin/main` tip.
 
 ## Active checkpoint
 
-DAT-03 storage is complete; BG-01 is the next dependency-ready package. The
+The active package is ADM-02: completing initial setup end to end. Source
+refresh, staged initial loading, ephemeral credential exchange, public setup
+forms and the preparation editors are implemented with focused test evidence.
+Expired source cleanup and first-campaign structural/content/share/schedule
+staging and the exact public setup preview are implemented. The readiness-mail
+journal, finite private delivery helper, persisted ephemeral Workspace relay,
+maintained mail dispatch and passive original-Admin delivery UI now have focused
+tests. Optional Slack test delivery and its passive original-Admin UI are also
+implemented and tested. Initial target installation, rollback retention and
+public YAML preparation now have focused PostgreSQL evidence. Initial
+background services and optional-provider mount variants pass live Compose
+startup. Selected financial-window loading, atomic setup finalization, compiled
+worker scheduling and successful catalog disposal are implemented. The explicit
+final confirmation and original-login progress screens are connected, including
+current-policy handoff after completion and selected-YAML restart recognition.
+Post-setup campaign readiness-test mail now has an exact applied-template
+preview, explicit send, restricted installed-mail consumer and non-retrying
+outcome recovery. All six operational Compose cases now pass, including both
+complete install/recreation/ACK profiles and zero-live-fulfillment proof. The
+full database coverage rerun is in progress. The
+[integrated acceptance index](stewardship-phase-2-acceptance.md)
+maps each required demonstration to its executable proof. No Phase 2
+PR exists yet, and the three complete phase review/fix rounds are not complete.
+The chronological checkpoints below record partial progress, not phase exit.
+
+## Historical implementation checkpoints
+
+DAT-03 storage was the first package, followed by BG-01. The
 first internal checkpoint implements normalized
 content-addressed payload tables and snapshot membership maps, server-clock
 task/source fencing, bounded staging, database-verified completeness and
@@ -1000,6 +1027,121 @@ these results do not complete wizard finalization, readiness delivery or the ful
 review gate. The ordinary full suite passes 3,680 tests with 1,981 explicit opt-in
 skips and two existing warnings; those skips are not PostgreSQL/browser evidence.
 Ruff, formatting, edited Markdown and migration-drift checks pass.
+
+### Scheduler-owned setup expiry
+
+The actual scheduler now checks abandoned setup before producing source and
+branding-cleanup tasks. It reads only the original session's identity binding,
+revocation and deadlines, plus current Admin policy; it cannot read session
+keys, Google subjects or Django session payloads. Column grants and the SQL
+owner guard limit it to system-authored expiry, never renewal, cancellation of
+a live session, task rebinding or setup completion. Restore review holds expiry.
+Duplicate sweeps retain one tombstone and one redacted audit event.
+
+The focused PostgreSQL/runtime run passes 75 cases, including exact deployed
+scheduler-role tests. This supplies the runtime expiry fence; removal of all
+remaining staged settings, source and credentials stays with the wizard's
+target-specific cleanup owners.
+
+### Original-login public setup forms
+
+The initial setup route now provides an explicit CSRF-protected start, a passive
+overview and editable Parish profile, additional login rules, public mail/Slack
+settings, Testing recipient and private logo upload. GET/HEAD does not create a
+draft or extend idle expiry. The original bootstrap Admin remains active while
+staged additional rules have no effect. These controls never accept a credential,
+active fingerprint, deployment path or Production switch.
+
+Temporary sections belong to the original attempt/login and use the entire
+attempt's version to reject conflicting tabs. SQL independently checks the
+original live Admin, bootstrap base, declared field vocabulary and lifecycle.
+Cancellation or scheduler expiry clears all public values in the same database
+transaction; retained tombstones cannot be repopulated or deleted. The scheduler
+has scrub-only columns and cannot read the staged settings. Normalized setup
+logos use original-login-only, non-cacheable image URLs and the existing durable
+bundle/cleanup owner. They are never public merely because they are ready.
+
+The ordinary suite passes 3,724 tests with 2,078 explicit opt-in skips and two
+existing warnings; Ruff, formatting, edited Markdown and migration checks pass.
+The focused forms, HTTP, SQL-grant, routing and expiry run passes 73 cases with
+98% coverage of the new forms/services/views. Forty-two new browser cases pass
+across three engines at mobile/desktop widths. This replaces the placeholder
+with real public staging; sealed setup credential intake, staged source loading,
+campaign preparation, provider delivery checks and configured-marker finalization
+remain incomplete. No Phase 2 acceptance or review-gate completion is implied.
+
+### Correlated setup source progress
+
+The original source Task now has a setup-only progress page and a CSRF POST
+renewal endpoint. Passive reads never extend activity. A renewal requires the
+same original login, exact bound Task, live Task/source fences and recent worker
+heartbeats, and is accepted at most once per five minutes. SQL verifies the
+lease evidence independently. Session activity is updated after the SQL renewal
+stamp, preserving consistent deadline ordering. Neither the original two-hour
+watchdog nor the absolute session deadline can move.
+
+The page shows all deadlines and the expected two-to-three-minute normal load.
+Its bounded foreground polling sends only CSRF, stops when hidden/closed or past
+a deadline, and honors terminal server responses. Manual progress forms also
+work without JavaScript. At the watchdog, the server commits setup expiry rather
+than renewing an unhealthy load. The web receives only source-lease observation
+columns, never lease-write authority. Source task creation/execution and complete
+staging cleanup remain with the upcoming loader owner.
+
+Thirty-nine focused policy, real-lease and HTTP tests pass with 97% service/view
+coverage; 54 setup browser checks pass across all three engines. Historical
+creation-time fixtures exercise the hard SQL clock under restored timestamps;
+all guards are enabled during the actual restricted-role renewal assertions.
+
+The first interim dual-model correction pass is recorded in the
+[Phase 2 review ledger](stewardship-phase-2-reviews.md). It found issues and is
+still being corrected; it is not phase acceptance. The reviewed commit's full
+browser run passes all 312 cases.
+
+The next correction checkpoint passes 318 browser cases, 3,765 baseline cases,
+and the focused database runs recorded in that ledger. Full PostgreSQL regression
+is in progress; remaining wizard implementation and the three complete phase
+review/fix rounds are not finished. The
+[setup cancellation decision](stewardship-phase-2-reviews.md#setup-finalization-specification-decision)
+is now approved and reflected in the controlling specifications. Its implementation
+now has a tested original-login cancellation page, immutable request/abort
+journal, installer recovery and temporary-logo cleanup. See the
+[implementation checkpoint](stewardship-phase-2-reviews.md#approved-setup-cancellation-implementation-checkpoint).
+The bootstrap transition parser is explicit; ordinary intake cannot select it.
+Final source/Family/configured-marker activation remains closed until its full
+owner is implemented. No PR, merge, release or deployment is claimed.
+
+The subsequent full PostgreSQL regression passes 1,815 tests. Sealed setup
+credential forms and their separate temporary store now also pass actual
+web/scheduler isolation, cancellation and HTTP tests. They do not enqueue live
+credential installation. The latest baseline passes 3,825 tests, and the new
+form passes six three-engine mobile/desktop browser checks. The
+[latest review-ledger checkpoint](stewardship-phase-2-reviews.md#subsequent-regression-and-credential-intake-checkpoint)
+records which later changes have focused rather than full-suite evidence.
+Continue with the fenced setup credential exchange and staged source loader;
+the overall empty-to-configured demonstration and Phase 2 review cycle remain
+incomplete.
+
+The next [execution checkpoint](stewardship-phase-2-reviews.md#ephemeral-exchange-and-staged-source-execution-checkpoint)
+connects the real ephemeral exchange, original-login Task intake, bounded source
+loader and atomic staging completion. Its 62-case PostgreSQL suite passes with
+91% focused coverage; the baseline passes 3,827 tests. The worker supports a
+bootstrap-only registry without an installed ParishSoft file. Continue with
+abandoned source-row cleanup and the remaining staged campaign/finalization
+owners. This is not the empty-to-configured demonstration or phase completion.
+
+The [source-disposal checkpoint](stewardship-phase-2-reviews.md#expired-setup-source-disposal-checkpoint)
+adds scheduler-owned cleanup after the real source-drain deadline, exact SQL
+deletion restrictions, bounded rollback-safe batches and shared-payload
+preservation. Its combined PostgreSQL regression passes 55 tests with 85%
+focused cleanup coverage. The next setup work is staged first-campaign
+preparation and installer finalization; full Phase 2 acceptance remains open.
+
+The [first-campaign structural checkpoint](stewardship-phase-2-reviews.md#first-campaign-structural-staging-checkpoint)
+passes 27 PostgreSQL cases with 95% focused coverage and six three-engine
+mobile/desktop accessibility cases. It remains original-login temporary data,
+not an active campaign. Continue with wizard content/share/schedule editing,
+provider checks and the final coherent installation workflow.
 
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge
