@@ -18,6 +18,7 @@ from parishkit.stewardship.storage import StaleRecordError, StorageInvariantErro
 from .credential_database import _identity, admit_installer_database
 from .credential_handoff import PrivateHandoff
 from .cryptography import CryptographicError
+from .delivery_results import settle_result
 from .key_files import file_fingerprint
 from .sessions import authenticated_admin, database_now
 from .setup_notification_models import SetupSlackDelivery
@@ -212,12 +213,14 @@ def run_pending(private, *, check):
     with work_transaction():
         current = SetupSlackDelivery.objects.get(pk=row.pk)
         if current.state == "submitting" and current.worker_id == row.worker_id:
-            if database_now() >= current.deadline_at:
-                outcome = DeliveryOutcome.UNKNOWN
-            _change(
-                current,
-                outcome.value,
-                actor_id=row.worker_id,
-                finished_at=database_now(),
+            settle_result(
+                outcome,
+                deadline=current.deadline_at,
+                write=lambda result: _change(
+                    current,
+                    result.value,
+                    actor_id=row.worker_id,
+                    finished_at=database_now(),
+                ),
             )
     return True

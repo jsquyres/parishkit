@@ -247,8 +247,9 @@ def test_recovery_waits_for_both_fences_and_never_retries(
         )
 
 
+@pytest.mark.parametrize("crossing", [False, True])
 def test_expired_helper_outcome_is_unknown_even_with_live_task(
-    setup_service, monkeypatch, tmp_path
+    setup_service, monkeypatch, tmp_path, crossing
 ):
     """A result arriving outside the finite helper deadline cannot claim readiness."""
     _, _, _, _, delivery = prepared(setup_service, monkeypatch, tmp_path)
@@ -256,6 +257,13 @@ def test_expired_helper_outcome_is_unknown_even_with_live_task(
         owner = claim(delivery)
         begin_submission(delivery.identifier, owner)
     age_delivery(delivery.identifier)
+    if crossing:
+        from parishkit.stewardship.accounts import delivery_results
+
+        original = delivery_results.database_now
+        before = SetupMailDelivery.objects.get(pk=delivery.identifier).deadline_at
+        calls = iter([before - timedelta(seconds=1), original()])
+        monkeypatch.setattr(delivery_results, "database_now", lambda: next(calls))
     with task_login(ServiceRole.MAIL_DISPATCH, exact=True):
         result = finish_submission(delivery.identifier, owner, DeliveryOutcome.ACCEPTED)
         assert result.state == "delivery_unknown"

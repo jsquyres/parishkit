@@ -175,7 +175,17 @@ def _execute(execution, *, credential_path):
         raise
     except Exception:
         if not submitted:
-            execution.transition("permanent_failure")
+            # Cancellation can win the locked begin-submission recheck. Select
+            # its disposition and transition under the same claim/work locks,
+            # rather than abandoning an already safely cancelled journal.
+            with execution.control.lock, work_transaction():
+                status = _status(lock_task_claim(execution.claim))
+                current = bound_delivery(status)
+                execution.transition(
+                    "safe_cancel"
+                    if current.state == "cancelled"
+                    else "permanent_failure"
+                )
             return
         outcome = DeliveryOutcome.UNKNOWN
     result = finish_submission(row.pk, execution.claim, outcome)

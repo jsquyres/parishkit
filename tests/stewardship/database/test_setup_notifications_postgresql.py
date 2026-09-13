@@ -190,6 +190,16 @@ def test_lost_owner_retains_submission_until_timed_metadata_recovery(
     assert SetupSlackDelivery.objects.get().state == "submitting"
     with task_login(ServiceRole.SCHEDULER, exact=True):
         assert notifications.recover_pending() == 0
+    age_notification()
+    with task_login(ServiceRole.SCHEDULER, exact=True):
+        assert notifications.recover_pending() == 1
+        assert notifications.recover_pending() == 0
+    assert SetupSlackDelivery.objects.get().state == "delivery_unknown"
+    provider.assert_called_once()
+
+
+def age_notification():
+    """Install elapsed fixture instants with all guards restored before settlement."""
     # Install historical fixture instants, then restore all production guards.
     with transaction.atomic(), connection.cursor() as cursor:
         cursor.execute(
@@ -206,11 +216,40 @@ def test_lost_owner_retains_submission_until_timed_metadata_recovery(
             cursor.execute(
                 "ALTER TABLE stewardship_setup_slack_delivery ENABLE TRIGGER USER"
             )
-    with task_login(ServiceRole.SCHEDULER, exact=True):
-        assert notifications.recover_pending() == 1
-        assert notifications.recover_pending() == 0
+
+
+def test_slack_deadline_crossing_settles_unknown_in_same_owned_call(
+    setup_service, monkeypatch, tmp_path
+):
+    """A Python pre-deadline read cannot defeat the SQL result-time boundary."""
+    from parishkit.stewardship.accounts import delivery_results
+
+    ready(setup_service, monkeypatch, tmp_path)
+
+    def accepted(*args, **kwargs):
+        """Model elapsed provider time only as the disposable schema owner."""
+        with connection.cursor() as cursor:
+            cursor.execute("RESET SESSION AUTHORIZATION")
+        try:
+            age_notification()
+            deadline = SetupSlackDelivery.objects.get().deadline_at
+            ticks = iter(
+                [deadline - timedelta(seconds=1), notifications.database_now()]
+            )
+            monkeypatch.setattr(delivery_results, "database_now", lambda: next(ticks))
+        finally:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    'SET SESSION AUTHORIZATION "pk_stewardship_credential_slack"'
+                )
+        return DeliveryOutcome.ACCEPTED
+
+    monkeypatch.setattr(notifications, "submit_notification", accepted)
+    with target_login("slack", reconnect=True):
+        assert notifications.run_pending(
+            key("slack", material=b"n" * 32), check=lambda: None
+        )
     assert SetupSlackDelivery.objects.get().state == "delivery_unknown"
-    provider.assert_called_once()
 
 
 def test_changed_channel_cancels_old_intent_instead_of_retargeting_it(
@@ -237,7 +276,7 @@ def test_changed_channel_cancels_old_intent_instead_of_retargeting_it(
     send.assert_not_called()
 
 
-def test_unrelated_service_cannot_read_or_submit_notification(
+def test_unrelated_service_cannot_submit_notification(
     setup_service, monkeypatch, tmp_path
 ):
     """The Slack journal adds no private authority to Workspace or general workers."""
@@ -247,13 +286,13 @@ def test_unrelated_service_cannot_read_or_submit_notification(
         pytest.raises(DatabaseError),
         transaction.atomic(),
     ):
-        SetupSlackDelivery.objects.count()
+        SetupSlackDelivery.objects.update(state="submitting", version=F("version") + 1)
     with (
         target_login("google_workspace"),
         pytest.raises(DatabaseError),
         transaction.atomic(),
     ):
-        SetupSlackDelivery.objects.count()
+        SetupSlackDelivery.objects.update(state="submitting", version=F("version") + 1)
 
 
 def test_wrong_private_key_records_unsent_without_a_provider_call(

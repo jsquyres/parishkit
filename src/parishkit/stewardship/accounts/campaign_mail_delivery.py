@@ -13,6 +13,7 @@ from parishkit.stewardship.storage import StorageInvariantError
 from .campaign_mail import live
 from .campaign_mail_models import CampaignMailTest
 from .credential_database import _identity
+from .delivery_results import settle_result
 from .sessions import database_now
 
 
@@ -75,10 +76,12 @@ def finish_submission(identifier, claim, outcome):
             claim.worker_id,
         ):
             raise PermissionError("Only the original campaign submission can finish.")
-        if database_now() >= row.deadline_at:
-            outcome = DeliveryOutcome.UNKNOWN
-        return _change(
-            row, outcome.value, finished_at=database_now(), actor_id=claim.worker_id
+        return settle_result(
+            outcome,
+            deadline=row.deadline_at,
+            write=lambda result: _change(
+                row, result.value, finished_at=database_now(), actor_id=claim.worker_id
+            ),
         )
 
 
