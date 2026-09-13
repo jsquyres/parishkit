@@ -50,13 +50,17 @@ def test_cleanup_failure_rolls_back_metadata_memberships_and_payloads(
 def test_new_pin_winning_the_row_lock_prevents_cleanup(history):
     """An uncommitted pin wins even when cleanup's first query cannot see it."""
     entered, finish = Event(), Event()
+    parent_id = uuid4()
 
     def pinning():
         """Hold the parent's transaction open while compaction attempts selection."""
         try:
             with transaction.atomic():
                 pin = pin_snapshot(
-                    history[0].pk, parent_kind="report", parent_id=uuid4(), admit=permit
+                    history[0].pk,
+                    parent_kind="report",
+                    parent_id=parent_id,
+                    admit=permit,
                 )
                 entered.set()
                 assert finish.wait(10)
@@ -73,7 +77,9 @@ def test_new_pin_winning_the_row_lock_prevents_cleanup(history):
             finish.set()
         pin_id = future.result()
     assert cleanup().snapshot_count == 0
-    release_snapshot_pin(pin_id, admit=permit)
+    release_snapshot_pin(
+        pin_id, parent_kind="report", parent_id=parent_id, admit=permit
+    )
     assert cleanup().snapshot_count == 1
 
 

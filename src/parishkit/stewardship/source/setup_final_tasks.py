@@ -110,7 +110,7 @@ def admit_finalization_task(action, status, *, store):
         plan = recovery_plan(status, store=store)
         return plan is not None and (action == "recovery_hint" or action == plan.action)
     if action in {"retryable_failure", "permanent_failure", "safe_cancel"}:
-        return SourceMutationLease.objects.get(singleton=True).owner_id is None
+        return SourceMutationLease.objects.get(singleton=True).owner_id != status.run_id
     require_final_task(status, store=store)
     if action in {"claim", "hint"}:
         return source_available()

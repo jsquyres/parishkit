@@ -181,10 +181,14 @@ def complete_setup_load(execution, claim):
                 fence=execution.claim.fence,
                 admit=admit_setup_task,
             )
-            SetupAttempt.objects.filter(pk=attempt.pk, version=attempt.version).update(
+            changed = SetupAttempt.objects.filter(
+                pk=attempt.pk, version=attempt.version
+            ).update(
                 state="collecting",
                 actor_id=attempt.owner_id,
                 correlation_id=execution.correlation_id,
                 version=F("version") + 1,
             )
+            if changed != 1:
+                raise StorageInvariantError("Setup changed before source completion.")
         execution.control.finished.set()

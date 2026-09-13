@@ -123,6 +123,8 @@ def compact_facts(campaign_id, claim, *, admit, limit=50):
             ):
                 release_snapshot_pin(
                     pin.pk,
+                    parent_kind="facts",
+                    parent_id=identifier,
                     admit=lambda *args, inputs=inputs: admit("compact", inputs),
                 )
             record_action(

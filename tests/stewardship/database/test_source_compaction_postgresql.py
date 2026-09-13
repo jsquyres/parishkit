@@ -154,8 +154,27 @@ def test_retained_parent_pins_override_compaction_until_explicit_release(history
     pin = pin_snapshot(history[0].pk, parent_kind=kind, parent_id=uuid4(), admit=permit)
     assert cleanup().snapshot_count == 0
     assert reconstruct_snapshot(history[0].pk)
-    assert release_snapshot_pin(pin.pk, admit=permit)
-    assert not release_snapshot_pin(pin.pk, admit=permit)
+    assert not release_snapshot_pin(
+        pin.pk, parent_kind=kind, parent_id=uuid4(), admit=permit
+    )
+    assert not release_snapshot_pin(
+        pin.pk, parent_kind="different", parent_id=pin.parent_id, admit=permit
+    )
+    assert cleanup().snapshot_count == 0
+    observed = []
+
+    def owning_admission(action, selected):
+        """The retained parent's actual pin is available for owning authorization."""
+        observed.append((action, selected.pk, selected.parent_kind, selected.parent_id))
+        return True
+
+    assert release_snapshot_pin(
+        pin.pk, parent_kind=kind, parent_id=pin.parent_id, admit=owning_admission
+    )
+    assert observed == [("unpin", pin.pk, kind, pin.parent_id)]
+    assert not release_snapshot_pin(
+        pin.pk, parent_kind=kind, parent_id=pin.parent_id, admit=permit
+    )
     assert cleanup().snapshot_count == 1
 
 

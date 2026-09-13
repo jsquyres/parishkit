@@ -8,6 +8,7 @@ from uuid import uuid4
 import pytest
 from django.test import Client
 
+from parishkit.config import ConfigError
 from parishkit.stewardship.accounts.key_files import write_private
 from parishkit.stewardship.accounts.setup_completion import setup_is_complete
 from parishkit.stewardship.accounts.setup_models import SetupAttempt
@@ -34,6 +35,28 @@ from .test_setup_views_postgresql import setup_http  # noqa: F401
 from .test_source_refreshing_postgresql import fake_provider
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+
+def test_incoherent_finalization_does_not_abort_scheduler_tick(
+    setup_http, monkeypatch, tmp_path, config_role
+):
+    """An actual prepared receipt with unreadable YAML is ineligible, not fatal."""
+    from parishkit.stewardship.accounts.authority import AuthorityStore
+
+    prepared(setup_http, monkeypatch, tmp_path)
+    original = AuthorityStore.active
+
+    def unavailable(store):
+        """Fail only this installation's selection read, not unrelated metadata."""
+        if store is setup_http.store:
+            raise ConfigError("Synthetic incoherent selection.")
+        return original(store)
+
+    monkeypatch.setattr(AuthorityStore, "active", unavailable)
+    with task_login(ServiceRole.SCHEDULER, exact=True), scheduler_session() as guard:
+        assert produce_finalization(setup_http.store, guard) == ()
+        guard.check()
+        assert not TaskRun.objects.filter(task_type=TASK_TYPE).exists()
 
 
 @pytest.mark.parametrize("failure", [None, "credential", "invalid_source"])

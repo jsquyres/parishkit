@@ -19,6 +19,7 @@ from parishkit.stewardship.reports.models import (
     CampaignDailyFactSet,
     FactCompactionRecord,
 )
+from parishkit.stewardship.reports.recovery import fail_fact_set, recover_fact_set
 from parishkit.stewardship.reports.retention import (
     compact_facts,
     pin_facts,
@@ -28,6 +29,7 @@ from parishkit.stewardship.source.pins import release_snapshot_pin
 from parishkit.stewardship.source.snapshot_models import SourceSnapshotPin
 
 from .fact_builders import fact_fixture, staged_facts
+from .test_fact_recovery_postgresql import retire
 from .test_source_snapshots_postgresql import permit
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -62,6 +64,25 @@ def test_whole_compaction_is_idempotent_and_keeps_source_manifest_and_evidence(
         pin_facts(old.pk, parent_kind="export", parent_id=uuid4(), admit=permit)
 
 
+@pytest.mark.parametrize("failed", [False, True])
+def test_newer_ready_inputs_do_not_destroy_recoverable_old_work(tmp_path, failed):
+    """A dead builder and newer watermark do not revoke exact-input recovery."""
+    inputs, owner, source = fact_fixture(tmp_path)
+    old, _ = staged_facts(inputs, owner, source)
+    if failed:
+        fail_fact_set(old.pk, owner, code="interrupted", admit=permit)
+    replacement = retire(owner)
+    newer, _ = staged_facts(
+        replace(inputs, submission_watermark=2), replacement, source
+    )
+    publish_fact_set(newer.pk, replacement, admit=permit, interactive=True)
+    assert compact_facts(inputs.campaign_id, replacement, admit=permit) == []
+    assert SourceSnapshotPin.objects.filter(parent_id=old.pk).exists()
+    assert recover_fact_set(old.pk, replacement, admit=permit).state == "building"
+    assert publish_fact_set(old.pk, replacement, admit=permit).state == "ready"
+    assert compact_facts(inputs.campaign_id, replacement, admit=permit) == [old.pk]
+
+
 @pytest.mark.parametrize(
     "kind", ["export", "digest", "render", "verification", "work", "operator"]
 )
@@ -82,7 +103,9 @@ def test_source_input_pin_cannot_be_released_while_its_facts_remain(tmp_path):
     _, _, old, _ = superseded(tmp_path)
     pin = SourceSnapshotPin.objects.get(parent_kind="facts", parent_id=old.pk)
     with pytest.raises(IntegrityError, match="still require"):
-        release_snapshot_pin(pin.pk, admit=permit)
+        release_snapshot_pin(
+            pin.pk, parent_kind=pin.parent_kind, parent_id=pin.parent_id, admit=permit
+        )
 
 
 def test_a_partial_raw_delete_cannot_commit(tmp_path):

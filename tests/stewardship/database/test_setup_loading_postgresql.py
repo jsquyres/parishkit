@@ -4,6 +4,7 @@
 
 import pytest
 from django.db import DatabaseError, connection, transaction
+from django.db.models.query import QuerySet
 
 from parishkit.stewardship.accounts.setup_drafts import save_section
 from parishkit.stewardship.accounts.setup_exchange_models import SetupSourceResult
@@ -18,6 +19,7 @@ from parishkit.stewardship.jobs.models import TaskRun
 from parishkit.stewardship.jobs.ownership import TaskClaim
 from parishkit.stewardship.jobs.queues import WorkQueue
 from parishkit.stewardship.source.credentials import SourceCredential
+from parishkit.stewardship.source.models import SourceMutationLease
 from parishkit.stewardship.source.setup_admission import admit_setup_task
 from parishkit.stewardship.source.setup_exchange import (
     publish_recipient,
@@ -135,6 +137,31 @@ def test_completion_restores_collecting_but_not_configured(setup_service, monkey
     assert SetupAttempt.objects.get().state == "collecting"
     assert values[0].control.finished.is_set()
     assert SourceCurrent.objects.get().snapshot_id is None
+    assert not setup_service.configured()
+
+
+def test_failed_attempt_completion_rolls_back_task_and_source_release(
+    setup_service, monkeypatch
+):
+    """A missed final attempt update cannot leave a false-success Task receipt."""
+    values = prepared(setup_service)
+    fake_provider(monkeypatch, pages())
+    original = QuerySet.update
+
+    def update(query, **fields):
+        """Report a lost version after the real update to prove whole-unit rollback."""
+        count = original(query, **fields)
+        if query.model is SetupAttempt and fields.get("state") == "collecting":
+            return 0
+        return count
+
+    monkeypatch.setattr(QuerySet, "update", update)
+    with pytest.raises(StorageInvariantError):
+        run(*values, complete=True)
+    assert TaskRun.objects.get().state == "running"
+    assert SetupAttempt.objects.get().state == "loading"
+    assert SourceMutationLease.objects.get().owner_id == values[0].claim.run_id
+    assert not values[0].control.finished.is_set()
     assert not setup_service.configured()
 
 
