@@ -126,6 +126,12 @@ PostgreSQL regression passes 59 cases with 87% new-service coverage, plus two
 additional child-rollback rejection tests. Consumer mounting/recreation and
 atomic final source/Family/configuration activation still prevent closing ADM-02.
 
+The [initial runtime checkpoint](../../guides/stewardship-phase-2-reviews.md#initial-background-runtime-and-provider-mount-variants)
+adds generated provider-mount variants and actual initial worker/scheduler/mail
+startup. It passes 134 focused tests and two rebuilt-image Compose scenarios.
+Finalization and the complete initial install/recreation/ACK demonstration still
+prevent closing ADM-02.05/.06.
+
 ## ADM-03: Navigation, dashboard, indicators, and configuration
 
 Scope and dependencies: [ADM-03 work package](../../plans/stewardship/admin-portal.md#adm-03-navigation-dashboard-indicators-and-configuration).

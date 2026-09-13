@@ -565,3 +565,27 @@ warnings. Ruff, formatting and migration drift checks pass. Actual initial
 consumer mounting/recreation, selected financial coverage and atomic source/
 Family/configuration completion remain open; this is not a completed phase
 review round or a complete ADM-02 workflow.
+
+### Initial background runtime and provider mount variants
+
+Provisioning now emits complete initial, configured-without-Slack and
+configured-with-Slack Compose selections using the same service identities and
+durable storage. Initial worker/mail profiles omit files that the wizard has
+not installed. Mail dispatch has its own SQL/Valkey identity and budget;
+only the three provider targets gain outbound validation access. The
+[runtime guide](stewardship-runtime.md#first-database-and-application-startup)
+documents whole-service recreation and actual-consumer acknowledgement.
+
+Live startup uncovered and corrected pre-Django model imports in background
+assembly and process startup. Fresh-process regressions now prevent pytest's
+preconfigured registry from hiding that failure. Mail admission verifies the
+exact public YAML/SQL document without loading unused parish projections or
+expanding its restricted SQL privileges.
+
+All 134 focused runtime/provisioning tests pass. Both rebuilt-image initial
+Compose scenarios pass, covering development and production-shaped startup,
+actual worker/scheduler/mail liveness, private mount selection and existing
+foundation isolation checks. The full baseline passes 4,047 tests with 2,421
+explicit profile skips and two existing warnings. Ruff and formatting pass.
+The atomic finalization owner, real initial provider-install/recreation/ACK
+demonstration and full Phase 2 review gate remain open.

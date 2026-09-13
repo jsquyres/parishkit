@@ -13,6 +13,53 @@ from parishkit.stewardship.deployment import ServiceRole
 from .test_runtime_topology import configuration_at
 
 
+@pytest.mark.parametrize("entry", ["configuration", "process"])
+def test_fresh_process_admission_precedes_django_model_imports(entry):
+    """Pytest's initialized app registry cannot conceal a cold-start import bug."""
+    import os
+    import subprocess
+    import sys
+
+    script = """
+import sys
+from dataclasses import replace
+from threading import Event
+from types import SimpleNamespace
+from django.conf import settings
+from parishkit.stewardship.deployment import ServiceRole, load_deployment
+from parishkit.stewardship import runtime_background, runtime_process
+from parishkit.stewardship import service_boundaries
+assert not settings.configured
+configuration = replace(load_deployment(environ={}), service_role=ServiceRole.WORKER)
+def stop(*args, **kwargs):
+    raise RuntimeError('reached-admission')
+try:
+    if sys.argv[1] == 'configuration':
+        service_boundaries.admit_online_service = stop
+        runtime_background.configure_background(
+            configuration, stop=Event(), heartbeat=lambda: None)
+    else:
+        runtime_background.configure_background = stop
+        runtime_process.serve_background(
+            configuration, SimpleNamespace(check=lambda: None))
+except RuntimeError as error:
+    assert str(error) == 'reached-admission'
+else:
+    raise AssertionError('Admission was not reached')
+assert not settings.configured
+"""
+    environment = dict(os.environ)
+    environment.pop("DJANGO_SETTINGS_MODULE", None)
+    result = subprocess.run(
+        [sys.executable, "-c", script, entry],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stderr
+
+
 @pytest.fixture
 def admitted_configuration(tmp_path, monkeypatch):
     """Use real purpose-key files; substitute only kernel/SQL process admission."""
@@ -201,7 +248,8 @@ def test_mail_runtime_requires_working_key_except_for_coherent_bootstrap(
         ),
     )
     monkeypatch.setattr(
-        "parishkit.stewardship.accounts.configuration_installation.coherent_configuration",
+        background,
+        "mail_authority",
         lambda _: active,
     )
     if not bootstrap and not installed:
@@ -250,6 +298,53 @@ def test_mail_runtime_rejects_mismatched_public_private_key_inventories(
             configuration, stop=Event(), heartbeat=lambda: None
         )
     assert "django" not in calls
+
+
+@pytest.mark.parametrize(
+    "change",
+    [None, "missing_yaml", "missing_sql", "pointer", "digest", "document", "race"],
+)
+def test_mail_authority_requires_exact_document_and_stable_pointer(monkeypatch, change):
+    """A read-only consumer cannot accept stale or differently projected authority."""
+    from uuid import uuid4
+
+    from parishkit.stewardship.accounts.runtime_models import SystemConfiguration
+
+    identifier, digest = uuid4(), "a" * 64
+    document = {"synthetic": "public configuration"}
+    selected = SimpleNamespace(
+        version_id=identifier, digest=digest, document=lambda: document
+    )
+    projection = SimpleNamespace(digest=digest, canonical_document=document)
+    runtime = SimpleNamespace(
+        active_configuration_id=identifier, active_configuration=projection
+    )
+    reference = (identifier, digest)
+    if change == "missing_yaml":
+        selected = None
+    elif change == "missing_sql":
+        runtime = None
+    elif change == "pointer":
+        runtime.active_configuration_id = uuid4()
+    elif change == "digest":
+        projection.digest = "b" * 64
+    elif change == "document":
+        projection.canonical_document = {}
+    elif change == "race":
+        reference = (uuid4(), digest)
+    store = SimpleNamespace(
+        active=lambda: selected, manifest_reference=lambda: reference
+    )
+    monkeypatch.setattr(
+        SystemConfiguration.objects,
+        "select_related",
+        lambda *args: SimpleNamespace(first=lambda: runtime),
+    )
+    if change is None:
+        assert background.mail_authority(store) is runtime
+    else:
+        with pytest.raises(ConfigError, match="requires recovery"):
+            background.mail_authority(store)
 
 
 @pytest.mark.parametrize("bootstrap", [True, False])

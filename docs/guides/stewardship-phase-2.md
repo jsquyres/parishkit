@@ -23,8 +23,11 @@ staging and the exact public setup preview are implemented. The readiness-mail
 journal, finite private delivery helper, persisted ephemeral Workspace relay,
 maintained mail dispatch and passive original-Admin delivery UI now have focused
 tests. Optional Slack test delivery and its passive original-Admin UI are also
-implemented and tested. Initial credential installation/consumer mounting,
-selected financial-window loading and atomic setup finalization remain open.
+implemented and tested. Initial target installation, rollback retention and
+public YAML preparation now have focused PostgreSQL evidence. Initial
+background services and optional-provider mount variants pass live Compose
+startup; the full install/recreation/ACK demonstration, selected financial-window
+loading and atomic setup finalization remain open.
 The internal exact-confirmation transaction now pins readiness and freezes one
 configuration request, but no final confirmation UI is exposed before its
 installation/activation consumer is complete. No Phase 2

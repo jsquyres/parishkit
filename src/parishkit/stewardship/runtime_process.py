@@ -307,16 +307,9 @@ def serve_background(configuration, lease):
     """Assemble one admitted queue process and retain exclusion through final drain."""
     from uuid import uuid4
 
-    from .accounts.branding_cleanup import produce_cleanup
-    from .accounts.setup_mail import recover_pending as recover_setup_mail
-    from .accounts.setup_notifications import recover_pending as recover_setup_slack
-    from .accounts.setup_staging import produce_setup_expiry
     from .consumer_runtime import publish_single_process_receipts
     from .installer_health import publish_heartbeat
-    from .jobs.processes import serve_consumer, serve_scheduler
     from .runtime_background import configure_background, matching_authority
-    from .source.production import SourceProducer
-    from .source.setup_cleanup import produce_setup_cleanup
 
     stop = StopEvent()
 
@@ -336,6 +329,16 @@ def serve_background(configuration, lease):
     try:
         lease.check()
         assembled = configure_background(configuration, stop=stop, heartbeat=heartbeat)
+        # Model-dependent runtime owners may be imported only after the fresh
+        # process has configured Django and admitted its SQL identity.
+        from .accounts.branding_cleanup import produce_cleanup
+        from .accounts.setup_mail import recover_pending as recover_setup_mail
+        from .accounts.setup_notifications import recover_pending as recover_setup_slack
+        from .accounts.setup_staging import produce_setup_expiry
+        from .jobs.processes import serve_consumer, serve_scheduler
+        from .source.production import SourceProducer
+        from .source.setup_cleanup import produce_setup_cleanup
+
         publish_single_process_receipts(configuration, assembled.receipts)
         emit(Event.STARTUP_VALIDATED)
         if configuration.service_role in {
@@ -380,9 +383,11 @@ def serve_background(configuration, lease):
             signal.signal(sig, handler)
         if assembled is not None:
             assembled.broker.app.close()
+        from django.conf import settings
         from django.db import connections
 
-        connections.close_all()
+        if settings.configured:
+            connections.close_all()
 
 
 def execute_runtime(args):

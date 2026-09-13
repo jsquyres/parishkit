@@ -39,6 +39,29 @@ def matching_authority(store):
         raise ConfigError("Background configuration changed during admission.")
 
 
+def mail_authority(store):
+    """Verify exact public authority without loading unused parish projections.
+
+    The setup mail consumer uses its immutable delivery journal, not campaign or
+    parish projection rows. Compare the validated YAML document with the frozen
+    SQL document and pointer instead of expanding its database read authority.
+    """
+    from .accounts.runtime_models import SystemConfiguration
+
+    selected = store.active()
+    runtime = SystemConfiguration.objects.select_related("active_configuration").first()
+    if (
+        selected is None
+        or runtime is None
+        or runtime.active_configuration_id != selected.version_id
+        or runtime.active_configuration.digest != selected.digest
+        or runtime.active_configuration.canonical_document != selected.document()
+        or store.manifest_reference() != (selected.version_id, selected.digest)
+    ):
+        raise ConfigError("Mail configuration requires recovery.")
+    return runtime
+
+
 def bind_authority(handlers, store, *, heartbeat=None):
     """Preserve compiled execution while adding fresh file/SQL checks to admission."""
     from dataclasses import replace
@@ -116,7 +139,6 @@ def scheduler_handlers():
 def configure_background(configuration, *, stop, heartbeat):
     """Assemble in a fresh process only after kernel mounts and real SQL admission."""
     from .accounts.metrics_credentials import credential_receipt
-    from .jobs.broker import build_broker
     from .operator_commands import configure_operator_database
     from .runtime_grants import admit_runtime_database
     from .runtime_web import admit_lifecycle_mounts
@@ -165,6 +187,10 @@ def configure_background(configuration, *, stop, heartbeat):
     except (TypeError, ValueError, UnicodeError):
         raise ConfigError("An individual broker credential is required.") from None
     configure_operator_database(configuration)
+    # A fresh runtime has no Django settings/app registry until this point.
+    # Broker/dispatcher imports transitively define storage models.
+    from .jobs.broker import build_broker
+
     admit_runtime_database(configuration)
     from django.db import connections
 
@@ -173,7 +199,11 @@ def configure_background(configuration, *, stop, heartbeat):
     from .accounts.configuration_schema import validate_sections
 
     store = AuthorityStore(configuration.paths["authority"], validate_sections)
-    active = coherent_configuration(store)
+    active = (
+        mail_authority(store)
+        if role is ServiceRole.MAIL_DISPATCH
+        else coherent_configuration(store)
+    )
     if (
         role is ServiceRole.WORKER
         and "parishsoft" not in loaded
