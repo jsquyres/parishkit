@@ -106,10 +106,20 @@ def test_future_period_reads_pledges_but_no_future_contributions(tmp_path):
     assert len(client.session.calls) == 2
 
 
-def test_out_of_period_pledge_history_is_never_returned_for_staging(tmp_path):
+@pytest.mark.parametrize("amount", [1200, None, "legacy", 1.001])
+def test_out_of_period_pledge_history_is_never_returned_for_staging(tmp_path, amount):
     """Selected fund history is transient and never widens the retained window."""
     result, _ = read(
-        tmp_path, [pledge(), pledge(2, pledgeStartDate="2022-01-01", familyID=999)]
+        tmp_path,
+        [
+            pledge(),
+            pledge(
+                2,
+                pledgeStartDate="2022-01-01",
+                familyID=999,
+                currentPledgeAmount=amount,
+            ),
+        ],
     )
     assert set(result.pledges) == {"1"}
     assert "999" not in str(result)
