@@ -32,6 +32,15 @@ REQUEST_SCHEMA = "parish-integrations-patch-v1"
 POLICY_REQUEST_SCHEMA = "foundation-policy-patch-v2"
 CAMPAIGN_REQUEST_SCHEMA = "campaign-foundation-patch-v3"
 CREDENTIAL_REQUEST_SCHEMA = "integration-credential-patch-v6"
+MANUAL_POLICY_REQUEST_SCHEMAS = frozenset(
+    {
+        POLICY_REQUEST_SCHEMA,
+        CAMPAIGN_REQUEST_SCHEMA,
+        MINISTRY_REQUEST_SCHEMA,
+        CONTENT_REQUEST_SCHEMA,
+        cadence.REQUEST_SCHEMA,
+    }
+)
 
 
 def _invalid():

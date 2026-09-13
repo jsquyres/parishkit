@@ -25,7 +25,7 @@ from .configuration_snapshots import is_prepared, prepare_snapshot
 from .installation_lock import installation_lock
 from .request_admission import intake_base
 from .request_models import ConfigurationChangeRequest, ConfigurationRequestCheckpoint
-from .request_patch import build_candidate
+from .request_patch import MANUAL_POLICY_REQUEST_SCHEMAS, build_candidate
 from .runtime_models import ConfigurationActivation, SystemConfiguration
 
 
@@ -404,12 +404,7 @@ def _install_request(store, *, request, correlation_id, admit_campaign=None):
                     candidate_id=request.candidate_version_id,
                     request_schema=request.request_schema,
                 )
-                if request.request_schema in {
-                    "foundation-policy-patch-v2",
-                    "campaign-foundation-patch-v3",
-                    "ministry-activity-patch-v4",
-                    "campaign-content-patch-v5",
-                }:
+                if request.request_schema in MANUAL_POLICY_REQUEST_SCHEMAS:
                     from .policy_schema import validate_manual_operation
 
                     validate_manual_operation(

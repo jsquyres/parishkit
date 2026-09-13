@@ -169,10 +169,14 @@ def test_nightly_only_edit_uses_parish_time_and_real_scheduler_receipt(
     assert browser.get(URL).status_code == 200
 
 
-def test_cadence_upgrade_does_not_bypass_manual_grant_provenance(auth_service):
+@pytest.mark.parametrize("direct_insert", [False, True])
+def test_cadence_upgrade_does_not_bypass_manual_grant_provenance(
+    auth_service, direct_insert
+):
     """A structurally valid new rule still must identify this precise request."""
     from parishkit.config import ConfigError
     from parishkit.stewardship.accounts.configuration_requests import record_request
+    from parishkit.stewardship.accounts.request_patch import build_candidate
 
     base = auth_service.store.active()
     integration = base.document()["sections"]["integrations"][0]
@@ -189,15 +193,40 @@ def test_cadence_upgrade_does_not_bypass_manual_grant_provenance(auth_service):
         },
         {"operation": "add", "section": "login_rules", **rule},
     ]
-    with pytest.raises(ConfigError):
-        record_request(
-            base_digest=base.digest,
-            patch=patch,
+    if direct_insert:
+        # A valid digest/patch cannot hide wrong provenance from the installer,
+        # even if a producer bypasses the ordinary intake helper entirely.
+        intent = build_candidate(
+            base,
+            patch,
+            candidate_id=uuid4(),
+            request_schema="source-cadence-patch-v8",
+        )
+        request = ConfigurationChangeRequest.objects.create(
             actor_id=uuid4(),
             request_key=uuid4(),
-            correlation_id=uuid4(),
+            request_schema="source-cadence-patch-v8",
+            base_id=base.version_id,
+            patch=intent.patch(),
+            payload_fingerprint=intent.payload_fingerprint,
+            candidate_version_id=intent.candidate.version_id,
+            candidate_digest=intent.candidate.digest,
         )
-    assert not ConfigurationChangeRequest.objects.exists()
+        result = install_request(
+            auth_service.store, request_id=request.pk, correlation_id=uuid4()
+        )
+        assert result.state == "failed" and result.failure_code == "invalid_candidate"
+        assert auth_service.store.active() == base
+    else:
+        with pytest.raises(ConfigError):
+            record_request(
+                base_digest=base.digest,
+                patch=patch,
+                actor_id=uuid4(),
+                request_key=uuid4(),
+                correlation_id=uuid4(),
+            )
+        assert not ConfigurationChangeRequest.objects.exists()
 
 
 @pytest.mark.parametrize(

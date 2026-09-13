@@ -26,7 +26,7 @@ from .request_admission import check_historical_additions, intake_base
 from .request_models import ConfigurationChangeRequest, ConfigurationRequestCheckpoint
 from .request_patch import (
     CREDENTIAL_REQUEST_SCHEMA,
-    POLICY_REQUEST_SCHEMA,
+    MANUAL_POLICY_REQUEST_SCHEMAS,
     build_candidate,
     default_schema,
 )
@@ -199,13 +199,7 @@ def record_request(
         identifier = (
             existing.pk if existing else policy_operation_id(actor_id, request_key)
         )
-        if schema in {
-            POLICY_REQUEST_SCHEMA,
-            "campaign-foundation-patch-v3",
-            "ministry-activity-patch-v4",
-            "campaign-content-patch-v5",
-            "source-cadence-patch-v8",
-        }:
+        if schema in MANUAL_POLICY_REQUEST_SCHEMAS:
             from .policy_schema import validate_manual_operation
 
             validate_manual_operation(
