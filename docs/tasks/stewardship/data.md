@@ -162,15 +162,30 @@ credential, submission/outbox, readiness, restore and purge integration.
 
 Scope and dependencies: [DAT-03 work package](../../plans/stewardship/data.md#dat-03-versioned-parishsoft-source-corpus).
 
-- [ ] DAT-03.01 — Implement normalized source snapshot records.
-- [ ] DAT-03.02 — Implement immutable payload digests and deduplication.
-- [ ] DAT-03.03 — Implement atomic source promotion and current indexes.
-- [ ] DAT-03.04 — Implement fenced SourceMutationLease.
-- [ ] DAT-03.05 — Implement compaction metadata and retention anchors.
-- [ ] DAT-03.06 — Implement daily facts, rebuild-demand constraints, and compaction guards.
-- [ ] DAT-03.07 — Test staging, promotion, facts, references, and compaction.
+- [x] DAT-03.01 — Implement normalized source snapshot records.
+- [x] DAT-03.02 — Implement immutable payload digests and deduplication.
+- [x] DAT-03.03 — Implement atomic source promotion and current indexes.
+- [x] DAT-03.04 — Implement fenced SourceMutationLease.
+- [x] DAT-03.05 — Implement compaction metadata and retention anchors.
+- [x] DAT-03.06 — Implement daily facts, rebuild-demand constraints, and compaction guards.
+- [x] DAT-03.07 — Test staging, promotion, facts, references, and compaction.
 
-Evidence: Not started.
+Evidence: the [Phase 2 internal checkpoints](../../guides/stewardship-phase-2.md)
+implement typed immutable payload/membership tables, SQL-verified digests and
+relationships, atomic current-pointer promotion, task/source fencing and
+protected retention primitives. All 63 source PostgreSQL tests and 44 pure
+source tests pass, including migration reversal and both pin/compaction race
+orders; the final audit integration repeat passes 34 PostgreSQL cases. The
+latest baseline passes 2,788 tests. Daily-fact storage adds 38 PostgreSQL tests
+for complete immutable graphs, exact inputs, demand/recovery fencing, source
+input protection, compaction and both late-pin race orders. The final combined
+source, fact and TaskRun regression pass covers 165 cases; pure fact/lease input
+validation passes 47 cases. DAT-03 is complete for its storage scope.
+BG-05 owns provider completeness/threshold checks and actual refresh;
+DAT-04/DAT-05 retain concrete Family/chair promotion integration. Later retained
+parents must register their input pins through the tested shared guard. No
+runtime refresh, destructive job scheduling, or later-phase report capability
+is enabled by this storage checkpoint.
 
 ## DAT-04: Family campaign identity and credentials
 
