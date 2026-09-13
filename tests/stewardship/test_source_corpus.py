@@ -232,6 +232,16 @@ def test_duplicate_or_dangling_roster_records_fail_before_staging():
         normalize_core(data, as_of=TODAY)
 
 
+@pytest.mark.parametrize("changes", [{"endDate": "2026-09-10"}, {"trained": True}])
+def test_conflicting_same_stint_roster_rows_fail_closed(changes):
+    """End dates/flags are mutable facts, not permission to invent another stint."""
+    data = source()
+    rows = data.ministry_type_memberships[4]["membership"]
+    rows.append(dict(rows[0], **changes))
+    with pytest.raises(InvalidSourcePayload, match="repeats"):
+        normalize_core(data, as_of=TODAY)
+
+
 def test_null_roster_role_ids_use_distinct_names_without_changing_stint_identity():
     """Null provider IDs fall back to names; closing a stint remains an update."""
     data = source()
