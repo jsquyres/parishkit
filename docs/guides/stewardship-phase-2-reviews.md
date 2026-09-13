@@ -791,3 +791,11 @@ models. Its 36 validated Medium findings and ongoing correction evidence are
 tracked in the [round 1 disposition record](stewardship-phase-2-full-review-1.md).
 No High or Critical findings were returned. The correction pass and integrated
 validation still prevent phase exit; two further full rounds remain required.
+
+## Second complete-phase review
+
+Both vendors completed the review of `58e7a8c` with 23 retained Medium findings
+and no High/Critical findings. The
+[round 2 disposition record](stewardship-phase-2-full-review-2.md) tracks current
+corrections and validation. One further full-phase review round and clean
+integrated acceptance remain required.
