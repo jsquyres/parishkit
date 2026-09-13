@@ -181,6 +181,18 @@ def test_real_transport_can_publish_consume_and_ack_one_uuid(valkey_endpoint, re
         (ServiceRole.WORKER, ("FLUSHDB",)),
         (ServiceRole.SCHEDULER, ("RPOP", BROKER_PREFIX + "general")),
         (ServiceRole.SCHEDULER, ("DEL", BROKER_PREFIX + "general")),
+        (
+            ServiceRole.SCHEDULER,
+            ("LPUSH", BROKER_PREFIX + "qos:mail-dispatch:unacked_mutex", "x"),
+        ),
+        (
+            ServiceRole.SCHEDULER,
+            ("SADD", BROKER_PREFIX + "qos:mail-dispatch:unacked_index", "x"),
+        ),
+        (
+            ServiceRole.SCHEDULER,
+            ("LPUSH", BROKER_PREFIX + "qos:backup-worker:unacked", "x"),
+        ),
         (ServiceRole.WEB, ("GET", BROKER_PREFIX + "general")),
     ],
 )
