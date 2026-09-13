@@ -145,6 +145,36 @@ def test_compose_matrix_and_required_gate_cover_all_scenarios():
         '[$PROVIDER_MODE-$PRODUCTION]" --require-no-skips '
         "--ci-progress --durations=10 -q"
     )
+    # Compare against pytest itself, not another copy of today's parameters.
+    # A new parameter or second test must not silently disappear from PR CI.
+    collected = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "tests/stewardship/test_operational_compose.py",
+            "--collect-only",
+            "-q",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=True,
+    )
+    actual = {
+        line
+        for line in collected.stdout.splitlines()
+        if line.startswith("tests/stewardship/test_operational_compose.py::")
+    }
+    matrix = operational["strategy"]["matrix"]
+    expected = {
+        "tests/stewardship/test_operational_compose.py::"
+        f"test_complete_foundation_bootstrap_and_online_exclusion[{provider}-{production}]"
+        for provider in matrix["provider"]
+        for production in matrix["production"]
+    }
+    assert actual == expected, collected.stdout + collected.stderr
     gate = jobs["stewardship-compose"]
     assert gate["needs"] == ["stewardship-compose-core", "stewardship-operational"]
     assert gate["if"] == "${{ always() }}"

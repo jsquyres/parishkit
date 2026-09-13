@@ -73,9 +73,29 @@ def tree_digest(root: Path) -> str:
         ("tests", "*.toml"),
         ("requirements", "*.txt"),
         (".github/workflows", "*.yml"),
+        ("deploy", "*"),
+        ("scripts", "*.py"),
+        ("tools", "*.py"),
+        ("docs", "*.md"),
+        ("docs", "*.yaml"),
     ):
-        paths.update((root / directory).rglob(pattern))
+        paths.update(
+            path
+            for path in (root / directory).rglob(pattern)
+            if not path.is_dir() and "__pycache__" not in path.parts
+        )
     paths.update(root.glob("requirements*.txt"))
+    paths.update(
+        root / name
+        for name in (
+            ".dockerignore",
+            ".pymarkdown.json",
+            "install.py",
+            "README.md",
+            "CLAUDE.md",
+        )
+        if (root / name).exists()
+    )
     digest = hashlib.sha256()
     for path in sorted(paths):
         if path.is_symlink() or path.resolve() != path or not path.is_file():

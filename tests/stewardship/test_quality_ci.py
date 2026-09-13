@@ -236,7 +236,21 @@ def test_hung_child_fails_without_receipt(repository, tmp_path, monkeypatch):
 
 @pytest.mark.parametrize(
     "relative",
-    ["src/parishkit/initial.sql", "src/parishkit/page.html", "tests/schema.json"],
+    [
+        "src/parishkit/initial.sql",
+        "src/parishkit/page.html",
+        "tests/schema.json",
+        "deploy/stewardship/Dockerfile",
+        "deploy/stewardship/Dockerfile.dockerignore",
+        "deploy/stewardship/compose.yaml",
+        "deploy/stewardship/Caddyfile",
+        ".dockerignore",
+        "scripts/example/run.py",
+        "tools/example.py",
+        "install.py",
+        "README.md",
+        "docs/development/stewardship-acceptance.yaml",
+    ],
 )
 def test_digest_tracks_non_python_inputs(repository, relative):
     """Changed SQL, templates or schema fixtures invalidate prior evidence."""
