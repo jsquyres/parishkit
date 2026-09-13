@@ -34,7 +34,12 @@ def _seed(request, actor, configuration, salt):
         token = request.POST.get("clone_seed", "")
         if len(token) > 2048:
             raise ValueError("Invalid clone seed.")
-        seed = signing.loads(token, salt=salt, max_age=900)
+        try:
+            seed = signing.loads(token, salt=salt, max_age=900)
+        except signing.SignatureExpired:
+            raise StaleRecordError(
+                "Reload the expired clone before editing it."
+            ) from None
         if seed["actor"] != str(actor.identity):
             raise PermissionError("Clone belongs to another Administrator.")
         if seed["base"] != digest:

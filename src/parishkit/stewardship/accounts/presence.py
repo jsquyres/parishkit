@@ -214,12 +214,15 @@ def active_families(request):
                     {"presence": data, "next_page": window.page + 1},
                 )
             )
-            record_action(
-                Action.PRESENCE_VIEWED,
-                actor_kind=ActorKind.PORTAL_USER,
-                actor_id=actor.identity,
-                context={"outcome": Outcome.SUCCEEDED, "count": len(rows)},
-            )
+            # Passive header polling discloses no identity list. Audit actual
+            # roster views, not every 30-second count observation in every tab.
+            if selected.get("format") != "count":
+                record_action(
+                    Action.PRESENCE_VIEWED,
+                    actor_kind=ActorKind.PORTAL_USER,
+                    actor_id=actor.identity,
+                    context={"outcome": Outcome.SUCCEEDED, "count": len(rows)},
+                )
             response["Cache-Control"] = "no-store"
             return response
     except (

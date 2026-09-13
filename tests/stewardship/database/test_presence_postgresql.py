@@ -10,6 +10,7 @@ from django.db.models import F
 from parishkit.stewardship.accounts.presence import visible_sessions
 from parishkit.stewardship.accounts.runtime_models import SystemConfiguration
 from parishkit.stewardship.accounts.sessions import database_now
+from parishkit.stewardship.audit.models import AuditEvent
 from parishkit.stewardship.campaigns.credential_models import FamilySession
 from parishkit.stewardship.campaigns.family_identity import FamilyStatus
 from parishkit.stewardship.deployment import ServiceRole
@@ -263,6 +264,11 @@ def test_header_count_poll_never_fetches_family_names(family_service, google):
     assert response.status_code == 200 and response.json()["count"] == 1
     assert set(response.json()) == {"count", "as_of"}
     assert not any("stewardship_source_family" in query["sql"] for query in queries)
+    assert not AuditEvent.objects.filter(event_type="family_presence_viewed").exists()
+    response = browser.get(ADMIN + "?format=json")
+    assert response.status_code == 200
+    event = AuditEvent.objects.get(event_type="family_presence_viewed")
+    assert event.auditcontext.context["count"] == 1
 
 
 @pytest.mark.parametrize(
