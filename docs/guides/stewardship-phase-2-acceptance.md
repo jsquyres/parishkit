@@ -64,18 +64,24 @@ filename alone, define the proof. See the
 
 ## Integrated validation status
 
-- Baseline: 4,097 passed; 2,527 explicit profile skips; two existing warnings.
+- Baseline after round-1 corrections: 4,161 passed; 2,558 explicit profile skips;
+  two existing warnings. These skips require their separate opt-in suites below.
 - Browser: 447 passed across the supported engines, with no skipped cases.
 - Operational Compose: all six cases passed in 489.90 seconds, including both
   complete initial-setup profiles with a saved invitation schedule and no live
   occurrences or fulfillment. The earlier complete pair passed in 257.30 seconds.
-- Full PostgreSQL coverage: rerun in progress. The first run stopped after
-  942 passes and one migration-fixture grant failure. Its corrected owning
-  integration-selection suite passes all 14 cases.
+- Full PostgreSQL coverage: the complete diagnostic run finished with 2,025
+  passes and 12 failures. Its 91% combined coverage is not an acceptance pass.
+  Corrections and changed-module regressions are tracked in the
+  [round-1 record](stewardship-phase-2-full-review-1.md); a fresh full run remains
+  required. The first correction regression passes 319 cases with one new
+  fixture failure, subsequently corrected and undergoing follow-up validation.
 - Ruff and formatting pass; Markdown checks include this acceptance index.
   Final checks must repeat against the reviewed commit.
 - Three independent full-phase dual-model review/fix rounds: not complete.
-  The tool-permission preflight passed; it is not a review round.
+  Both models completed round 1 without degradation: 36 validated Medium
+  findings, no High/Critical. Corrections are in progress. Permission preflight
+  for the next round passed; a preflight is not a review round.
 
 No Phase 2 PR or phase-exit approval is implied by these partial validation
 results. Do not begin the Family implementation phase or merge this branch here.

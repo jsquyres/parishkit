@@ -783,3 +783,11 @@ tests with 2,527 explicit profile skips and two existing warnings. The full
 PostgreSQL coverage rerun and remaining container checks are in progress.
 Ruff, formatting and Markdown checks pass. M2.01 is complete; full Phase 2
 acceptance and three independent complete-phase review/fix rounds remain open.
+
+## First complete-phase review
+
+The independent full-phase review of `0b9677f` completed successfully with both
+models. Its 36 validated Medium findings and ongoing correction evidence are
+tracked in the [round 1 disposition record](stewardship-phase-2-full-review-1.md).
+No High or Critical findings were returned. The correction pass and integrated
+validation still prevent phase exit; two further full rounds remain required.
