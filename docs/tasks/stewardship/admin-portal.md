@@ -139,6 +139,11 @@ installed-key admission. Eleven PostgreSQL cases pass across two runs, with
 This internal owner is not registered until atomic completion and cleanup are
 connected. ADM-02.05/.06 and the Phase 2 demonstration remain open.
 
+The [final-load disposal checkpoint](../../guides/stewardship-phase-2-reviews.md#cancelled-final-load-disposal)
+now covers cancellation of both finalization chains through real source drainage
+and cleanup. Two integrated cases and 24 surrounding source/disposal regressions
+pass. Atomic successful completion and its cleanup still prevent closing ADM-02.
+
 ## ADM-03: Navigation, dashboard, indicators, and configuration
 
 Scope and dependencies: [ADM-03 work package](../../plans/stewardship/admin-portal.md#adm-03-navigation-dashboard-indicators-and-configuration).

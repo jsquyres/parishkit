@@ -609,3 +609,22 @@ the combined grant/preparation/recovery regression passes 59 cases. The baseline
 passes 4,069 tests with 2,432 explicit profile skips and two existing warnings.
 Ruff and formatting pass. Final source-staging cleanup, atomic activation,
 configured-marker routing and the end-to-end demonstration remain open.
+
+### Cancelled final-load disposal
+
+Expired setup cleanup now includes the exact prepared finalization retry root
+as well as the original catalog root. Both the queryset and PostgreSQL deletion
+guard verify the preparation/attempt/initiator binding; neither includes a
+promoted source or unrelated staging. Cleanup fences an expired final worker,
+cancels its drained Task and removes temporary payloads while retaining safe
+request, preparation and source-manifest history. Populated final-task history
+prevents downgrading away its only cleanup owner.
+
+Both real queued/staged finalization cancellation scenarios pass, including
+actual worker/source/HTTP lease drainage, manifest restoration and restricted
+scheduler/cleanup execution. The surrounding source/disposal regression passes
+24 additional cases, including guard reversal/reapplication and shared-payload
+preservation. The baseline passes 4,069 tests with 2,436 explicit profile skips
+and two existing warnings. Ruff, formatting and migration drift checks pass.
+Successful completion cleanup and atomic source/Family/configured-marker
+activation remain open; this is not a Phase 2 review-gate completion.

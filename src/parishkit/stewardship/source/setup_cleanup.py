@@ -22,7 +22,12 @@ from parishkit.stewardship.storage import StorageInvariantError
 
 from .leases import acquire_source, release_source
 from .setup_admission import admit_setup_task, source_available
-from .setup_disposal import TASK_TYPE, dispose_batch, owned_snapshots
+from .setup_disposal import (
+    TASK_TYPE,
+    dispose_batch,
+    owned_snapshots,
+    owned_source_tasks,
+)
 from .version_models import ENTITY_MODELS
 
 
@@ -144,13 +149,18 @@ def cleanup_handler(*, scheduler=False):
 
 
 def _settle_original(attempt_id, execution):
-    """Cancel waiting original reads; live workers retain their normal expiry path."""
-    attempt = SetupAttempt.objects.get(pk=attempt_id, state="expired")
-    for row in TaskRun.objects.filter(
-        root_id=attempt.source_task_id,
-        task_type="setup_source_load",
-        domain_request_id=attempt.pk,
-    ).order_by("created_at", "id"):
+    """Cancel both original read chains; live workers retain normal lease expiry."""
+    from .setup_final_tasks import finalization_admission
+
+    for row in owned_source_tasks(attempt_id).order_by("created_at", "id"):
+        # The expired original attempt closes finalization before its verifier
+        # reaches filesystem selection. No replacement authority can authorize
+        # work here; only expiry and drained cancellation transitions are used.
+        admit = (
+            finalization_admission(None)
+            if row.task_type == "setup_finalize"
+            else admit_setup_task
+        )
         if row.state == "running" and row.lease_expires_at <= database_now():
             change_run(
                 run_id=row.pk,
@@ -158,7 +168,7 @@ def _settle_original(attempt_id, execution):
                 action="lease_expired",
                 actor_id=None,
                 correlation_id=execution.correlation_id,
-                admit=admit_setup_task,
+                admit=admit,
             )
             row.refresh_from_db()
         if row.state in {"queued", "retry_wait", "abandoned"}:
@@ -168,7 +178,7 @@ def _settle_original(attempt_id, execution):
                 action="recovery_cancel" if row.state == "abandoned" else "safe_cancel",
                 actor_id=execution.claim.worker_id,
                 correlation_id=execution.correlation_id,
-                admit=admit_setup_task,
+                admit=admit,
             )
 
 

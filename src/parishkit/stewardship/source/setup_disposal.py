@@ -1,10 +1,13 @@
 """Bounded, exact-ownership removal of expired setup source payloads."""
 
 from django.db import connection
-from django.db.models import Exists, OuterRef
+from django.db.models import CharField, Exists, F, OuterRef, Q
+from django.db.models.functions import Cast
 
+from parishkit.stewardship.accounts.setup_install_models import SetupPreparationReceipt
 from parishkit.stewardship.accounts.setup_models import SetupAttempt
 from parishkit.stewardship.campaigns.work_locks import require_work_order
+from parishkit.stewardship.jobs.models import TaskRun
 from parishkit.stewardship.jobs.ownership import lock_task_claim
 from parishkit.stewardship.storage import StorageInvariantError
 
@@ -16,13 +19,34 @@ from .version_models import ENTITY_MODELS
 TASK_TYPE = "setup_source_cleanup"
 
 
-def owned_snapshots(attempt_id):
-    """Only this expired attempt's original Task chain owns disposable staging."""
+def owned_source_tasks(attempt_id):
+    """Resolve only original catalog and exact prepared-finalization retry roots."""
     attempt = SetupAttempt.objects.get(pk=attempt_id, state="expired")
+    prepared = SetupPreparationReceipt.objects.filter(
+        readiness__intent__attempt=attempt
+    ).values("id")
+    return TaskRun.objects.filter(
+        Q(
+            root_id=attempt.source_task_id,
+            task_type="setup_source_load",
+            domain_request_id=attempt.pk,
+        )
+        | Q(
+            task_type="setup_finalize",
+            domain_request_id__in=prepared,
+            initiated_by_id=attempt.owner_id,
+            root__task_type="setup_finalize",
+            root__domain_request_id=F("domain_request_id"),
+            root__initiated_by_id=attempt.owner_id,
+            root__idempotency_key=Cast(F("domain_request_id"), CharField()),
+        )
+    )
+
+
+def owned_snapshots(attempt_id):
+    """Discard neither a promoted source nor any unrelated Task's staging."""
     return SourceSnapshot.objects.filter(
-        task__root_id=attempt.source_task_id,
-        task__task_type="setup_source_load",
-        task__domain_request_id=attempt.pk,
+        task_id__in=owned_source_tasks(attempt_id).values("id"),
         state__in=("staging", "ready", "rejected"),
         generation=None,
     )
