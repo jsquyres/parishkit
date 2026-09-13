@@ -12,7 +12,7 @@ from parishkit.stewardship.accounts.configuration_schema import (
 )
 from parishkit.stewardship.accounts.integration_forms import IntegrationForm
 from parishkit.stewardship.accounts.integration_selection import (
-    _scope,
+    authentication_scope,
     integration_records,
 )
 from parishkit.stewardship.accounts.request_patch import (
@@ -61,7 +61,9 @@ def test_nightly_time_upgrade_preserves_base_and_credential_scope(value):
     candidate = build_candidate(base, patch, candidate_id=uuid4()).candidate
     assert base.document() == original
     assert schema_for(candidate.document()) == SCHEMA
-    assert _scope("parishsoft", integration_records(candidate.document()), {}) == {
+    assert authentication_scope(
+        "parishsoft", integration_records(candidate.document())
+    ) == {
         "organization_id": 12345,
     }
     for old in ("foundation-policy-v2", "campaign-content-v5"):

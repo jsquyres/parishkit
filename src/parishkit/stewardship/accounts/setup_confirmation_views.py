@@ -40,12 +40,17 @@ def setup_confirmation(request):
             response["Cache-Control"] = "no-store"
             return response
         preview = prepare_preview(request, service)
-        if request.method != "POST":
-            form = SetupConfirmationForm(
-                initial={
-                    "preview_token": signing.dumps(preview.binding(), salt=PREVIEW_SALT)
-                }
-            )
+        fresh_token = signing.dumps(preview.binding(), salt=PREVIEW_SALT)
+        if request.method == "POST":
+            # The displayed preview is current even if the submitted checkbox
+            # was missing. Keep its errors, but bind the next explicit Submit
+            # to what this response actually shows, not the old hidden token.
+            data = request.POST.copy()
+            data["preview_token"] = fresh_token
+            form = SetupConfirmationForm(data)
+            form.is_valid()
+        else:
+            form = SetupConfirmationForm(initial={"preview_token": fresh_token})
         problem = None
         try:
             ready_inputs(preview)

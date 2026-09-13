@@ -12,7 +12,7 @@ from parishkit.stewardship.service_boundaries import ALLOWED_SECRETS
 from .configuration_errors import ConfigurationReadinessUnavailable
 from .configuration_requests import _status
 from .configuration_service import admit_configuration_database
-from .integration_selection import _scope, integration_records
+from .integration_selection import authentication_scope, integration_records
 from .provider_models import ProviderValidationContext
 from .request_admission import check_historical_additions
 from .request_patch import build_candidate
@@ -61,7 +61,9 @@ def _readiness(request, document):
         ):
             raise ConfigurationReadinessUnavailable("Initial consumers are not ready.")
         context = ProviderValidationContext.objects.get(request=receipt, target=target)
-        if context.settings != _scope(target, records, context.settings):
+        if context.settings != authentication_scope(
+            target, records, recipient=context.settings.get("recipient")
+        ):
             raise ConfigError("Initial credentials have different provider settings.")
     return readiness
 

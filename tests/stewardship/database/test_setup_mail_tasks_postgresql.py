@@ -101,6 +101,38 @@ def test_failed_private_relay_is_terminal_unsent_and_does_not_block_new_test(
     assert row.state == "cancelled" and row.submitted_at is None
 
 
+def test_graceful_stop_drains_started_send_without_allowing_another(
+    setup_service, monkeypatch, tmp_path
+):
+    """A process stop during the provider call preserves its definitive acceptance."""
+    from threading import Event
+
+    _, _, _, _, delivery = prepared(setup_service, monkeypatch, tmp_path)
+    stop = Event()
+    monkeypatch.setattr(
+        tasks, "_receive", Mock(return_value=WorkspaceCandidate(b"fixture"))
+    )
+
+    def provider(candidate, settings, mail, *, seconds, check):
+        """The irreversible marker already exists when shutdown begins."""
+        assert SetupMailDelivery.objects.get().state == "submitting"
+        stop.set()
+        check()
+        return DeliveryOutcome.ACCEPTED
+
+    monkeypatch.setattr(tasks, "submit_sample", provider)
+    with task_login(ServiceRole.MAIL_DISPATCH, exact=True, reconnect=True):
+        assert execute_hint(
+            delivery.task_id,
+            queue=WorkQueue.MAIL,
+            worker_id=uuid4(),
+            handlers={tasks.TASK_TYPE: tasks.setup_mail_handler()},
+            stop=stop,
+        )
+    assert SetupMailDelivery.objects.get().state == "accepted"
+    assert TaskRun.objects.get(pk=delivery.task_id).state == "succeeded"
+
+
 def test_cancel_while_waiting_for_private_relay_settles_task_without_submission(
     setup_service, monkeypatch, tmp_path
 ):

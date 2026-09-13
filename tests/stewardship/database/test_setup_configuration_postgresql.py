@@ -418,7 +418,10 @@ def test_unrelated_prepared_configuration_still_pins_aborted_setup_logo(setup_se
     retained = parse_version(other, validate_sections=validate_sections)
     prepare_snapshot(retained, actor_id=attempt.owner_id, correlation_id=uuid4())
     cancel_finalizing_setup(browser, setup_service, attempt.pk)
-    install_request(
+    receipt = install_request(
         setup_service.store, request_id=intent.request_id, correlation_id=uuid4()
     )
+    assert receipt.state == "failed"
+    assert setup_service.store.active().version_id == attempt.base_id
+    assert SetupConfigurationAbort.objects.filter(intent=intent).count() == 1
     assert produce() == ()

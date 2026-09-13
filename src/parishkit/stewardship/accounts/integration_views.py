@@ -28,11 +28,11 @@ from .admin_editing import (
 from .authentication import runtime
 from .handoff_discovery import public_handoff
 from .integration_forms import LABELS, CredentialForm, IntegrationForm
+from .integration_selection import authentication_scope
 from .limiting import LimiterUnavailable
 from .metrics_credentials import credential_receipt
 from .policy import Capability, allows
 from .privileged_actions import sealed_secret_request
-from .provider_context import validated_context
 from .request_patch import build_candidate
 from .secret_models import SECRET_PENDING, SecretReplacementRequest
 from .secret_requests import SecretRequestConflict, secret_request_status
@@ -230,20 +230,10 @@ def integration_settings(request, target=None):
 def _context(configuration, target):
     """Bind a candidate to the exact currently applied public provider settings."""
     records = _records(configuration)
-    settings = dict(_selected(configuration, target)["values"]["settings"])
-    if target == "parishsoft":
-        settings.pop("nightly_time", None)
-        value = settings["organization_id"]
-        if not value.isascii() or not value.isdecimal() or str(int(value)) != value:
-            raise ConfigError("A canonical organization ID is required.")
-        settings["organization_id"] = int(value)
-    elif target == "google_workspace":
-        email = records.get("email")
-        if email is None:
-            raise ConfigError("Outgoing email settings are required.")
-        settings.update(email["values"]["settings"])
-        settings["recipient"] = configuration.testing_recipient
-    return validated_context(target, settings)
+    _selected(configuration, target)
+    return authentication_scope(
+        target, records, recipient=configuration.testing_recipient
+    )
 
 
 def _credential_form(configuration, actor, target):

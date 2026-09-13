@@ -86,6 +86,21 @@ def _catalog(configuration, source, previous):
     """Expose Ministry/fund names only from the configured tenant's current corpus."""
     from .ministry_activity import active_ministries
 
+    selected = set(previous.get("ministry_duids", []))
+    financial = previous.get("financial") or {}
+    retained_funds = set(financial.get("fund_duids", [])) | set(
+        financial.get("comparison_fund_duids", [])
+    )
+
+    def missing_choices(identifiers, kind):
+        """Retain saved IDs without borrowing names from an unavailable tenant."""
+        label = (
+            _("Ministry %(duid)s (unavailable; retained selection)")
+            if kind == "ministry"
+            else _("Fund %(duid)s (unavailable; retained selection)")
+        )
+        return [(str(duid), label % {"duid": duid}) for duid in sorted(identifiers)]
+
     integrations = configuration.active_configuration.canonical_document[
         "sections"
     ].get("integrations", [])
@@ -102,12 +117,9 @@ def _catalog(configuration, source, previous):
         or source.snapshot_id is None
         or str(source.organization_id) != organization
     ):
-        return [], []
-    selected = set(previous.get("ministry_duids", []))
-    financial = previous.get("financial") or {}
-    retained_funds = set(financial.get("fund_duids", [])) | set(
-        financial.get("comparison_fund_duids", [])
-    )
+        return missing_choices(selected, "ministry"), missing_choices(
+            retained_funds, "fund"
+        )
     catalogs = []
     for model in (SnapshotMinistry, SnapshotFund):
         choices = []
@@ -138,6 +150,13 @@ def _catalog(configuration, source, previous):
                 if not active:
                     name = _("%(name)s (inactive; retained selection)") % {"name": name}
                 choices.append((str(duid), name))
+        retained = selected if model is SnapshotMinistry else retained_funds
+        choices.extend(
+            missing_choices(
+                retained - {int(row.source_key) for row in rows},
+                "ministry" if model is SnapshotMinistry else "fund",
+            )
+        )
         choices.sort(key=lambda row: (row[1].casefold(), int(row[0])))
         catalogs.append(choices)
     return catalogs

@@ -95,3 +95,35 @@ def test_confirmation_requires_explicit_exact_closed_input(
             values["target"] = "another-target"
         assert post(browser, PATH, values).status_code == 400
         assert SetupAttempt.objects.get().state == "collecting"
+
+
+def test_invalid_confirmation_renders_fresh_binding_then_accepts_explicit_retry(
+    setup_http, monkeypatch, tmp_path
+):
+    """An old hidden token cannot trap a missing-checkbox response in a stale loop."""
+    from django.core import signing
+
+    from parishkit.stewardship.accounts.setup_preview import PREVIEW_SALT
+
+    request, _, token = prepared(setup_http, monkeypatch, tmp_path)
+    stale = signing.loads(token, salt=PREVIEW_SALT) | {"draft": "old-reviewed-draft"}
+    browser = client_for(request)
+    with web_login():
+        assert browser.get(PATH).status_code == 200
+        response = post(
+            browser, PATH, {"preview_token": signing.dumps(stale, salt=PREVIEW_SALT)}
+        )
+        assert response.status_code == 400
+        form = response.context["form"]
+        assert "confirmed" in form.errors
+        refreshed = form["preview_token"].value()
+        assert signing.loads(refreshed, salt=PREVIEW_SALT) == signing.loads(
+            token, salt=PREVIEW_SALT
+        )
+        assert (
+            post(
+                browser, PATH, {"preview_token": refreshed, "confirmed": "on"}
+            ).status_code
+            == 302
+        )
+    assert SetupAttempt.objects.get().state == "frozen"

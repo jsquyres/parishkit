@@ -42,6 +42,7 @@ def parish_branding(request):
         root = getattr(request, "_stewardship_display_configuration", None)
         if root is None:
             root = coherent_configuration(service.store)
+            request._stewardship_display_configuration = root
         if root.restore_review_required:
             return {}
         parish = getattr(root.active_configuration, "parish", None)

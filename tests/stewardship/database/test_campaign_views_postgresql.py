@@ -287,6 +287,41 @@ def test_inactive_selected_funds_do_not_block_unrelated_draft_edits(
         )
 
 
+@pytest.mark.parametrize("with_source", [False, True])
+def test_missing_catalog_selections_survive_unrelated_edit(
+    auth_service, google, with_source
+):
+    """Missing corpus rows retain labeled saved IDs, never unrelated tenant names."""
+    store = auth_service.store
+    if with_source:
+        publish(source())
+    row = campaign(
+        modules=["financial", "ministry"],
+        ministry_duids=[999],
+        financial=financial(fund_duids=[998], comparison_fund_duids=[998]),
+    )
+    assert (
+        change(
+            store,
+            store.active(),
+            uuid4(),
+            [{"operation": "add", "section": "campaigns", **row}],
+        ).state
+        == "applied"
+    )
+    current = Campaign.objects.get()
+    browser, _ = signed_in()
+    with task_login(ServiceRole.WEB):
+        page = browser.get(url(current))
+        assert page.status_code == 200
+        assert b"Ministry 999 (unavailable; retained selection)" in page.content
+        assert b"Fund 998 (unavailable; retained selection)" in page.content
+        response = post(
+            browser, url(current), fields(store, current, name="Updated name")
+        )
+        assert response.status_code == 200, response.content
+
+
 @pytest.mark.parametrize("role", ["staff", "ministry_leader"])
 def test_non_admin_cannot_read_or_write_campaign_settings(auth_service, google, role):
     """Campaign settings are not a reporting capability, even through direct URLs."""

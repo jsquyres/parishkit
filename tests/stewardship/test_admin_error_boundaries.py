@@ -49,3 +49,29 @@ def test_unavailable_branding_cannot_break_the_error_page(monkeypatch, error_typ
         branding_context, "runtime", Mock(side_effect=error_type("synthetic-private"))
     )
     assert branding_context.parish_branding(RequestFactory().get("/admin/setup")) == {}
+
+
+def test_branding_reuses_one_verified_display_projection_per_request(monkeypatch):
+    """Repeated rendering shares presentation data without caching authorization."""
+    from types import SimpleNamespace
+
+    parish = object()
+    root = SimpleNamespace(
+        restore_review_required=False,
+        active_configuration=SimpleNamespace(parish=parish),
+    )
+    verify = Mock(return_value=root)
+    service = Mock()
+    service.configured.return_value = True
+    monkeypatch.setattr(branding_context, "runtime", Mock(return_value=service))
+    monkeypatch.setattr(branding_context, "coherent_configuration", verify)
+    render = Mock(return_value={"name": "Parish"})
+    monkeypatch.setattr(branding_context, "branding_for", render)
+    request = RequestFactory().get("/admin/")
+    for _ in range(2):
+        assert branding_context.parish_branding(request) == {
+            "parish_branding": {"name": "Parish"}
+        }
+    verify.assert_called_once_with(service.store)
+    assert request._stewardship_display_configuration is root
+    render.assert_called_with(parish)

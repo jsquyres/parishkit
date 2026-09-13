@@ -134,7 +134,11 @@ def request_sample(
     preview_token,
     acknowledge_unknown=False,
 ):
-    """Persist one explicit reviewed send; retries return its original journal row."""
+    """Persist one reviewed send; retries within the preview lifetime reuse its row.
+
+    Expired commands require a fresh preview. They never resend the retained
+    journal, whose passive status remains available independently of the token.
+    """
     if (
         type(preview_token) is not str
         or len(preview_token) > 4096

@@ -33,7 +33,7 @@ def integration_records(document):
     }
 
 
-def _scope(target, records, context):
+def authentication_scope(target, records, *, recipient=None):
     """Match authentication inputs without treating an old recipient as readiness."""
     selected = dict(records[target]["values"]["settings"])
     if target == "parishsoft":
@@ -53,7 +53,7 @@ def _scope(target, records, context):
         if email is None:
             raise ConfigError("Outgoing email settings are unavailable.")
         selected.update(email["values"]["settings"])
-        selected["recipient"] = context.get("recipient")
+        selected["recipient"] = recipient
     return validated_context(target, selected)
 
 
@@ -91,7 +91,9 @@ def current_receipt(target, fingerprint, records):
     context = ProviderValidationContext.objects.filter(
         request=receipt, target=target
     ).first()
-    if context is None or context.settings != _scope(target, records, context.settings):
+    if context is None or context.settings != authentication_scope(
+        target, records, recipient=context.settings.get("recipient")
+    ):
         raise StaleCredentialReceipt(
             "The credential was checked against different settings."
         )

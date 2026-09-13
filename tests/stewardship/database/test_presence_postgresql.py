@@ -105,11 +105,15 @@ def test_closed_or_ineligible_family_disappears_and_cannot_heartbeat(
 ):
     """Presence never overrides campaign boundaries or current Family eligibility."""
     family, _ = login(family_service.code)
-    beat(family)
+    assert beat(family).status_code == 200
     browser, _ = signed_in()
+    assert browser.get(ADMIN + "?format=json").json()["count"] == 1
     with campaign_clock(family_service.campaign.active_configuration.ends_at):
         assert browser.get(ADMIN + "?format=json").json()["count"] == 0
         assert beat(family).status_code == 403
+    family, _ = login(family_service.code)
+    assert beat(family).status_code == 200
+    assert browser.get(ADMIN + "?format=json").json()["count"] == 1
     populate(
         family_service.campaign,
         family_service.rings,
@@ -117,6 +121,7 @@ def test_closed_or_ineligible_family_disappears_and_cannot_heartbeat(
         generation=2,
     )
     assert browser.get(ADMIN + "?format=json").json()["count"] == 0
+    assert beat(family).status_code == 403
 
 
 def test_admin_poll_does_not_refresh_admin_idle(family_service, google):

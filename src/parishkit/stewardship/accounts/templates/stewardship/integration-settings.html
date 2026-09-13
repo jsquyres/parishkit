@@ -6,6 +6,7 @@
 <section class="panel"><h2>{% translate "Credential status" %}</h2>
 <p>{% translate "Applied fingerprint:" %} <code>{{ fingerprint|default:'—' }}</code></p>
 {% if latest %}<p>{% translate "Latest replacement:" %} {{ latest.state }} · <time datetime="{{ latest.updated_at|date:'c' }}" data-local-instant>{{ latest.updated_at|date:'c' }}</time></p>
+{% if latest.state == 'applied' and replacement_allowed %}<p><a href="{% url 'admin:select_credential' latest.pk %}">{% translate "Review installed credential selection" %}</a></p>{% endif %}
 {% else %}<p>{% translate "No credential replacement check has been recorded." %}</p>{% endif %}
 {% if replacement_allowed %}<a href="{% url 'admin:replace_credential' target %}">{% translate "Replace and check credential" %}</a>{% endif %}
 </section>

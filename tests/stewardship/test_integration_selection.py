@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 
 from parishkit.config import ConfigError
-from parishkit.stewardship.accounts.integration_selection import _scope
+from parishkit.stewardship.accounts.integration_selection import authentication_scope
 from parishkit.stewardship.accounts.request_patch import (
     CREDENTIAL_REQUEST_SCHEMA,
     build_candidate,
@@ -121,7 +121,30 @@ def test_scope_refuses_noncanonical_or_out_of_range_organization(organization):
         "parishsoft": {"values": {"settings": {"organization_id": organization}}}
     }
     with pytest.raises(ConfigError):
-        _scope("parishsoft", records, {})
+        authentication_scope("parishsoft", records)
+    from types import SimpleNamespace
+
+    from parishkit.stewardship.accounts.integration_views import _context
+
+    configuration = SimpleNamespace(
+        testing_recipient="test@example.org",
+        active_configuration=SimpleNamespace(
+            canonical_document={
+                "sections": {
+                    "integrations": [
+                        {
+                            "values": {
+                                "kind": "parishsoft",
+                                "settings": {"organization_id": organization},
+                            }
+                        }
+                    ]
+                },
+            }
+        ),
+    )
+    with pytest.raises(ConfigError):
+        _context(configuration, "parishsoft")
 
 
 def test_workspace_scope_binds_mailbox_sender_and_reply_not_delivery_readiness():
@@ -139,7 +162,9 @@ def test_workspace_scope_binds_mailbox_sender_and_reply_not_delivery_readiness()
             }
         },
     }
-    assert _scope("google_workspace", records, {"recipient": "test@example.org"}) == {
+    assert authentication_scope(
+        "google_workspace", records, recipient="test@example.org"
+    ) == {
         "delegated_email": "mail@example.org",
         "sender": "mail@example.org",
         "reply_to": "reply@example.org",
@@ -147,13 +172,13 @@ def test_workspace_scope_binds_mailbox_sender_and_reply_not_delivery_readiness()
     }
     del records["email"]
     with pytest.raises(ConfigError):
-        _scope("google_workspace", records, {"recipient": "test@example.org"})
+        authentication_scope("google_workspace", records, recipient="test@example.org")
 
 
 def test_slack_scope_is_only_the_closed_channel_binding():
     """URLs and additional context keys cannot extend the provider scope."""
     records = {"slack": {"values": {"settings": {"channel_id": "C123"}}}}
-    assert _scope("slack", records, {}) == {"channel_id": "C123"}
+    assert authentication_scope("slack", records) == {"channel_id": "C123"}
     records["slack"]["values"]["settings"]["url"] = "https://example.invalid/"
     with pytest.raises(ConfigError):
-        _scope("slack", records, {})
+        authentication_scope("slack", records)

@@ -356,6 +356,55 @@ def test_campaign_mail_history_prevents_delete(campaign_test):
         CampaignMailTest.objects.filter(pk=row.pk).delete()
 
 
+def test_expired_retry_preserves_journal_without_resending(campaign_test, monkeypatch):
+    """Short-lived consent expires independently of the retained passive receipt."""
+    from django.core import signing
+
+    row, token = queue(campaign_test)
+    _, browser, path, _ = campaign_test
+    now = signing.time.time()
+    with monkeypatch.context() as patch:
+        patch.setattr(signing.time, "time", lambda: now + 901)
+        with web_login():
+            assert post(browser, path, {"preview_token": token}).status_code == 400
+    assert CampaignMailTest.objects.count() == 1
+    row.refresh_from_db()
+    assert row.state == "queued"
+    with web_login():
+        assert browser.get(path).context["pending"]
+
+
+def test_campaign_send_drains_after_graceful_stop(campaign_test, monkeypatch):
+    """The ordinary campaign sample shares setup's in-flight ownership observer."""
+    from parishkit.stewardship.accounts import campaign_mail_tasks as tasks
+
+    row, _ = queue(campaign_test)
+    service, _, _, credential = campaign_test
+    handler = campaign_mail_handler(service.store, credential_path=credential)
+    with task_login(ServiceRole.MAIL_DISPATCH, exact=True, reconnect=True):
+        execution = claim_hint(
+            row.task_id,
+            queue=WorkQueue.MAIL,
+            worker_id=uuid4(),
+            handlers={"campaign_mail_test": handler},
+        )
+        assert execution is not None
+
+        def provider(value, settings, mail, *, seconds, check):
+            """Shutdown begins only after the durable submission checkpoint."""
+            assert CampaignMailTest.objects.get(pk=row.pk).state == "submitting"
+            execution.control.stop.set()
+            check()
+            return DeliveryOutcome.ACCEPTED
+
+        monkeypatch.setattr(tasks, "submit_sample", provider)
+        with maintain_execution(execution):
+            handler.execute(execution)
+    row.refresh_from_db()
+    assert row.state == "accepted"
+    assert TaskRun.objects.get(pk=row.task_id).state == "succeeded"
+
+
 def test_sql_rejects_recipient_substitution_and_rolls_back_task(
     campaign_test, monkeypatch
 ):

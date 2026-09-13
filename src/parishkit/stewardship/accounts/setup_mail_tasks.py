@@ -155,8 +155,10 @@ def _receive(execution, row):
 def _check(execution):
     """Each helper pulse repeats current SQL ownership and closes its connection."""
     try:
-        with execution.effect():
-            pass
+        # This pulse observes a send that already crossed its irreversible
+        # checkpoint. A graceful process stop may drain that bounded send;
+        # failed renewal, lost SQL ownership or revoked admission still aborts.
+        execution.check_inflight()
     finally:
         connections.close_all()
 

@@ -460,8 +460,10 @@ def test_selection_preview_does_not_hold_the_global_work_lock(
     assert observed == [True]
 
 
-def test_selection_is_original_actor_scoped(replacement, google):
-    """A different Administrator cannot reuse the original owner's signed intent."""
+def test_another_admin_can_select_with_own_preview_but_not_replay_original(
+    replacement, google
+):
+    """Credential selection survives original-Admin departure without sharing intent."""
     from ..policy_factory import address
 
     value = replacement
@@ -482,8 +484,16 @@ def test_selection_is_original_actor_scoped(replacement, google):
     google[0]["email"] = "second@example.org"
     google[0]["sub"] = "second-google-subject"
     browser, _ = signed_in()
-    assert browser.get(value.url).status_code == 404
+    page = browser.get(value.url)
+    assert page.status_code == 200
+    own_preview = hidden(page, "preview")
     assert (
         post(browser, value.url, {"action": "confirm", "preview": preview}).status_code
         == 403
+    )
+    response = post(browser, value.url, {"action": "confirm", "preview": own_preview})
+    assert response.status_code == 302, response.content
+    assert (
+        b"Review installed credential selection"
+        in browser.get("/admin/configuration/integrations/parishsoft").content
     )

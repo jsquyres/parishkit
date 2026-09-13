@@ -125,9 +125,9 @@ def _unavailable(execution):
 def _check(execution, path, fingerprint):
     """Each finite helper pulse repeats Task/config admission and mounted identity."""
     try:
-        with execution.effect():
-            if file_fingerprint(read_private(path)) != fingerprint:
-                raise PermissionError("The installed mail credential changed.")
+        execution.check_inflight()
+        if file_fingerprint(read_private(path)) != fingerprint:
+            raise PermissionError("The installed mail credential changed.")
     finally:
         connections.close_all()
 

@@ -49,12 +49,11 @@ def _preview_schema(request, request_id):
     return credential_request_schema(base.document())
 
 
-def _selection(service, request_id, actor):
+def _selection(service, request_id):
     """The original request is correlation, not authority or proof of current use."""
     configuration = editable_configuration(service)
     receipt = SecretReplacementRequest.objects.filter(
         pk=request_id,
-        requested_by_id=actor.identity,
         state="applied",
         target__in=TARGETS,
     ).first()
@@ -80,7 +79,7 @@ def _selection(service, request_id, actor):
 
 @require_http_methods(["GET", "HEAD", "POST"])
 def select_credential(request, request_id):
-    """Select one acknowledged fingerprint without reading the credential value."""
+    """Any fresh Admin may select a receipt using their own exact signed preview."""
     try:
         service = runtime()
         actor = principal(request, service)
@@ -95,7 +94,7 @@ def select_credential(request, request_id):
             def scope(service):
                 """Intake repeats freshness and current receipt proof under its lock."""
                 require_fresh(request)
-                configuration, _, _ = _selection(service, request_id, actor)
+                configuration, _, _ = _selection(service, request_id)
                 return configuration, None
 
             response = confirm(
@@ -108,7 +107,7 @@ def select_credential(request, request_id):
             )
         else:
             with work_transaction():
-                configuration, receipt, record = _selection(service, request_id, actor)
+                configuration, receipt, record = _selection(service, request_id)
                 base = service.store.active()
                 if (
                     base is None
