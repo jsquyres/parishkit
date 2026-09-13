@@ -83,7 +83,7 @@ def test_background_assembly_binds_exact_keys_role_and_closed_registry(
     try:
         assert calls == ["mounts", "lifecycle", "django", "grants", "coherence"]
         assert runtime.broker.service is role and runtime.broker.stop is stop
-        assert set(runtime.handlers) == {"source_refresh"}
+        assert set(runtime.handlers) == {"source_refresh", "branding_cleanup"}
         assert runtime.handlers["source_refresh"].pulse is pulse
         assert set(runtime.receipts) == set(configuration.secrets)
         if role is ServiceRole.WORKER:
@@ -139,11 +139,12 @@ def test_background_assembly_does_not_accept_other_profiles(tmp_path, role):
 
 
 def test_scheduler_registry_is_metadata_only():
-    """It contains one compiled type and refuses even direct execution attempts."""
+    """Both compiled types refuse even direct provider/file execution attempts."""
     handlers = background.scheduler_handlers()
-    assert set(handlers) == {"source_refresh"}
-    with pytest.raises(PermissionError):
-        handlers["source_refresh"].execute(None)
+    assert set(handlers) == {"source_refresh", "branding_cleanup"}
+    for handler in handlers.values():
+        with pytest.raises(PermissionError):
+            handler.execute(None)
 
 
 def test_bound_registry_rechecks_authority_before_domain_admission(monkeypatch):

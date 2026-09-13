@@ -6,10 +6,15 @@ from . import views
 from .accounts import (
     access_gate,
     authentication,
+    branding_views,
     campaign_views,
+    clone_views,
     code_reports,
+    content_history,
     content_views,
     family_authentication,
+    integration_selection_views,
+    integration_views,
     ministry_views,
     parish_views,
     presence,
@@ -19,6 +24,11 @@ from .accounts import (
 from .jobs import views as job_views
 
 public_patterns = [
+    path(
+        "branding/<uuid:asset_id>.png",
+        branding_views.branding_asset,
+        name="branding_asset",
+    ),
     path("", family_authentication.entry, name="entry"),
     path("access/<str:token>", family_authentication.access, name="access"),
 ]
@@ -30,6 +40,52 @@ family_patterns = [
 ]
 admin_patterns = [
     path(
+        "configuration/credentials/<uuid:request_id>/select",
+        integration_selection_views.select_credential,
+        name="select_credential",
+    ),
+    path(
+        "configuration/branding",
+        branding_views.branding_settings,
+        name="branding_settings",
+    ),
+    path(
+        "configuration/branding/<uuid:bundle_id>",
+        branding_views.branding_preview,
+        name="branding_preview",
+    ),
+    path(
+        "configuration/branding/assets/<uuid:asset_id>.png",
+        branding_views.branding_asset,
+        {"private": True},
+        name="branding_asset",
+    ),
+    path(
+        "configuration/integrations",
+        integration_views.integration_settings,
+        name="integrations",
+    ),
+    path(
+        "configuration/integrations/<str:target>",
+        integration_views.integration_settings,
+        name="integration_settings",
+    ),
+    path(
+        "configuration/integrations/<str:target>/credential",
+        integration_views.replace_credential,
+        name="replace_credential",
+    ),
+    path(
+        "configuration/credentials/<uuid:request_id>",
+        integration_views.credential_status,
+        name="credential_status",
+    ),
+    path(
+        "campaign/<uuid:campaign_id>/clone",
+        clone_views.campaign_clone,
+        name="campaign_clone",
+    ),
+    path(
         "campaign/<uuid:campaign_id>/schedules",
         schedule_views.schedule_settings,
         name="schedule_settings",
@@ -38,6 +94,16 @@ admin_patterns = [
         "campaign/<uuid:campaign_id>/content",
         content_views.content_settings,
         name="content_catalog",
+    ),
+    path(
+        "campaign/<uuid:campaign_id>/content/history",
+        content_history.content_history,
+        name="content_history",
+    ),
+    path(
+        "campaign/<uuid:campaign_id>/content/history/<uuid:revision_id>",
+        content_history.content_history,
+        name="content_history_revision",
     ),
     path(
         "campaign/<uuid:campaign_id>/content/<str:kind>/<str:slot>",

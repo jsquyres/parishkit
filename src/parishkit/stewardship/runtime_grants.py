@@ -13,6 +13,10 @@ from .deployment import ServiceRole
 # Explicit snapshot/read vocabulary; no wildcard over future application tables.
 WEB_READ_TABLES = frozenset(
     [
+        "stewardship_branding_bundle",
+        "stewardship_branding_asset",
+        "stewardship_provider_context",
+        "stewardship_public_credential_handoff",
         "stewardship_source_current",
         "stewardship_snapshot_ministry",
         "stewardship_source_ministry",
@@ -92,6 +96,9 @@ WEB_READ_TABLES = frozenset(
 
 WEB_INSERT_TABLES = frozenset(
     [
+        "stewardship_branding_bundle",
+        "stewardship_branding_asset",
+        "stewardship_provider_context",
         "django_session",
         "stewardship_oauth_consumption",
         "stewardship_auth_incident",
@@ -121,6 +128,7 @@ WEB_INSERT_TABLES = frozenset(
 
 WEB_UPDATE_TABLES = frozenset(
     [
+        "stewardship_branding_bundle",
         "django_session",
         "stewardship_auth_incident",
         "stewardship_limiter_health",

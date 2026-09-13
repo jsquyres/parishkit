@@ -50,7 +50,7 @@ Scope and dependencies: [ADM-03 work package](../../plans/stewardship/admin-port
 - [ ] ADM-03.03 — Build presence and background-task indicators.
 - [ ] ADM-03.04 — Build durable configuration, Ministry activity, and credential editors.
 - [ ] ADM-03.05 — Keep Parish-timezone edits prospective.
-- [ ] ADM-03.06 — Build branding previews and variant handling.
+- [x] ADM-03.06 — Build branding previews and variant handling.
 - [ ] ADM-03.07 — Test configuration UI, Ministry activity, concurrency, and timezone isolation.
 
 Evidence: In progress. The Ministry activity and Parish profile editors use
@@ -59,8 +59,18 @@ signed exact previews and durable Applying/Applied configuration requests;
 permissions, restricted web grants, installation, retry, and campaign-timezone
 isolation. Navigation, Testing banners, passive Family-presence/background
 indicators and HTML task history now pass PostgreSQL and three-engine browser
-tests. Branding, integration replacement and the remaining full acceptance
-checks are not complete. See
+tests. Integration settings now use the same exact-preview protocol; fresh-Admin
+credential intake seals to the target installer, with immutable provider scope,
+bounded authentication checks and passive request progress. Its 45-case HTTP/
+form run has 93% focused coverage, and 30 new three-engine browser cases pass.
+Normalized logo upload, four-size preview, immutable activation and historical
+branding are implemented. Durable, bounded worker cleanup preserves all retained
+references and resumes interrupted removal; the combined branding/history run
+passes 68 cases with 95% focused coverage. Post-install selection now requires
+the latest target receipt, complete consumer acknowledgements and matching public
+provider scope; the combined 93-case run has 94% focused selection coverage.
+Wizard finalization, explicit delivery tests and full acceptance checks are not
+complete. See
 [Phase 2 evidence](../../guides/stewardship-phase-2.md#worker-composition-and-initial-admin-editors-in-progress).
 
 ## ADM-04: Campaign editor, content, schedules, and previews
@@ -86,8 +96,12 @@ existing template consumers and preserve immutable YAML/projection history;
 content form/view integration coverage is 92%. Combined schedule/draft-date
 reconciliation now passes 70 tests with 94% schedule-module coverage; exact
 work previews, explicit removals and timezone-bound revisions preserve SQL
-admission. Cloning and readiness-test mail remain open, along with complete
-integration/regression/review acceptance.
+admission. Archived campaign cloning now has exact previews, fresh child IDs and
+explicit new-date/current-fund entry; its combined run passes 44 tests with 91%
+focused coverage and eighteen selected browser cases. Read-only retained content
+previews preserve the campaign's selected configuration, Parish name and logo.
+Readiness-test mail and
+complete integration/regression/review acceptance remain open.
 See [Phase 2 evidence](../../guides/stewardship-phase-2.md#immutable-content-and-template-editing).
 
 ## ADM-05: Production transition and pre-start withdrawal

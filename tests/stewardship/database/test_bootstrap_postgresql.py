@@ -116,6 +116,12 @@ def test_complete_successor_can_follow_bootstrap_but_not_regress(bootstrapped):
     document = configuration_document()
     document["predecessor_digest"] = root.digest
     document["sections"]["login_rules"] = root.document()["sections"]["login_rules"]
+    from .test_branding_postgresql import ready
+
+    # A complete setup successor now needs normalized branding receipts, not
+    # arbitrary placeholder UUIDs. Files are tested by the owning media workflow.
+    _, branding = ready(root, actor)
+    document["sections"]["parish"][0]["values"]["branding"] = branding
     successor = configuration_version(document)
     prepare_snapshot(successor, actor_id=actor, correlation_id=uuid4())
     assert is_prepared(successor.digest)

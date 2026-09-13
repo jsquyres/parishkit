@@ -156,6 +156,53 @@ def test_gunicorn_worker_receipt_hook_sanitizes_private_failures(monkeypatch):
     assert error.value.__suppress_context__
 
 
+@pytest.mark.parametrize("target", ["metrics", "parishsoft"])
+def test_credential_service_publishes_only_after_admission(
+    tmp_path, monkeypatch, target
+):
+    """Key discovery derives from the admitted installer before its queue starts."""
+    from parishkit.stewardship.accounts.credential_installation import (
+        CredentialInstaller,
+    )
+
+    configuration = replace(
+        configuration_at(tmp_path),
+        service_role=ServiceRole.CREDENTIAL_INSTALLER,
+        credential_target=target,
+    )
+    monkeypatch.setattr(
+        "parishkit.stewardship.service_boundaries.admit_online_service",
+        lambda _: ServiceRole.CREDENTIAL_INSTALLER,
+    )
+    monkeypatch.setattr(
+        "parishkit.stewardship.runtime_web.admit_lifecycle_mounts", Mock()
+    )
+    monkeypatch.setattr(
+        "parishkit.stewardship.operator_commands.configure_operator_database", Mock()
+    )
+    monkeypatch.setattr(
+        "parishkit.stewardship.runtime_grants.admit_runtime_database", Mock()
+    )
+    installer, lease = Mock(), Mock()
+    monkeypatch.setattr(
+        CredentialInstaller, "from_configuration", Mock(return_value=installer)
+    )
+    publish = Mock()
+    monkeypatch.setattr(
+        "parishkit.stewardship.accounts.handoff_discovery.publish_handoff", publish
+    )
+
+    def serve(run_once, actual_lease):
+        """Queue processing cannot race ahead of the advertised encryption key."""
+        publish.assert_called_once_with(installer.files.private)
+        lease.check.assert_called_once()
+        assert actual_lease is lease and run_once is installer.run_once
+        return 0
+
+    monkeypatch.setattr(runtime_process, "serve_installer_loop", serve)
+    assert runtime_process.serve_credential_installer(configuration, lease) == 0
+
+
 @pytest.mark.parametrize("role", [ServiceRole.WORKER, ServiceRole.SCHEDULER])
 @pytest.mark.parametrize("fail", [False, True])
 def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
@@ -183,18 +230,22 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
         """Substitute the external process loop, not runtime lifecycle logic."""
         assert actual is broker and stop is stops[0]
         if role is ServiceRole.SCHEDULER:
-            kwargs["produce"](Mock())
+            assert kwargs["produce"](guard) == ("source-receipt", "cleanup-receipt")
         signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
         assert stop.is_set()
         if fail:
             raise RuntimeError("synthetic startup failure")
         return 0
 
-    producer, matching = Mock(), Mock()
+    producer, matching = Mock(return_value=("source-receipt",)), Mock()
+    guard, cleanup = Mock(), Mock(return_value=("cleanup-receipt",))
     monkeypatch.setattr(runtime_background, "configure_background", configure)
     monkeypatch.setattr(runtime_background, "matching_authority", matching)
     monkeypatch.setattr(
         "parishkit.stewardship.source.production.SourceProducer", lambda _: producer
+    )
+    monkeypatch.setattr(
+        "parishkit.stewardship.accounts.branding_cleanup.produce_cleanup", cleanup
     )
     monkeypatch.setattr("parishkit.stewardship.jobs.processes.serve_consumer", serve)
     monkeypatch.setattr("parishkit.stewardship.jobs.processes.serve_scheduler", serve)
@@ -220,7 +271,10 @@ def test_background_process_keeps_scope_receipts_and_cleans_up_on_exit(
     closes.assert_called_once()
     if role is ServiceRole.SCHEDULER:
         matching.assert_called_once_with(assembled.store)
-        producer.assert_called_once()
+        producer.assert_called_once_with(guard)
+        cleanup.assert_called_once_with(guard)
+    else:
+        cleanup.assert_not_called()
 
 
 def test_background_failed_admission_restores_signals_without_publishing_receipts(

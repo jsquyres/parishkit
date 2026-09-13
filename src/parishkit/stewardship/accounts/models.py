@@ -9,6 +9,7 @@ from .auth_models import (  # noqa: F401
     LimiterStoreHealth,
     OAuthStateConsumption,
 )
+from .branding_models import BrandingAsset, BrandingBundle  # noqa: F401
 from .chair_models import (  # noqa: F401
     ChairAssignmentReview,
     ChairReconciliation,
@@ -24,6 +25,7 @@ from .configuration_models import (  # noqa: F401
     Parish,
 )
 from .content_models import ContentVersion  # noqa: F401
+from .handoff_models import PublicCredentialHandoff  # noqa: F401
 from .policy_models import (  # noqa: F401
     AddressRoleGrant,
     AddressRule,
@@ -35,6 +37,7 @@ from .policy_models import (  # noqa: F401
     PolicySecurityEvent,
     PortalUser,
 )
+from .provider_models import ProviderValidationContext  # noqa: F401
 from .request_models import (  # noqa: F401
     ConfigurationChangeRequest,
     ConfigurationRequestCheckpoint,

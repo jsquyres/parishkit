@@ -230,6 +230,7 @@ def configure_web(configuration):
     coherent_configuration(store)
     for name in ("reports", "media"):
         private_directory(configuration.paths[name])
+    settings.STEWARDSHIP_MEDIA_ROOT = configuration.paths["media"]
     client = valkey_client(configuration)
     limiter_key = hmac.digest(
         rings["django_signing"].active.material,

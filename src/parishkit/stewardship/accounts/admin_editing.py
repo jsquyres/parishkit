@@ -78,7 +78,7 @@ def sign_preview(*, actor, configuration, patch, salt, snapshot=None):
     )
 
 
-def confirm(request, service, actor, *, salt, current_scope):
+def confirm(request, service, actor, *, salt, current_scope, request_schema=None):
     """Admit one exact intent; identical retries return the original receipt."""
     token = request.POST.get("preview", "")
     if len(token) > 256_000:
@@ -118,6 +118,7 @@ def confirm(request, service, actor, *, salt, current_scope):
         request_key=key,
         correlation_id=current_correlation(),
         admit=admit,
+        request_schema=request_schema,
     )
     return HttpResponseRedirect(f"/admin/configuration/requests/{receipt.request_id}")
 

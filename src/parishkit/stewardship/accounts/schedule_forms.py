@@ -294,7 +294,9 @@ Schedules = formset_factory(
 )
 
 
-def schedule_action(parameters, *, window_fields):
+def schedule_action(
+    parameters, *, window_fields, extra_fields=frozenset(), multiple_fields=frozenset()
+):
     """Closed scalar field parsing precedes formset allocation and kind validation."""
     from .admin_editing import form_action
 
@@ -305,6 +307,7 @@ def schedule_action(parameters, *, window_fields):
         "schedules-MIN_NUM_FORMS",
         "schedules-MAX_NUM_FORMS",
         *(f"window-{name}" for name in window_fields),
+        *extra_fields,
     }
     total = parameters.get("schedules-TOTAL_FORMS", "")
     preview = parameters.get("action") == "preview"
@@ -321,4 +324,6 @@ def schedule_action(parameters, *, window_fields):
         for index in range(int(total) if preview else 0)
         for name in (*ScheduleForm.base_fields, "DELETE")
     )
-    return form_action(parameters, preview_fields=fields)
+    return form_action(
+        parameters, preview_fields=fields, multiple_fields=multiple_fields
+    )

@@ -821,18 +821,185 @@ fixture stalled reproducibly before the final navigation; two separate 63-case
 subsets passed. Per-scenario browser process isolation resolves the complete
 suite without retries, skipped assertions or longer navigation timeouts.
 
+### Archived campaign cloning
+
+Admins can now start empty or clone an archived campaign after the existing
+Return-to-Testing/single-current guards admit a successor. The clone receives
+fresh deterministic child identities for content, share options and schedules;
+all campaign/financial/one-time mail dates, names and fund selections start
+empty. Current locally active Ministries are offered instead of importing stale
+selections. Digest civil times/weekdays and inert content are retained. No
+Family identity, response, delivery or workflow records are copied.
+
+The preview shows the complete new structure and fictional rendered content.
+Both the form seed and final preview are actor/base-bound and expire after
+15 minutes. Confirmation repeats source/lifecycle/configuration admission;
+installation adds the campaign, content and schedules in one YAML transaction.
+The new-campaign content allowance cannot modify an archived source's text.
+Normal 100-record/request and bounded preview limits still apply explicitly.
+
+The combined clone/campaign/content run passes 44 tests with 91% focused line
+coverage (100% cloning helper, 90% HTTP workflow). Tests include actual archive
+and Return-to-Testing transitions, installer application, historical preservation,
+fresh identities, stale/expired forms, forbidden roles and hidden fields. All
+18 selected three-engine browser cases pass, including the twelve new clone
+accessibility/mobile cases and the shared campaign fields' module behavior.
+
 ### Source runtime topology wiring (in progress)
 
 The operational dispatcher and rendered Compose topology now include the source
 worker and metadata-only scheduler. Each has its own SQL and Valkey credentials,
 read-only configuration selection and retained offline-exclusion lease. Only the
 worker has ParishSoft credentials and external network access; neither receives
-mail-dispatch private keys or Workspace credentials. The source-only handler
+mail-dispatch private keys or Workspace credentials. The compiled handler
 registry remains closed, and Production source effects still require BG-06's
 suppression owner. Missing required credentials continue to fail startup closed.
 The focused topology/process/composition/provisioning run passes 57 tests. This
 does not yet establish the empty-wizard credential path or a running Compose
 demonstration; those remain Phase 2 acceptance work.
+
+### Public credential handoff discovery
+
+After mount/SQL admission, each target installer derives and publishes only its
+public encryption key. Publication is immutable and idempotent; mismatching
+private-key startup refuses rather than silently stranding sealed requests.
+Web has only SELECT authority and resolves an encryption-only `PublicHandoff`.
+Target row policies and SQL insertion guards reject cross-target publication,
+invalid key lengths and forged human attribution. Published history prevents a
+downgrade that would remove these protections. No private key, credential value
+or extra credential mount is exposed to web.
+
+The combined discovery/credential isolation run passes 24 tests with 100% line
+coverage of the discovery service. Runtime tests check publication before queue
+startup. The baseline passes 3,549 tests with 1,856 explicit opt-in skips and two
+existing warnings. Provider validators, integration UI and wizard use of these
+public handoffs remain in progress; discovery alone does not complete them.
+The wider bootstrap/runtime run passes 76 cases after explicitly admitting the
+new RLS table to bootstrap's reviewed visibility list. This is not an emptiness
+exemption: the eight-case discovery rerun verifies that an existing publication
+still prevents initial bootstrap adoption. Ruff, formatting and migration-drift
+checks pass.
+
+### Integration configuration and credential checks (in progress)
+
+`/admin/configuration/integrations` exposes existing ParishSoft, Workspace,
+outgoing-address and Slack settings. Non-secret edits use exact, actor-bound
+fifteen-minute previews and the existing YAML installer; they preserve the
+credential fingerprint. Replacement forms require a Google authentication less
+than five minutes old and real CSRF admission. A posted candidate is never
+redisplayed, including on a validation error, and is sealed to the advertised
+target public key before persistence. The locked intake rechecks the applied
+configuration digest. Reusing an intent cannot change either the candidate
+fingerprint or the immutable public provider scope.
+
+Each target installer can read only its own provider-context rows, not the
+complete YAML configuration. SQL permits context insertion only in the original
+request transaction, repeats closed-field/type bounds and rejects later mutation
+or populated downgrade. Web cannot select sealed ciphertext. The 93-case
+credential/context/bootstrap run passes with actual restricted SQL identities.
+
+Provider checks use one isolated child process with credentials passed over
+stdin, an empty environment, closed inherited descriptors, discarded stderr and
+only a fixed outcome on stdout. The installer closes SQL before external IO and
+reserves a maximum thirty-second check plus five-second forced drainage within
+the request expiry. Unconfirmed drainage terminates the installer. The helper
+rejects redirects and unapproved endpoints, limits response bytes, and uses
+shared ParishKit exact-tenant validation and in-memory Google credential loading.
+Workspace checks authenticate the delegated SMTP mailbox using
+[Google's XOAUTH2 protocol](https://developers.google.com/workspace/gmail/imap/xoauth2-protocol).
+Slack uses the authentication-only
+[auth.test method](https://docs.slack.dev/reference/methods/auth.test/), avoiding
+additional channel-read permissions. Neither check sends a message or attests
+to sender/channel delivery. Outages retain sealed input for bounded retry;
+rejected credentials follow the existing rollback/scrubbing protocol.
+
+The provider/context run passes 110 tests with 97% focused coverage; normal CI
+uses fake HTTP/SMTP and a no-network subprocess case. The Admin/form/grant run
+passes 45 cases with 93% focused coverage, and all thirty new Chromium, Firefox
+and WebKit accessibility/mobile cases pass. These tests cover exact retry,
+write-only errors, CSRF, stale settings/authentication, role denial and real web
+SQL grants. Request progress distinguishes checking, installation, consumer
+acknowledgement and completed/failed cleanup; it never claims that YAML or
+delivery readiness changed just because a credential was installed.
+
+Remaining integration work includes adding/removing optional configuration
+through its complete owning workflow, test-only checks of an installed credential,
+explicit test deliveries and wizard use of these services. The setup wizard and
+final Compose demonstration remain incomplete.
+
+### Acknowledged credential reference selection
+
+After target installation and all required consumer acknowledgements, the
+original Admin can review/select the non-secret fingerprint from the replacement
+status page. Fresh Google authentication, current provider settings, the latest
+applied target receipt, complete matching consumer evidence and absence of a
+pending replacement are required. An already-selected reference is displayed
+read-only; exact confirmation retries return the original YAML request.
+
+The dedicated `integration-credential-patch-v6` request format admits exactly one
+existing integration fingerprint update. It cannot modify settings, add/remove
+services or change policy. Ordinary/default and retained v1-v5 parsers still
+reject fingerprint edits; only the compiled selection owner opts into this new
+format. The installer rechecks receipt/provenance before preparation. A pending
+replacement arriving after web intake fails the selection without changing YAML.
+The configuration installer receives read-only, target-scoped receipt and public
+provider-context access, never ciphertext, private keys or credential-file mounts.
+Retained selection requests prevent a schema downgrade that would lose replay.
+
+The combined reference-format, HTTP, configuration-installer and provider-context
+run passes 93 cases with 94% focused selection coverage. Tests perform real
+private-file replacement and required-worker acknowledgement, use the actual web
+and configuration-installer identities, and exercise stale settings/authentication,
+CSRF, arbitrary fingerprints, pending replacement races and migration rollback.
+Six new three-engine browser cases pass. Selecting a receipt is not a provider
+delivery-readiness test and does not complete the initial setup workflow.
+The ordinary full suite passes 3,700 tests with 1,998 explicit opt-in skips and
+two existing warnings. Ruff, formatting, edited Markdown and migration-drift
+checks pass.
+
+### Durable branding and retained content previews
+
+The Admin logo screen normalizes a bounded static PNG/JPEG/WebP into large,
+menu, icon and favicon PNG variants. Original filenames and image bytes never
+enter YAML or SQL. The private media store writes immutable UUID-named bundles
+with exclusive files, bounded inventories and directory/file fsync. Durable
+metadata records the original Admin/session, optional setup attempt, applied
+base, variant dimensions, length and digest. Only a complete ready bundle can
+be previewed, and a signed exact YAML request selects its four references.
+
+The web preview verifies every file against its immutable receipt. Public
+opaque image URLs require actual configuration activation, not merely staged
+or prepared data. SQL independently enforces variant bounds, original ownership,
+expiry and reference consistency. The web identity cannot delete history, and
+the configuration installer gets receipt reads without a writable media mount.
+Initial-setup uploads retain the original attempt/session binding and become
+unusable when that attempt expires or is cancelled.
+
+The closed scheduler/worker registry includes `branding_cleanup`. A bounded
+scheduler pass queues one durable root per expired, unselected bundle, including
+cancelled setup uploads. Only the worker mounts media read/write; the scheduler
+cannot mutate receipts or remove files. Any retained or prepared Parish reference
+pins its bundle. Restore review and unresolved configuration requests hold new
+cleanup. Task fences and a nonblocking media lock protect short checkpoints
+around file removal; interrupted cleanup resumes idempotently, preserving safe
+receipts. Automatic retries are bounded, and terminal failure does not produce
+a fresh retry root on every scheduling pass.
+
+`/admin/campaign/<id>/content/history` provides read-only fictional samples from
+the campaign's selected applied version. Archived previews retain that version's
+Parish name, logo and substitutions after a new global Parish edit. Revision
+lookups are campaign-scoped, writes are refused, and all responses recheck Admin
+authorization and remain non-cacheable. No real Family or provider is consulted.
+
+The combined PostgreSQL/file run passes 68 cases with 95% focused coverage,
+including real web/config-installer/worker/scheduler SQL identities. The focused
+cleanup/runtime/topology run passes 38 cases. The complete Chromium/Firefox/WebKit
+component run passes 252 cases, including actual logo loading and the retained
+content screen. Remaining Phase 2 integration acceptance is tracked separately;
+these results do not complete wizard finalization, readiness delivery or the full
+review gate. The ordinary full suite passes 3,680 tests with 1,981 explicit opt-in
+skips and two existing warnings; those skips are not PostgreSQL/browser evidence.
+Ruff, formatting, edited Markdown and migration-drift checks pass.
 
 The complete source/setup/configuration batch will receive at least three
 independent review/fix rounds and passing local/PR CI before human merge

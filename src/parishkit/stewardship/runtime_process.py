@@ -227,6 +227,7 @@ def serve_credential_installer(configuration, lease):
         validate_metrics_candidate,
         validation_unavailable,
     )
+    from .provider_checks import request_validator
 
     validator = (
         validate_metrics_candidate
@@ -234,8 +235,19 @@ def serve_credential_installer(configuration, lease):
         else validation_unavailable
     )
     installer = CredentialInstaller.from_configuration(
-        configuration, validate=validator
+        configuration,
+        validate=validator,
+        validate_request=(
+            request_validator(configuration.credential_target, check=lease.check)
+            if configuration.credential_target
+            in {"parishsoft", "google_workspace", "slack"}
+            else None
+        ),
     )
+    from .accounts.handoff_discovery import publish_handoff
+
+    lease.check()
+    publish_handoff(installer.files.private)
     return serve_installer_loop(installer.run_once, lease)
 
 
@@ -266,6 +278,7 @@ def serve_background(configuration, lease):
     """Assemble one admitted queue process and retain exclusion through final drain."""
     from uuid import uuid4
 
+    from .accounts.branding_cleanup import produce_cleanup
     from .consumer_runtime import publish_single_process_receipts
     from .installer_health import publish_heartbeat
     from .jobs.processes import serve_consumer, serve_scheduler
@@ -301,7 +314,7 @@ def serve_background(configuration, lease):
         def produce(guard):
             """A later YAML/SQL mismatch cannot enqueue or cancel scheduled work."""
             matching_authority(assembled.store)
-            return producer(guard)
+            return (*producer(guard), *produce_cleanup(guard))
 
         return serve_scheduler(
             assembled.broker,

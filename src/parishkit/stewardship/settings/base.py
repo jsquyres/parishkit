@@ -47,7 +47,8 @@ TEMPLATES = [
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
-                "parishkit.stewardship.accounts.admin_context.portal_chrome"
+                "parishkit.stewardship.accounts.admin_context.portal_chrome",
+                "parishkit.stewardship.accounts.branding_context.parish_branding",
             ]
         },
     }

@@ -97,6 +97,10 @@ def isolated_roles():
                     )
                 if role == "pk_stewardship_web":
                     cursor.execute(
+                        "GRANT SELECT, INSERT ON stewardship_provider_context "
+                        f'TO "{role}"'
+                    )
+                    cursor.execute(
                         "GRANT INSERT ON stewardship_credential_consumer_ack "
                         f'TO "{role}"'
                     )
@@ -109,6 +113,9 @@ def isolated_roles():
                         f'ON stewardship_sealed_credential_staging TO "{role}"'
                     )
                 elif role.startswith("pk_stewardship_credential_"):
+                    cursor.execute(
+                        f'GRANT SELECT ON stewardship_provider_context TO "{role}"'
+                    )
                     cursor.execute(
                         "GRANT SELECT, UPDATE ON stewardship_sealed_credential_staging "
                         f'TO "{role}"'
