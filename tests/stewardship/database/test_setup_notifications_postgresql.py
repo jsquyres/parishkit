@@ -96,6 +96,25 @@ def test_original_request_replay_is_inert_and_other_pending_intents_are_rejected
     assert not setup_service.configured()
 
 
+def test_collecting_slack_keeps_original_login_lifetime_after_loading(
+    setup_service, monkeypatch, tmp_path
+):
+    """A completed source load's age does not prematurely expire Slack testing."""
+    from parishkit.stewardship.accounts.setup_models import SetupAttempt
+
+    from .test_setup_progress_postgresql import aged_original_load
+
+    request, _, token, key, _ = ready(
+        setup_service, monkeypatch, tmp_path, enqueue=False
+    )
+    aged_original_load(SetupAttempt.objects.get().source_task_id, minutes=121)
+    with web_login():
+        identifier = notifications.request_notification(
+            request, setup_service, preview_token=token, request_key=key
+        )
+    assert SetupSlackDelivery.objects.get(pk=identifier).state == "queued"
+
+
 @pytest.mark.parametrize("outcome", [*DeliveryOutcome, RuntimeError("private")])
 def test_isolated_target_commits_before_one_fake_submission(
     setup_service, monkeypatch, tmp_path, outcome

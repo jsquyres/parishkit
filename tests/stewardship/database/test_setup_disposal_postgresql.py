@@ -102,11 +102,12 @@ def test_live_setup_payload_delete_is_denied_even_to_worker(setup_service, monke
     with task_login(ServiceRole.WORKER, exact=True):
         for table in ("stewardship_source_family", "stewardship_snapshot_family"):
             with (
-                pytest.raises(DatabaseError),
+                pytest.raises(DatabaseError) as raised,
                 transaction.atomic(),
                 connection.cursor() as c,
             ):
                 c.execute(f"DELETE FROM {table}")
+            assert raised.value.__cause__.sqlstate == "23514"
     assert SourceSnapshot.objects.get().state == "ready"
 
 
@@ -220,7 +221,12 @@ def test_another_source_snapshot_keeps_its_shared_payload(setup_service):
     with task_login(ServiceRole.WORKER, exact=True):
         with execution.effect():
             assert dispose_batch(execution, source) == 1
-        with pytest.raises(DatabaseError), execution.effect(), connection.cursor() as c:
+        with (
+            pytest.raises(DatabaseError) as raised,
+            execution.effect(),
+            connection.cursor() as c,
+        ):
             c.execute("DELETE FROM stewardship_source_family")
+        assert raised.value.__cause__.sqlstate == "23514"
         assert payload.objects.count() == membership.objects.count() == 1
         assert membership.objects.get().snapshot_id == other_snapshot.pk

@@ -8,6 +8,11 @@ outside this authority. Ordinary background admission cannot select this path.
 
 def add_setup_completion_grants(tables, columns):
     """Supply trigger effects, not the installer's general configuration grants."""
+    # Final activation rechecks every initial target's public ACK receipt. It
+    # needs neither sealed credential identifiers/bytes nor provider context.
+    columns.setdefault("stewardship_setup_credential_install", {}).setdefault(
+        "SELECT", set()
+    ).update({"id", "readiness_id", "request_id", "target", "fingerprint"})
     for table in (
         "stewardship_campaign_config_abort",
         "stewardship_campaign_config_intent",

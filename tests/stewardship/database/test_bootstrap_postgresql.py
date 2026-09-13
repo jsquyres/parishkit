@@ -331,8 +331,10 @@ def test_bootstrap_admits_only_pristine_migration_source_sentinels(tmp_path, kin
 
     lease_defaults = {"actor_id": uuid4()} if kind == "lease-attribution" else {}
     pointer_defaults = {"actor_id": uuid4()} if kind == "pointer-attribution" else {}
-    SourceMutationLease.objects.get_or_create(singleton=True, defaults=lease_defaults)
-    SourceCurrent.objects.get_or_create(singleton=True, defaults=pointer_defaults)
+    SourceMutationLease.objects.update_or_create(
+        singleton=True, defaults=lease_defaults
+    )
+    SourceCurrent.objects.update_or_create(singleton=True, defaults=pointer_defaults)
     store = AuthorityStore(tmp_path, validate_sections)
     root = bootstrap_version(uuid4(), "admin@example.org")
 
