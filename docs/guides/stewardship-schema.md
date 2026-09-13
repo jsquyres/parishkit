@@ -66,9 +66,16 @@ concurrency and deletion-protection tests remain in the database suite. Tests
 whose sole purpose was an obsolete intermediate upgrade/downgrade were retired.
 
 The inventory includes relation/function owners and full ACLs, live column order,
-and sequence parameters. Separate current-model checks compare field types,
-nullability, keys, and PostgreSQL-parsed constraint/index definitions with the
-installed schema using empty transaction-local scratch tables. The test database
+and sequence parameters. Separate current-model checks compile complete empty
+tables from Django declarations in a scratch schema that is always rolled back.
+They compare column types, nullability, collations, defaults, generated
+expressions, and complete constraint/index multisets in both directions. Index
+signatures include operator classes, collations and ordering flags. Negative
+probes verify changed definitions and removed defaults, keys, foreign keys,
+field indexes and named constraints/indexes. Four explicitly named SQL-only
+logging checks and constraint triggers are owned by the independent strict
+catalog fingerprint, not inferred from model declarations. No installed table
+is altered, and no historical schema is upgraded or downgraded. The test database
 setup also verifies all three seed sentinels before fixtures can recreate them.
 
 When intentionally changing schema or the pinned PostgreSQL major version,
