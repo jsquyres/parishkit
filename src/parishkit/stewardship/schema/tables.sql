@@ -1200,7 +1200,7 @@ CREATE TABLE public.stewardship_operational_log (
         'installer_request_failed','source_refresh_invalid','source_member_unusable',
         'source_refresh_held','source_credential_failed','source_provider_failed',
         'credential_handoff_key_mismatch','setup_credential_staged',
-        'setup_credential_scrubbed','campaign_boundary_lag')),
+        'setup_credential_scrubbed','campaign_boundary_lag','production_cleanup_failed')),
     CONSTRAINT operational_log_level CHECK (((level)::text = ANY ((ARRAY['DEBUG'::character varying, 'INFO'::character varying, 'WARNING'::character varying, 'ERROR'::character varying, 'CRITICAL'::character varying])::text[])))
 );
 
@@ -2458,6 +2458,65 @@ CREATE TABLE "stewardship_ministry_request" ("id" uuid NOT NULL PRIMARY KEY,
     CONSTRAINT "ministry_request_outcome" CHECK (((((state)::text = ANY ((ARRAY['resolved'::character varying, 'closed_no_response'::character varying])::text[])) AND (outcome IS NOT NULL) AND (resolved_at IS NOT NULL) AND ((outcome)::text = ANY ((ARRAY['joined'::character varying, 'leave_confirmed'::character varying, 'declined'::character varying, 'no_response'::character varying, 'duplicate'::character varying, 'other'::character varying])::text[]))) OR ((NOT ((state)::text = ANY ((ARRAY['resolved'::character varying, 'closed_no_response'::character varying])::text[]))) AND (outcome IS NULL) AND (resolution_source_id IS NULL) AND (resolved_at IS NULL)))),
     CONSTRAINT "ministry_request_successor" CHECK ((("state" = 'superseded' AND "superseded_by_id" IS NOT NULL) OR (NOT ("state" = 'superseded') AND "superseded_by_id" IS NULL))),
     CONSTRAINT "ministry_request_not_own_next" CHECK (NOT ("superseded_by_id" = ("id") AND "superseded_by_id" IS NOT NULL)));
+
+-- Exact cleanup membership is created with its request and never exposed as
+-- general deletion authority. Foreign keys are installed with the other guards.
+-- This private proof exists only inside one trigger-owned batch transaction.
+-- Runtime roles receive no privileges on it; it is empty at every commit.
+CREATE TABLE public.stewardship_production_cancellation (
+    id uuid PRIMARY KEY,
+    created_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
+    actor_id uuid,
+    correlation_id uuid NOT NULL,
+    request_id uuid NOT NULL UNIQUE,
+    command_id uuid NOT NULL UNIQUE,
+    expected_version bigint NOT NULL CHECK(expected_version>=0)
+);
+CREATE INDEX production_cancellation_correlation ON public.stewardship_production_cancellation(correlation_id);
+
+CREATE TABLE public.stewardship_cleanup_effect (
+    transaction_id xid8 NOT NULL,
+    checkpoint_id uuid NOT NULL,
+    request_id uuid NOT NULL,
+    category varchar(32) NOT NULL,
+    target_id uuid NOT NULL,
+    PRIMARY KEY (transaction_id, category, target_id)
+);
+CREATE TABLE public.stewardship_production_manifest (
+    id uuid PRIMARY KEY,
+    created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    actor_id uuid,
+    correlation_id uuid NOT NULL,
+    request_id uuid NOT NULL UNIQUE,
+    catalog_version smallint NOT NULL DEFAULT 1 CHECK (catalog_version >= 0),
+    delivery_counts jsonb NOT NULL,
+    delivery_attempts bigint NOT NULL CHECK (delivery_attempts >= 0),
+    template_ids jsonb NOT NULL,
+    testing_recipient_fingerprint varchar(64) NOT NULL,
+    CONSTRAINT production_manifest_catalog CHECK (catalog_version = 1)
+);
+CREATE INDEX production_manifest_correlation ON public.stewardship_production_manifest (correlation_id);
+CREATE TABLE public.stewardship_production_target (
+    id uuid PRIMARY KEY,
+    created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
+    actor_id uuid,
+    correlation_id uuid NOT NULL,
+    request_id uuid NOT NULL,
+    category varchar(32) NOT NULL,
+    target_id uuid NOT NULL,
+    CONSTRAINT production_target_identity UNIQUE (request_id, category, target_id),
+    CONSTRAINT production_target_category CHECK (category::text = ANY (ARRAY[
+        ('baselines'::varchar)::text,('session_data'::varchar)::text,('family_sessions'::varchar)::text,
+        ('ministry_requests'::varchar)::text,('occurrences'::varchar)::text,('occurrence_events'::varchar)::text,
+        ('outbox_events'::varchar)::text,('outbox_messages'::varchar)::text,('outbox_renders'::varchar)::text,
+        ('proposals'::varchar)::text,('rehearsal_credentials'::varchar)::text,('rehearsal_macs'::varchar)::text,
+        ('schedule_fulfillments'::varchar)::text,('source_pins'::varchar)::text,
+        ('submission_receipts'::varchar)::text,('submissions'::varchar)::text,
+        ('prior_inventory_targets'::varchar)::text
+    ]))
+);
+CREATE INDEX production_target_correlation ON public.stewardship_production_target (correlation_id);
+CREATE INDEX production_target_request ON public.stewardship_production_target (request_id);
 
 -- Phase 4: durable delivery journal (fresh-install baseline only).
 CREATE TABLE "stewardship_delivery_pause_hold" ("id" uuid NOT NULL PRIMARY KEY, "created_at" timestamp with time zone DEFAULT (STATEMENT_TIMESTAMP()) NOT NULL, "actor_id" uuid NULL, "correlation_id" uuid NOT NULL, "campaign_id" uuid NOT NULL, "pause_version" bigint NOT NULL CHECK ("pause_version" >= 0), CONSTRAINT "delivery_pause_identity" UNIQUE (campaign_id, pause_version), CONSTRAINT "delivery_pause_positive" CHECK ((pause_version >= 1)));

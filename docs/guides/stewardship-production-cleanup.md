@@ -38,3 +38,43 @@ authorized by this increment. Gate 3 remains after complete Phase 4/5 integratio
   verification on refreshed `origin/main` before the next increment.
 
 Implementation is in progress. No BG-03 task or review gate is claimed complete.
+
+## Implemented working-tree checkpoint
+
+The compiled general worker now captures a sealed, independently SQL-verified
+17-category inventory, deletes dependency-ready bounded batches with atomic
+checkpoints, and verifies completion against both retained membership and actual
+Testing data. Private transaction proofs authorize only the inventoried deletes;
+runtime roles cannot read private target membership or forge those proofs.
+Terminal Testing mail detail is removed while Production/operational mail,
+stable Production identities and anonymous rehearsal reservations are preserved.
+
+Cancellation is a durable Admin intent honored at worker/recovery boundaries;
+partial deletion is never rewound. Exhausted retries retain the gate and emit a
+deduplicated non-sensitive critical event. Explicit retry creates a journaled
+child task. Internal request ports remain unavailable as web activation/readiness
+workflows until ADM-05 supplies its authoritative checks and UI.
+
+Local synthetic-data validation before the first independent review:
+
+- 61 cleanup tests passed in 65.65 seconds; scoped coverage is 91%.
+- 5,554 credential-free baseline tests passed in 56.43 seconds; 3,553
+  environment-gated tests skipped, with two existing warnings.
+- 138 journal/schema/storage/schedule regressions passed in 69.68 seconds.
+- An independent fresh-schema comparison against PR #32 passed before accepting
+  the updated catalog fixture: four added tables, 29 columns, 44 constraints,
+  21 functions, 12 indexes and 30 Stewardship triggers, with no removed objects.
+  Changes to existing objects are limited to one event constraint and nine
+  functions for deletion authorization and private control metadata. Django
+  session deletion protection is checked separately. No retained database was
+  upgraded or deleted.
+- Django reports no missing migration state; this remains a fresh-install
+  baseline, not an upgrade contract.
+
+The first Claude permission probe appended a stray period to its validator
+command and was denied. The exact-command retry passed with no permission
+denials, byte-identical fixture delivery and parent validation. Neither probe
+reviewed code or counts toward the three required rounds.
+
+Independent review rounds, additional race/admission acceptance evidence,
+operational validation and final-head/merge-group CI remain outstanding.

@@ -8,6 +8,7 @@ from parishkit.stewardship.storage import (
     UTCDateTimeField,
 )
 
+from .cleanup_types import CleanupCategory
 from .production_states import (
     GATE_OWNING_PRODUCTION_STATES,
     ProductionAction,
@@ -219,6 +220,81 @@ class ProductionCleanupCheckpoint(ImmutableRecord):
             models.CheckConstraint(
                 condition=models.Q(batch_digest__regex=r"^[0-9a-f]{64}$"),
                 name="production_batch_digest",
+            ),
+        ]
+
+
+class ProductionCleanupManifest(ImmutableRecord):
+    """Sealed inventory marker; durable request counts/digest describe its targets.
+
+    Creation verifies exact corpus coverage under the go-live lock. A bare
+    journal request without this marker never grants the worker deletion access.
+    The marker survives cleanup; its private target rows do not.
+    """
+
+    request = models.OneToOneField(
+        ProductionTransitionRequest,
+        on_delete=models.PROTECT,
+        related_name="cleanup_manifest",
+    )
+    catalog_version = models.PositiveSmallIntegerField(default=1, db_default=1)
+    delivery_counts = models.JSONField()
+    delivery_attempts = models.PositiveBigIntegerField()
+    template_ids = models.JSONField()
+    testing_recipient_fingerprint = models.CharField(max_length=64)
+
+    class Meta:
+        db_table = "stewardship_production_manifest"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(catalog_version=1),
+                name="production_manifest_catalog",
+            )
+        ]
+
+
+class ProductionCleanupCancellation(ImmutableRecord):
+    """An Admin stop request, observed only at a transaction-safe batch boundary."""
+
+    request = models.OneToOneField(
+        ProductionTransitionRequest,
+        on_delete=models.PROTECT,
+        related_name="cleanup_cancellation",
+    )
+    command_id = models.UUIDField(unique=True)
+    expected_version = models.PositiveBigIntegerField()
+
+    class Meta:
+        db_table = "stewardship_production_cancellation"
+
+
+class ProductionCleanupTarget(ImmutableRecord):
+    """Private exact membership, removed with its target by the cleanup owner.
+
+    Do not turn this into permanent deletion history: target IDs can indirectly
+    identify a Family. Checkpoints retain only batch fingerprints/counts.
+    """
+
+    request = models.ForeignKey(
+        ProductionTransitionRequest,
+        on_delete=models.PROTECT,
+        related_name="cleanup_targets",
+    )
+    category = models.CharField(max_length=32)
+    target_id = models.UUIDField()
+
+    class Meta:
+        db_table = "stewardship_production_target"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["request", "category", "target_id"],
+                name="production_target_identity",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    category__in=[item.value for item in CleanupCategory]
+                ),
+                name="production_target_category",
             ),
         ]
 
