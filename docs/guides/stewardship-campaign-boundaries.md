@@ -48,3 +48,12 @@ after complete Phase 4/5 integration.
 Planning and implementation have started; no BG-02 task is newly complete.
 Existing boundary/storage race tests are prior substrate evidence, not proof
 of the new compiled scheduler and worker integration.
+
+The first internal checkpoint implements bounded occurrence/root production and
+the compiled metadata/execution/recovery handler. Seventeen PostgreSQL tests
+passed in 22.88 seconds, covering exact dates, repeated scans/restart, held
+configuration, close-first execution, late-denial rollback, stale/unbound task
+views, and recovery before versus after the domain commit. Ruff passes for the
+new modules and tests. No runtime registry or additional SQL authority is
+enabled yet; restricted-role integration, replacement, audit/lag evidence,
+broader races and the complete three-round review/CI cycle remain required.
