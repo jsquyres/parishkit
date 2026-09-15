@@ -19,8 +19,9 @@ from parishkit.stewardship.jobs.storage import enqueue
 from parishkit.stewardship.storage import StorageInvariantError
 
 from .boundary_health import record_lag
+from .boundary_revisions import current_boundary
 from .credential_models import CampaignCredentialState
-from .models import CampaignBoundaryOccurrence, CampaignWorkGate
+from .models import CampaignWorkGate
 from .work_locks import work_transaction
 
 TASK_TYPE = "campaign_boundary"
@@ -94,11 +95,12 @@ def produce_boundaries(guard):
             if due_at > scope.instant:
                 continue
             guard.check()
-            occurrence, _ = CampaignBoundaryOccurrence.objects.get_or_create(
+            occurrence = current_boundary(
                 campaign_id=campaign_id,
                 kind=kind,
                 due_at=due_at,
-                defaults={"actor_id": None, "correlation_id": campaign_id},
+                actor_id=None,
+                correlation_id=campaign_id,
             )
             if occurrence.state != "pending":
                 continue

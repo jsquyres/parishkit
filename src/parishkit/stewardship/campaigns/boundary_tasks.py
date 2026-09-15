@@ -69,7 +69,15 @@ def _eligible(row):
     scope = boundary_scope(row.campaign_id)
     projection = scope.campaign.active_configuration
     due_at = projection.starts_at if row.kind == "start" else projection.ends_at
-    return row.due_at == due_at and row.due_at <= scope.instant
+    return (
+        row.due_at == due_at
+        and row.due_at <= scope.instant
+        and not CampaignBoundaryOccurrence.objects.filter(
+            campaign_id=row.campaign_id,
+            kind=row.kind,
+            execution_revision__gt=row.execution_revision,
+        ).exists()
+    )
 
 
 def admit_boundary(action, status):

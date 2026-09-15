@@ -116,17 +116,32 @@ tests in 525.91 seconds, while waiting in a deliberate threading wait. It is
 not complete validation or a demonstrated deadlock. Remaining setup regressions
 must run in bounded diagnostic groups before final acceptance.
 
-## Remaining acceptance and contract question
+## Approved execution-revision contract
 
-Atomic creation of replacement future close work is not complete. In particular,
-the current unique `(campaign, kind, resolved instant)` identity and immutable
-terminal outcome conflict when an Admin changes end date A to B and back to A.
-The prior A occurrence is already terminal `boundary_replaced`; silently reusing
-it would strand closing, while rewriting it would discard immutable history.
-The human has been asked whether to allow a new execution revision for that
-same date while preserving prior replacement history (recommended), or forbid
-reuse of a replaced date. Do not silently introduce either new product rule.
+The human approved support for A → B → A with immutable replacement history and
+a fresh execution revision for the reused date. The normative data/background
+specifications now define monotonically increasing per-campaign/kind execution
+revisions, with distinct occurrence IDs and task roots. This is an expressly
+approved change to the previously reviewed date-only identity, not permission
+to rewrite terminal history or add pre-production upgrade compatibility.
 
-Finish that contract and implementation, replacement/closing race tests and
-remaining runtime/regression validation before the three dual-source reviews.
-No new BG-02 checkbox is complete and this branch has no PR yet.
+The implementation now atomically retires an obsolete close occurrence and
+allocates its successor during the end-date configuration transaction. Both
+the producer and executor select the latest execution revision; stale hints
+acknowledge cancellation without reviving history. SQL independently enforces
+sequential revisions, immutable identity, no competing pending predecessor and
+current-revision worker proof. A close that wins before publication of an
+earlier reviewed end edit leaves the campaign closed and requires reopening.
+
+The expanded boundary/exceptional-date/regression set passed 77 PostgreSQL tests
+in 59.34 seconds; the final six end-date tests passed in 14.51 seconds. After
+the independent schema audit, the strict fresh-schema/model and end-date set
+passed 23 tests in 25.21 seconds. The latest credential-free baseline passed
+5,539 tests with 3,480 opt-in/profile skips and two pre-existing warnings in
+56.14 seconds. The schema audit confirmed only the approved execution-revision
+column, revision constraints/identity index and associated guard changes beyond
+the already recorded boundary deltas. No retained database was upgraded/deleted.
+
+Complete remaining runtime/regression validation and three dual-source review
+rounds before PR delivery. No new BG-02 checkbox is complete and this branch
+has no PR yet.

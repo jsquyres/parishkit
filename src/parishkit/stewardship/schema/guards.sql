@@ -22,7 +22,7 @@ ALTER TABLE ONLY public.stewardship_branding_asset
 
 -- CONSTRAINT: stewardship_campaign_boundary campaign_boundary_identity
 ALTER TABLE ONLY public.stewardship_campaign_boundary
-    ADD CONSTRAINT campaign_boundary_identity UNIQUE (campaign_id, kind, due_at);
+    ADD CONSTRAINT campaign_boundary_identity UNIQUE (campaign_id, kind, execution_revision);
 
 -- CONSTRAINT: stewardship_family_code_mac campaign_code_key_unique
 ALTER TABLE ONLY public.stewardship_family_code_mac

@@ -433,6 +433,7 @@ CREATE FUNCTION public.stewardship_boundary_guard_v1() RETURNS trigger
     AS $$
 DECLARE c stewardship_campaign%ROWTYPE; r stewardship_system_configuration%ROWTYPE;
     p stewardship_campaign_configuration%ROWTYPE; due timestamptz;
+    previous stewardship_campaign_boundary%ROWTYPE;
 BEGIN
     PERFORM pg_advisory_xact_lock(736220,1);
     IF TG_OP='DELETE' THEN RAISE EXCEPTION 'Boundary history cannot be deleted' USING ERRCODE='23514'; END IF;
@@ -441,7 +442,13 @@ BEGIN
     SELECT * INTO p FROM stewardship_campaign_configuration WHERE id=c.active_configuration_id;
     due:=CASE WHEN NEW.kind='start' THEN p.starts_at ELSE p.ends_at END;
     IF TG_OP='INSERT' THEN
+        SELECT * INTO previous FROM stewardship_campaign_boundary
+            WHERE campaign_id=NEW.campaign_id AND kind=NEW.kind
+            ORDER BY execution_revision DESC LIMIT 1;
         IF NEW.state<>'pending' OR NEW.version<>1 OR NEW.due_at<>due
+           OR NEW.execution_revision<>coalesce(previous.execution_revision,0)+1
+           OR previous.state='pending'
+           OR (previous.due_at=NEW.due_at AND previous.reason<>'boundary_replaced')
            OR NEW.task_id IS NOT NULL OR NEW.task_fence IS NOT NULL OR NEW.reason<>''
            OR c.id IS DISTINCT FROM r.current_campaign_id OR r.restore_review_required
            OR EXISTS(SELECT 1 FROM stewardship_campaign_work_gate WHERE campaign_id=c.id AND state IN ('preparing','running','tombstone')) THEN
@@ -640,7 +647,7 @@ CREATE FUNCTION public.stewardship_campaign_boundary_mutable_v1() RETURNS trigge
     LANGUAGE plpgsql
     AS $$
             BEGIN
-                IF NEW."id" IS DISTINCT FROM OLD."id" OR NEW."created_at" IS DISTINCT FROM OLD."created_at" OR NEW."campaign_id" IS DISTINCT FROM OLD."campaign_id" OR NEW."kind" IS DISTINCT FROM OLD."kind" OR NEW."due_at" IS DISTINCT FROM OLD."due_at" THEN
+                IF NEW."id" IS DISTINCT FROM OLD."id" OR NEW."created_at" IS DISTINCT FROM OLD."created_at" OR NEW."campaign_id" IS DISTINCT FROM OLD."campaign_id" OR NEW."kind" IS DISTINCT FROM OLD."kind" OR NEW."due_at" IS DISTINCT FROM OLD."due_at" OR NEW.execution_revision IS DISTINCT FROM OLD.execution_revision THEN
                     RAISE EXCEPTION 'Record identity and bindings are immutable'
                         USING ERRCODE = '23514';
                 END IF;
@@ -795,6 +802,13 @@ BEGIN
     WHERE campaign_id=c.id AND kind='close' AND due_at<>p.ends_at AND state='pending';
     SELECT intent.* INTO i FROM stewardship_campaign_config_intent intent
         JOIN stewardship_config_activation a ON a.request_id=intent.request_id WHERE a.configuration_id=NEW.active_configuration_id;
+    IF i.action IN ('edit_end','reopen') THEN
+        INSERT INTO stewardship_campaign_boundary(id,campaign_id,kind,due_at,execution_revision,
+            state,reason,version,actor_id,correlation_id)
+        SELECT gen_random_uuid(),c.id,'close',p.ends_at,coalesce(max(execution_revision),0)+1,
+            'pending','',1,NEW.actor_id,NEW.correlation_id
+        FROM stewardship_campaign_boundary WHERE campaign_id=c.id AND kind='close';
+    END IF;
     IF i.action='reopen' THEN
         INSERT INTO stewardship_campaign_transition(id,campaign_id,request_id,action,expected_version,expected_runtime_version,
             before_state,after_state,before_mode,after_mode,configuration_id,prior_projection_id,token_generation_id,reason,actor_id,correlation_id)
@@ -5494,6 +5508,9 @@ BEGIN
             AND c.state IN ('scheduled','active','closed')
             AND target.due_at=CASE target.kind WHEN 'start' THEN p.starts_at ELSE p.ends_at END
             AND target.due_at<=public.stewardship_campaign_now_v1()
+            AND NOT EXISTS(SELECT 1 FROM public.stewardship_campaign_boundary newer
+                WHERE newer.campaign_id=target.campaign_id AND newer.kind=target.kind
+                    AND newer.execution_revision>target.execution_revision)
             AND (target.state='pending' OR (target.task_id=task.id AND target.task_fence=task.fence))
             AND NOT EXISTS(SELECT 1 FROM public.stewardship_campaign_work_gate g
                 WHERE g.campaign_id=c.id AND g.state<>'released');

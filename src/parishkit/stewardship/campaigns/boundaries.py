@@ -7,6 +7,7 @@ from django.db.models import F
 from parishkit.stewardship.storage import StorageInvariantError
 
 from .admission import CampaignAdmissionUnavailable
+from .boundary_revisions import current_boundary
 from .lifecycle import Action
 from .models import CampaignBoundaryOccurrence
 from .runtime import _emit, _now, campaign_transaction
@@ -48,11 +49,12 @@ def apply_due_boundaries(
             if due > now:
                 continue
             admit(kind, campaign, runtime, None)
-            occurrence, _ = CampaignBoundaryOccurrence.objects.get_or_create(
-                campaign=campaign,
+            occurrence = current_boundary(
+                campaign_id=campaign.pk,
                 kind=kind.value,
                 due_at=due,
-                defaults={"actor_id": actor_id, "correlation_id": correlation_id},
+                actor_id=actor_id,
+                correlation_id=correlation_id,
             )
             if occurrence.state != "pending":
                 results.append(occurrence)
