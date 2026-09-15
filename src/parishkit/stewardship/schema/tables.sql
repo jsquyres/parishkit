@@ -2517,6 +2517,7 @@ CREATE TABLE public.stewardship_production_target (
 );
 CREATE INDEX production_target_correlation ON public.stewardship_production_target (correlation_id);
 CREATE INDEX production_target_request ON public.stewardship_production_target (request_id);
+CREATE INDEX production_target_lookup ON public.stewardship_production_target (category, target_id);
 
 -- Phase 4: durable delivery journal (fresh-install baseline only).
 CREATE TABLE "stewardship_delivery_pause_hold" ("id" uuid NOT NULL PRIMARY KEY, "created_at" timestamp with time zone DEFAULT (STATEMENT_TIMESTAMP()) NOT NULL, "actor_id" uuid NULL, "correlation_id" uuid NOT NULL, "campaign_id" uuid NOT NULL, "pause_version" bigint NOT NULL CHECK ("pause_version" >= 0), CONSTRAINT "delivery_pause_identity" UNIQUE (campaign_id, pause_version), CONSTRAINT "delivery_pause_positive" CHECK ((pause_version >= 1)));

@@ -70,6 +70,28 @@ def test_catalog_covers_all_categories_and_requires_owning_work_order(response_s
             inventory_queries(str(response_service.campaign.pk))
 
 
+def test_exact_inventory_lookup_is_inlined_and_target_protection_is_indexed(
+    response_service,
+):
+    """Per-row fencing must not rematerialize every campaign inventory branch."""
+    import json
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "EXPLAIN (FORMAT JSON) SELECT target_id "
+            "FROM stewardship_cleanup_inventory_v1(%s) "
+            "WHERE category='submissions' AND target_id=%s",
+            [response_service.campaign.pk, uuid4()],
+        )
+        plan = json.dumps(cursor.fetchone()[0])
+        assert '"Node Type": "Function Scan"' not in plan
+        assert "stewardship_rehearsal_credential" not in plan
+        cursor.execute(
+            "SELECT indexdef FROM pg_indexes WHERE indexname='production_target_lookup'"
+        )
+        assert "(category, target_id)" in cursor.fetchone()[0]
+
+
 def test_selection_keeps_same_membership_after_epoch_invalidation(response_service):
     """The invalidation transaction cannot hide the test answers it must clean up."""
     form, answers = form_and_answers(response_service)

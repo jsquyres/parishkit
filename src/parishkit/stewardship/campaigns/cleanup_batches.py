@@ -2,7 +2,11 @@
 
 from uuid import UUID, uuid4
 
-from parishkit.stewardship.jobs.ownership import lock_task_claim
+from parishkit.stewardship.jobs.ownership import (
+    TaskClaim,
+    TaskOwnershipLost,
+    lock_task_claim,
+)
 from parishkit.stewardship.storage import StorageInvariantError
 
 from .production_models import ProductionCleanupCheckpoint, ProductionCleanupManifest
@@ -18,6 +22,8 @@ def apply_checkpoint(request_id, claim, *, maximum=500, command_id=None):
     status reflects committed-in-this-transaction progress, not a queue hint.
     """
     require_work_order()
+    if not isinstance(claim, TaskClaim):
+        raise TaskOwnershipLost("An exact task claim is required.")
     if (
         not isinstance(request_id, UUID)
         or type(maximum) is not int

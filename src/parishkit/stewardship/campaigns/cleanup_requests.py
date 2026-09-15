@@ -107,16 +107,22 @@ def request_cancellation(
                 expected_version,
             ):
                 raise ValueError("Cleanup cancellation already has different intent.")
-            return _status(request)
-        if request.version != expected_version:
-            raise StaleRecordError("Cleanup changed before cancellation was requested.")
-        ProductionCleanupCancellation.objects.create(
-            request=request,
-            command_id=command_id,
-            expected_version=expected_version,
-            actor_id=actor_id,
-            correlation_id=correlation_id,
-        )
+            if request.state == "cancelled":
+                return _status(request)
+        else:
+            if request.version != expected_version:
+                raise StaleRecordError(
+                    "Cleanup changed before cancellation was requested."
+                )
+            ProductionCleanupCancellation.objects.create(
+                request=request,
+                command_id=command_id,
+                expected_version=expected_version,
+                actor_id=actor_id,
+                correlation_id=correlation_id,
+            )
+        # Replaying intent also finishes a task that became terminal after the
+        # first request. The original intent remains immutable and authoritative.
         task = (
             TaskRun.objects.filter(root_id=request.task_id)
             .order_by("-retry_sequence")

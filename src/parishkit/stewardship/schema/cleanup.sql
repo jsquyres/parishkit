@@ -1,6 +1,50 @@
 -- BG-03 private batch execution. No directly executable definer API is granted
 -- to any runtime role. A checkpoint INSERT is the closed, fenced command.
 
+CREATE FUNCTION public.stewardship_cleanup_relation_v1(target_category text)
+RETURNS text LANGUAGE sql IMMUTABLE SET search_path TO pg_catalog, public, pg_temp AS $$
+    SELECT CASE target_category
+        WHEN 'baselines' THEN 'stewardship_family_form_baseline'
+        WHEN 'family_sessions' THEN 'stewardship_family_session'
+        WHEN 'ministry_requests' THEN 'stewardship_ministry_request'
+        WHEN 'occurrences' THEN 'stewardship_schedule_occurrence'
+        WHEN 'occurrence_events' THEN 'stewardship_occurrence_transition'
+        WHEN 'outbox_events' THEN 'stewardship_outbox_event'
+        WHEN 'outbox_messages' THEN 'stewardship_outbox_message'
+        WHEN 'outbox_renders' THEN 'stewardship_outbox_render'
+        WHEN 'proposals' THEN 'stewardship_proposed_change'
+        WHEN 'rehearsal_credentials' THEN 'stewardship_rehearsal_credential'
+        WHEN 'rehearsal_macs' THEN 'stewardship_rehearsal_code_mac'
+        WHEN 'schedule_fulfillments' THEN 'stewardship_schedule_fulfillment'
+        WHEN 'source_pins' THEN 'stewardship_source_pin'
+        WHEN 'submission_receipts' THEN 'stewardship_submission_receipt'
+        WHEN 'submissions' THEN 'stewardship_submission'
+        WHEN 'prior_inventory_targets' THEN 'stewardship_production_target'
+        ELSE NULL END
+$$;
+REVOKE ALL ON FUNCTION public.stewardship_cleanup_relation_v1(text) FROM PUBLIC;
+
+CREATE FUNCTION public.stewardship_cleanup_target_exists_v1(target_category text, target_uuid uuid)
+RETURNS boolean LANGUAGE plpgsql VOLATILE SET search_path TO pg_catalog, public, pg_temp AS $$
+DECLARE relation_name text;
+    present boolean;
+BEGIN
+    IF target_category='session_data' THEN
+        RETURN EXISTS (SELECT 1 FROM public.stewardship_family_session f
+            JOIN public.django_session s ON s.session_key=f.session_id WHERE f.id=target_uuid);
+    END IF;
+    relation_name := public.stewardship_cleanup_relation_v1(target_category);
+    IF relation_name IS NULL THEN
+        RAISE EXCEPTION 'Cleanup target category is unavailable' USING ERRCODE='23514';
+    END IF;
+    -- Only a closed compiled mapping supplies an identifier; the UUID remains
+    -- bound data. Absence is stronger than losing membership in a scope query.
+    EXECUTE format('SELECT EXISTS (SELECT 1 FROM public.%I WHERE id=$1)',relation_name)
+        INTO present USING target_uuid;
+    RETURN present;
+END $$;
+REVOKE ALL ON FUNCTION public.stewardship_cleanup_target_exists_v1(text,uuid) FROM PUBLIC;
+
 CREATE FUNCTION public.stewardship_cleanup_claim_v1(request_uuid uuid)
 RETURNS boolean LANGUAGE sql VOLATILE SET search_path TO pg_catalog, public, pg_temp AS $$
     SELECT EXISTS (
@@ -18,7 +62,7 @@ RETURNS boolean LANGUAGE sql VOLATILE SET search_path TO pg_catalog, public, pg_
           AND s.active_configuration_id=r.configuration_id
           AND c.go_live_gate AND c.rehearsal_epoch_id IS NULL AND c.version>=r.gate_version
           AND NOT EXISTS (SELECT 1 FROM public.stewardship_production_cancellation WHERE request_id=r.id)
-          AND NOT EXISTS (SELECT 1 FROM public.stewardship_campaign_work_gate WHERE state<>'released')
+          AND NOT EXISTS (SELECT 1 FROM public.stewardship_campaign_work_gate WHERE state IN ('preparing','running'))
     ) AND EXISTS (
         SELECT 1 FROM pg_locks WHERE pid=pg_backend_pid() AND locktype='advisory'
           AND classid=736220 AND objid=1 AND objsubid=2 AND mode='ExclusiveLock' AND granted
@@ -45,6 +89,7 @@ LANGUAGE plpgsql STABLE SET search_path TO pg_catalog, public, pg_temp AS $$
 DECLARE
     candidate record;
     companion uuid;
+    companion_category text;
     eligible boolean;
     used integer := 0;
     unit_size integer;
@@ -52,66 +97,87 @@ BEGIN
     IF maximum_rows NOT BETWEEN 1 AND 1000 THEN
         RAISE EXCEPTION 'Cleanup requires a bounded batch' USING ERRCODE='23514';
     END IF;
-    -- Select only dependency-ready rows. A parent made ready by this batch is
-    -- considered by the next batch, never an unbounded recursive cascade.
+    -- Resolve indexed dependencies relationally before the bounded procedural
+    -- window. Do not execute one PL/pgSQL iteration (and many SPI queries) for
+    -- every blocked parent in a large inventory. A parent made ready by this
+    -- batch is considered by the next batch, never a recursive cascade.
     FOR candidate IN SELECT i.category,i.target_id FROM public.stewardship_production_target i
         WHERE i.request_id=request_uuid
+          AND CASE i.category
+            WHEN 'session_data' THEN false
+            WHEN 'baselines' THEN NOT EXISTS (
+                SELECT 1 FROM public.stewardship_submission WHERE baseline_id=i.target_id)
+            WHEN 'family_sessions' THEN NOT EXISTS (
+                SELECT 1 FROM public.stewardship_family_form_baseline WHERE family_session_id=i.target_id)
+            WHEN 'source_pins' THEN NOT EXISTS (
+                SELECT 1 FROM public.stewardship_source_pin WHERE id=i.target_id AND parent_kind='form_baseline')
+            WHEN 'proposals' THEN NOT EXISTS (
+                SELECT 1 FROM public.stewardship_proposed_change WHERE superseded_by_id=i.target_id)
+            WHEN 'ministry_requests' THEN NOT EXISTS (
+                SELECT 1 FROM public.stewardship_ministry_request WHERE superseded_by_id=i.target_id)
+            WHEN 'rehearsal_credentials' THEN NOT EXISTS (
+                SELECT 1 FROM public.stewardship_rehearsal_code_mac WHERE credential_id=i.target_id)
+            WHEN 'outbox_renders' THEN NOT EXISTS (
+                SELECT 1 FROM public.stewardship_outbox_message WHERE render_id=i.target_id)
+                AND NOT EXISTS (SELECT 1 FROM public.stewardship_outbox_event WHERE render_id=i.target_id)
+            WHEN 'outbox_messages' THEN NOT EXISTS (
+                SELECT 1 FROM public.stewardship_outbox_event WHERE message_id=i.target_id)
+                AND NOT EXISTS (SELECT 1 FROM public.stewardship_outbox_render r
+                    JOIN public.stewardship_outbox_message m ON m.id=r.message_id
+                    WHERE m.id=i.target_id AND r.id<>m.render_id)
+            WHEN 'submissions' THEN NOT EXISTS (
+                SELECT 1 FROM public.stewardship_proposed_change WHERE submission_id=i.target_id)
+                AND NOT EXISTS (SELECT 1 FROM public.stewardship_ministry_request WHERE submission_id=i.target_id)
+                AND NOT EXISTS (SELECT 1 FROM public.stewardship_submission_receipt WHERE submission_id=i.target_id)
+                AND NOT EXISTS (SELECT 1 FROM public.stewardship_source_pin WHERE parent_kind='submission' AND parent_id=i.target_id)
+                AND NOT EXISTS (SELECT 1 FROM public.stewardship_submission WHERE prior_submission_id=i.target_id)
+                AND NOT EXISTS (SELECT 1 FROM public.stewardship_family_form_baseline WHERE prior_submission_id=i.target_id)
+            WHEN 'occurrences' THEN NOT EXISTS (
+                SELECT 1 FROM public.stewardship_occurrence_transition WHERE occurrence_id=i.target_id)
+                AND NOT EXISTS (SELECT 1 FROM public.stewardship_schedule_fulfillment WHERE occurrence_id=i.target_id)
+                AND NOT EXISTS (SELECT 1 FROM public.stewardship_schedule_occurrence WHERE replacement_id=i.target_id)
+                AND NOT EXISTS (SELECT 1 FROM public.stewardship_restore_delivery_hold WHERE recovery_occurrence_id=i.target_id)
+                AND NOT EXISTS (SELECT 1 FROM public.stewardship_restore_hold_resolution WHERE recovery_occurrence_id=i.target_id)
+                AND NOT EXISTS (SELECT 1 FROM public.stewardship_postclose_resolution WHERE occurrence_id=i.target_id)
+                AND NOT EXISTS (SELECT 1 FROM public.stewardship_schedule_occurrence o
+                    JOIN public.stewardship_outbox_message m ON m.id=o.outbox_id WHERE o.id=i.target_id)
+            ELSE true END
         ORDER BY i.category COLLATE "C",i.target_id
+        LIMIT maximum_rows
     LOOP
         EXIT WHEN used=maximum_rows;
         companion := NULL;
+        companion_category := NULL;
         unit_size := 1;
+        eligible := true;
         CASE candidate.category
-        WHEN 'session_data' THEN CONTINUE; -- Paired with its metadata below.
         WHEN 'baselines' THEN
-            eligible := NOT EXISTS (SELECT 1 FROM public.stewardship_submission WHERE baseline_id=candidate.target_id)
-                AND NOT EXISTS (SELECT 1 FROM public.stewardship_source_pin WHERE parent_kind='form_baseline' AND parent_id=candidate.target_id);
+            SELECT id INTO companion FROM public.stewardship_source_pin
+                WHERE parent_kind='form_baseline' AND parent_id=candidate.target_id;
+            IF companion IS NOT NULL THEN
+                companion_category := 'source_pins';
+                unit_size := 2;
+                eligible := EXISTS (SELECT 1 FROM public.stewardship_production_target i
+                    WHERE i.request_id=request_uuid AND i.category=companion_category AND i.target_id=companion);
+            END IF;
         WHEN 'family_sessions' THEN
-            eligible := NOT EXISTS (SELECT 1 FROM public.stewardship_family_form_baseline WHERE family_session_id=candidate.target_id);
             IF EXISTS (SELECT 1 FROM public.stewardship_production_target i
                 WHERE i.request_id=request_uuid AND i.category='session_data' AND i.target_id=candidate.target_id) THEN
                 companion := candidate.target_id;
+                companion_category := 'session_data';
                 unit_size := 2;
             END IF;
-        WHEN 'proposals' THEN
-            eligible := NOT EXISTS (SELECT 1 FROM public.stewardship_proposed_change WHERE superseded_by_id=candidate.target_id);
-        WHEN 'ministry_requests' THEN
-            eligible := NOT EXISTS (SELECT 1 FROM public.stewardship_ministry_request WHERE superseded_by_id=candidate.target_id);
-        WHEN 'submissions' THEN
-            eligible := NOT EXISTS (SELECT 1 FROM public.stewardship_proposed_change WHERE submission_id=candidate.target_id)
-                AND NOT EXISTS (SELECT 1 FROM public.stewardship_ministry_request WHERE submission_id=candidate.target_id)
-                AND NOT EXISTS (SELECT 1 FROM public.stewardship_submission_receipt WHERE submission_id=candidate.target_id)
-                AND NOT EXISTS (SELECT 1 FROM public.stewardship_source_pin WHERE parent_kind='submission' AND parent_id=candidate.target_id)
-                AND NOT EXISTS (SELECT 1 FROM public.stewardship_submission WHERE prior_submission_id=candidate.target_id)
-                AND NOT EXISTS (SELECT 1 FROM public.stewardship_family_form_baseline WHERE prior_submission_id=candidate.target_id);
-        WHEN 'outbox_renders' THEN
-            eligible := NOT EXISTS (SELECT 1 FROM public.stewardship_outbox_message WHERE render_id=candidate.target_id)
-                AND NOT EXISTS (SELECT 1 FROM public.stewardship_outbox_event WHERE render_id=candidate.target_id);
         WHEN 'outbox_messages' THEN
             SELECT render_id INTO companion FROM public.stewardship_outbox_message WHERE id=candidate.target_id;
+            companion_category := 'outbox_renders';
             unit_size := 2;
-            eligible := NOT EXISTS (SELECT 1 FROM public.stewardship_outbox_event WHERE message_id=candidate.target_id)
-                AND NOT EXISTS (SELECT 1 FROM public.stewardship_outbox_render WHERE message_id=candidate.target_id AND id<>companion)
-                AND EXISTS (SELECT 1 FROM public.stewardship_production_target i
+            eligible := EXISTS (SELECT 1 FROM public.stewardship_production_target i
                     WHERE i.request_id=request_uuid AND i.category='outbox_renders' AND i.target_id=companion);
-        WHEN 'occurrences' THEN
-            eligible := NOT EXISTS (SELECT 1 FROM public.stewardship_occurrence_transition WHERE occurrence_id=candidate.target_id)
-                AND NOT EXISTS (SELECT 1 FROM public.stewardship_schedule_fulfillment WHERE occurrence_id=candidate.target_id)
-                AND NOT EXISTS (SELECT 1 FROM public.stewardship_schedule_occurrence WHERE replacement_id=candidate.target_id)
-                AND NOT EXISTS (SELECT 1 FROM public.stewardship_restore_delivery_hold WHERE recovery_occurrence_id=candidate.target_id)
-                AND NOT EXISTS (SELECT 1 FROM public.stewardship_restore_hold_resolution WHERE recovery_occurrence_id=candidate.target_id)
-                AND NOT EXISTS (SELECT 1 FROM public.stewardship_postclose_resolution WHERE occurrence_id=candidate.target_id)
-                AND NOT EXISTS (SELECT 1 FROM public.stewardship_schedule_occurrence o
-                    JOIN public.stewardship_outbox_message m ON m.id=o.outbox_id WHERE o.id=candidate.target_id);
-        WHEN 'rehearsal_credentials' THEN
-            eligible := NOT EXISTS (SELECT 1 FROM public.stewardship_rehearsal_code_mac WHERE credential_id=candidate.target_id);
-        ELSE
-            eligible := candidate.category IN ('occurrence_events','outbox_events','rehearsal_macs',
-                'schedule_fulfillments','source_pins','submission_receipts','prior_inventory_targets');
+        ELSE NULL;
         END CASE;
         IF NOT eligible OR used+unit_size>maximum_rows THEN CONTINUE; END IF;
         IF companion IS NOT NULL THEN
-            category := CASE candidate.category WHEN 'family_sessions' THEN 'session_data' ELSE 'outbox_renders' END;
+            category := companion_category;
             target_id := companion;
             RETURN NEXT;
         END IF;
@@ -123,11 +189,12 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.stewardship_cleanup_batch_targets_v1(uuid,integer) FROM PUBLIC;
 
-CREATE FUNCTION public.stewardship_cleanup_batch_summary_v1(request_uuid uuid, maximum_rows integer)
+CREATE FUNCTION public.stewardship_cleanup_batch_summary_v1(request_uuid uuid, checkpoint_uuid uuid)
 RETURNS TABLE(counts jsonb, total bigint, fingerprint text)
 LANGUAGE sql STABLE SET search_path TO pg_catalog, public, pg_temp AS $$
     WITH targets AS MATERIALIZED (
-        SELECT * FROM public.stewardship_cleanup_batch_targets_v1(request_uuid,maximum_rows)
+        SELECT category,target_id FROM public.stewardship_cleanup_effect
+        WHERE transaction_id=pg_current_xact_id() AND request_id=request_uuid AND checkpoint_id=checkpoint_uuid
     ), totals AS (
         SELECT category,count(*) quantity FROM targets GROUP BY category
     )
@@ -138,7 +205,7 @@ LANGUAGE sql STABLE SET search_path TO pg_catalog, public, pg_temp AS $$
                 ORDER BY category COLLATE "C",target_id),''::bytea)),'hex')
     FROM targets
 $$;
-REVOKE ALL ON FUNCTION public.stewardship_cleanup_batch_summary_v1(uuid,integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.stewardship_cleanup_batch_summary_v1(uuid,uuid) FROM PUBLIC;
 
 CREATE FUNCTION public.stewardship_cleanup_prepare_batch_v1() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path TO pg_catalog, public, pg_temp AS $$
@@ -160,7 +227,13 @@ BEGIN
        OR NEW.correlation_id IS DISTINCT FROM (SELECT correlation_id FROM public.stewardship_task_run WHERE id=request.run_id) THEN
         RAISE EXCEPTION 'Cleanup batch requires exact current command ownership' USING ERRCODE='23514';
     END IF;
-    SELECT * INTO planned FROM public.stewardship_cleanup_batch_summary_v1(NEW.request_id,NEW.deleted_count::integer);
+    -- Capture the bounded plan once. It grants no deletion authority until the
+    -- checkpoint INSERT actually exists and all its binding guards have passed.
+    -- Any rejected INSERT rolls this private state back with the statement.
+    INSERT INTO public.stewardship_cleanup_effect(transaction_id,checkpoint_id,request_id,category,target_id)
+        SELECT pg_current_xact_id(),NEW.id,NEW.request_id,category,target_id
+        FROM public.stewardship_cleanup_batch_targets_v1(NEW.request_id,NEW.deleted_count::integer);
+    SELECT * INTO planned FROM public.stewardship_cleanup_batch_summary_v1(NEW.request_id,NEW.id);
     IF planned.total=0 THEN
         RAISE EXCEPTION 'Cleanup inventory has no dependency-ready batch' USING ERRCODE='23514';
     END IF;
@@ -188,20 +261,29 @@ BEGIN
     IF NOT public.stewardship_cleanup_claim_v1(NEW.request_id) THEN
         RAISE EXCEPTION 'Cleanup ownership expired before deletion' USING ERRCODE='23514';
     END IF;
-    SELECT * INTO planned FROM public.stewardship_cleanup_batch_summary_v1(NEW.request_id,NEW.deleted_count::integer);
+    SELECT * INTO planned FROM public.stewardship_cleanup_batch_summary_v1(NEW.request_id,NEW.id);
     IF planned.counts IS DISTINCT FROM NEW.counts OR planned.total<>NEW.deleted_count
        OR planned.fingerprint IS DISTINCT FROM NEW.batch_digest THEN
         RAISE EXCEPTION 'Cleanup selection changed before deletion' USING ERRCODE='23514';
     END IF;
-    INSERT INTO public.stewardship_cleanup_effect(transaction_id,checkpoint_id,request_id,category,target_id)
-        SELECT pg_current_xact_id(),NEW.id,NEW.request_id,category,target_id
-        FROM public.stewardship_cleanup_batch_targets_v1(NEW.request_id,NEW.deleted_count::integer);
-    -- Capture iteration order once. Evaluating the planner again after an early
-    -- deletion would discover new parents and exceed the recorded batch.
-    FOR target IN SELECT * FROM public.stewardship_cleanup_batch_targets_v1(NEW.request_id,NEW.deleted_count::integer) LOOP
-        IF NOT public.stewardship_cleanup_effect_v1(target.category,target.target_id)
-           OR NOT EXISTS (SELECT 1 FROM public.stewardship_cleanup_inventory_v1(request.campaign_id)
-               WHERE category=target.category AND target_id=target.target_id) THEN
+    -- Validate immutable campaign/routing ownership once for the entire captured
+    -- batch, before any deletion changes the source joins. Work/claim locks and
+    -- immutable ownership guards remain held for every following exact delete.
+    IF EXISTS (
+        (SELECT category,target_id FROM public.stewardship_cleanup_effect
+         WHERE checkpoint_id=NEW.id AND transaction_id=pg_current_xact_id() AND request_id=NEW.request_id)
+        EXCEPT SELECT category,target_id FROM public.stewardship_cleanup_inventory_v1(request.campaign_id)
+    ) THEN
+        RAISE EXCEPTION 'Cleanup target is no longer owned by this batch' USING ERRCODE='23514';
+    END IF;
+    -- Read only the already-captured plan, with companions before their parents.
+    -- No newly ready parent can enter this batch as earlier rows disappear.
+    FOR target IN SELECT category,target_id FROM public.stewardship_cleanup_effect
+        WHERE checkpoint_id=NEW.id AND transaction_id=pg_current_xact_id() AND request_id=NEW.request_id
+        ORDER BY CASE WHEN category IN ('session_data','source_pins','outbox_renders') THEN 0 ELSE 1 END,
+            category COLLATE "C",target_id
+    LOOP
+        IF NOT public.stewardship_cleanup_effect_v1(target.category,target.target_id) THEN
             RAISE EXCEPTION 'Cleanup target is no longer owned by this batch' USING ERRCODE='23514';
         END IF;
         IF target.category='session_data' THEN
@@ -209,24 +291,7 @@ BEGIN
             DELETE FROM public.django_session WHERE session_key=session_key_value;
         ELSE
             -- Relation names come only from this compiled mapping, never input.
-            relation_name := CASE target.category
-                WHEN 'baselines' THEN 'stewardship_family_form_baseline'
-                WHEN 'family_sessions' THEN 'stewardship_family_session'
-                WHEN 'ministry_requests' THEN 'stewardship_ministry_request'
-                WHEN 'occurrences' THEN 'stewardship_schedule_occurrence'
-                WHEN 'occurrence_events' THEN 'stewardship_occurrence_transition'
-                WHEN 'outbox_events' THEN 'stewardship_outbox_event'
-                WHEN 'outbox_messages' THEN 'stewardship_outbox_message'
-                WHEN 'outbox_renders' THEN 'stewardship_outbox_render'
-                WHEN 'proposals' THEN 'stewardship_proposed_change'
-                WHEN 'rehearsal_credentials' THEN 'stewardship_rehearsal_credential'
-                WHEN 'rehearsal_macs' THEN 'stewardship_rehearsal_code_mac'
-                WHEN 'schedule_fulfillments' THEN 'stewardship_schedule_fulfillment'
-                WHEN 'source_pins' THEN 'stewardship_source_pin'
-                WHEN 'submission_receipts' THEN 'stewardship_submission_receipt'
-                WHEN 'submissions' THEN 'stewardship_submission'
-                WHEN 'prior_inventory_targets' THEN 'stewardship_production_target'
-                ELSE NULL END;
+            relation_name := public.stewardship_cleanup_relation_v1(target.category);
             IF relation_name IS NULL THEN
                 RAISE EXCEPTION 'Cleanup target category is unavailable' USING ERRCODE='23514';
             END IF;
@@ -332,7 +397,7 @@ BEGIN
         WHERE c.id=request.campaign_id AND c.state='draft' AND s.mode='testing'
           AND NOT s.restore_review_required AND s.active_configuration_id=request.configuration_id
           AND g.go_live_gate AND g.rehearsal_epoch_id IS NULL AND g.version>=request.gate_version
-    ) OR EXISTS (SELECT 1 FROM public.stewardship_campaign_work_gate WHERE state<>'released')
+    ) OR EXISTS (SELECT 1 FROM public.stewardship_campaign_work_gate WHERE state IN ('preparing','running'))
       OR NOT EXISTS (SELECT 1 FROM pg_locks WHERE pid=pg_backend_pid() AND locktype='advisory'
           AND classid=736220 AND objid=1 AND objsubid=2 AND mode='ExclusiveLock' AND granted) THEN
         RAISE EXCEPTION 'Cleanup recovery requires its current gated scope' USING ERRCODE='23514';
@@ -356,12 +421,13 @@ BEGIN
     IF NEW.state='cleanup_failed' AND EXISTS (
         SELECT 1 FROM public.stewardship_production_manifest WHERE request_id=NEW.id
     ) THEN
-        -- One durable, non-sensitive alert per request. Transport is BG-10's
-        -- owner; retry/recovery cannot duplicate this event or expose SQL errors.
+        -- One durable alert per exhausted attempt chain. Explicit retry has a
+        -- new run identity and must not suppress a subsequent distinct failure.
+        -- Transport is BG-10's owner; no exception or target detail is included.
         INSERT INTO public.stewardship_operational_log(id,actor_id,correlation_id,event,level,schema,context)
-        VALUES (NEW.id,NEW.actor_id,NEW.correlation_id,'production_cleanup_failed','CRITICAL','task',
+        VALUES (NEW.run_id,NEW.actor_id,NEW.correlation_id,'production_cleanup_failed','CRITICAL','task',
             jsonb_build_object('task_id',NEW.task_id::text,'count',NEW.processed_count))
-        ON CONFLICT DO NOTHING;
+        ON CONFLICT (id) DO NOTHING;
     END IF;
     RETURN NULL;
 END $$;
@@ -437,18 +503,34 @@ ALTER FUNCTION public.stewardship_production_state_v1() SECURITY DEFINER;
 ALTER FUNCTION public.stewardship_production_history_v1() SECURITY DEFINER;
 CREATE FUNCTION public.stewardship_cleanup_runtime_command_v1() RETURNS trigger
 LANGUAGE plpgsql SET search_path TO pg_catalog, public, pg_temp AS $$
+DECLARE request_uuid uuid;
 BEGIN
     -- A worker may bind a claim or record its outcome, not manufacture Admin
-    -- retry/cancel intent. Private batch/cancel trigger owners have table rights;
-    -- runtime roles have only the explicitly reviewed metadata column grants.
-    IF NOT has_table_privilege(current_user,'public.stewardship_production_manifest','INSERT')
-       AND NEW.action NOT IN ('start','recover','retry_later','fail','complete') THEN
-        RAISE EXCEPTION 'Cleanup worker cannot perform Admin commands' USING ERRCODE='42501';
+    -- retry/cancel intent. Only the actual schema owner (including private
+    -- definer triggers) may use the journal without an operational manifest.
+    -- Granting a runtime unrelated table rights cannot widen this exception.
+    IF current_user <> pg_get_userbyid((SELECT relowner FROM pg_class
+            WHERE oid='public.stewardship_production_request'::regclass)) THEN
+        IF TG_TABLE_NAME='stewardship_production_request' THEN
+            request_uuid := NEW.id;
+        ELSE
+            request_uuid := NEW.request_id;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM public.stewardship_production_manifest WHERE request_id=request_uuid) THEN
+            RAISE EXCEPTION 'Cleanup runtime requires a sealed manifest' USING ERRCODE='42501';
+        END IF;
+        IF TG_TABLE_NAME='stewardship_production_request' THEN
+            IF NEW.action NOT IN ('start','recover','retry_later','fail','complete') THEN
+                RAISE EXCEPTION 'Cleanup worker cannot perform Admin commands' USING ERRCODE='42501';
+            END IF;
+        END IF;
     END IF;
     RETURN NEW;
 END $$;
 REVOKE ALL ON FUNCTION public.stewardship_cleanup_runtime_command_v1() FROM PUBLIC;
 CREATE TRIGGER aaa_production_cleanup_runtime_command BEFORE UPDATE ON public.stewardship_production_request
+    FOR EACH ROW EXECUTE FUNCTION public.stewardship_cleanup_runtime_command_v1();
+CREATE TRIGGER aaaa_production_cleanup_runtime_command BEFORE INSERT ON public.stewardship_production_checkpoint
     FOR EACH ROW EXECUTE FUNCTION public.stewardship_cleanup_runtime_command_v1();
 CREATE TRIGGER aaa_production_cleanup_prepare
     BEFORE INSERT ON public.stewardship_production_checkpoint

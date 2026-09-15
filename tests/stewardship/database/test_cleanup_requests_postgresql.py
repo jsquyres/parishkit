@@ -67,3 +67,113 @@ def test_failed_sealing_rolls_back_gate_epoch_and_task(response_service, monkeyp
     from parishkit.stewardship.jobs.models import TaskRun
 
     assert not TaskRun.objects.filter(task_type="production_cleanup").exists()
+
+
+def test_external_restore_history_rejects_capture_before_gate_commit(response_service):
+    """Do not start deletion when another retained workflow owns a reference."""
+    from datetime import timedelta
+
+    from django.db import IntegrityError
+
+    from parishkit.stewardship.campaigns.models import (
+        RestoreDeliveryHold,
+        ScheduleDefinition,
+    )
+    from parishkit.stewardship.campaigns.resolutions import resolve_restore_hold
+
+    from .campaign_builders import (
+        admit_test_work,
+        occurrence,
+        restored_runtime,
+    )
+
+    actor = uuid4()
+    definition = ScheduleDefinition.objects.filter(
+        campaign=response_service.campaign
+    ).first()
+    row = occurrence(definition, actor)
+    start = response_service.campaign.active_configuration.starts_at
+    with restored_runtime(start) as restore_id:
+        hold = RestoreDeliveryHold.objects.create(
+            restore_id=restore_id,
+            definition=definition,
+            mode="testing",
+            target=row.target,
+            slot=row.slot,
+            backup_at=start,
+            window_start=start,
+            window_end=start + timedelta(days=1),
+            discovery="synthetic restore inventory",
+            actor_id=actor,
+            correlation_id=uuid4(),
+        )
+        resolve_restore_hold(
+            hold_id=hold.pk,
+            expected_version=hold.version,
+            state="resend_authorized",
+            evidence="synthetic retained restore decision",
+            actor_id=actor,
+            correlation_id=uuid4(),
+            admit=admit_test_work,
+            recovery_occurrence_id=row.pk,
+        )
+    before = CampaignCredentialState.objects.get(campaign=response_service.campaign)
+    with pytest.raises(IntegrityError, match="external workflow references"):
+        queued(response_service)
+    after = CampaignCredentialState.objects.get(pk=before.pk)
+    assert (after.go_live_gate, after.rehearsal_epoch_id, after.version) == (
+        before.go_live_gate,
+        before.rehearsal_epoch_id,
+        before.version,
+    )
+    assert not ProductionTransitionRequest.objects.exists()
+    assert RestoreDeliveryHold.objects.get(pk=hold.pk).recovery_occurrence_id == row.pk
+
+
+@pytest.mark.parametrize("gate_state", ["tombstone", "preparing", "running"])
+def test_historical_gate_distinguishes_completed_from_active_purge(
+    response_service, gate_state
+):
+    """A future-owner sentinel cannot turn completed purge into a permanent hold."""
+    from django.db import IntegrityError, connection, transaction
+
+    from parishkit.stewardship.campaigns.models import Campaign, CampaignWorkGate
+    from parishkit.stewardship.deployment import ServiceRole
+    from parishkit.stewardship.storage import StorageInvariantError
+
+    from .test_background_grants_postgresql import task_login
+
+    # Like the control-journal fixtures, load only future purge sentinel states
+    # as the disposable schema owner. BG-11 is not implemented here. Every
+    # cleanup operation below executes with all application guards enabled.
+    with transaction.atomic(), connection.cursor() as cursor:
+        cursor.execute("ALTER TABLE stewardship_campaign DISABLE TRIGGER USER")
+        cursor.execute(
+            "ALTER TABLE stewardship_campaign_work_gate DISABLE TRIGGER USER"
+        )
+        historical = Campaign.objects.create(
+            state="purged" if gate_state == "tombstone" else "archived",
+            active_configuration=response_service.campaign.active_configuration,
+        )
+        gate = CampaignWorkGate.objects.create(
+            campaign=historical,
+            request_id=uuid4(),
+            initiated_by_id=uuid4(),
+            state=gate_state,
+        )
+        cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
+        cursor.execute("ALTER TABLE stewardship_campaign ENABLE TRIGGER USER")
+        cursor.execute("ALTER TABLE stewardship_campaign_work_gate ENABLE TRIGGER USER")
+    if gate_state == "tombstone":
+        status = queued(response_service)
+        with task_login(ServiceRole.WORKER, exact=True, reconnect=True):
+            assert run(status)
+        assert (
+            ProductionTransitionRequest.objects.get(pk=status.request_id).state
+            == "cleanup_complete"
+        )
+    else:
+        with pytest.raises((IntegrityError, StorageInvariantError)):
+            queued(response_service)
+        assert not ProductionTransitionRequest.objects.exists()
+    assert CampaignWorkGate.objects.get(pk=gate.pk).state == gate_state

@@ -338,9 +338,12 @@ REVOKE ALL ON FUNCTION public.stewardship_production_checkpoint_pin_v1() FROM PU
 
 -- Closed, independently verified inventory. This function has invoker rights;
 -- it neither grants private SELECT access nor authorizes any deletion.
+-- All relations are qualified. Deliberately omit a function-level SET clause:
+-- SQL inlining must push exact category/UUID predicates into the indexed source
+-- branches instead of rebuilding the whole campaign inventory for each target.
 CREATE FUNCTION public.stewardship_cleanup_inventory_v1(campaign_uuid uuid)
 RETURNS TABLE(category text, target_id uuid)
-LANGUAGE sql STABLE SET search_path TO pg_catalog, public, pg_temp AS $$
+LANGUAGE sql STABLE AS $$
     WITH epochs AS NOT MATERIALIZED (
         SELECT id FROM public.stewardship_rehearsal_epoch WHERE campaign_id=campaign_uuid
     ), responses AS NOT MATERIALIZED (
@@ -414,7 +417,7 @@ RETURNS boolean LANGUAGE sql STABLE SET search_path TO pg_catalog, public, pg_te
           AND s.mode='testing' AND NOT s.restore_review_required
           AND s.active_configuration_id=r.configuration_id
           AND c.go_live_gate AND c.rehearsal_epoch_id IS NULL AND c.version=r.gate_version
-          AND NOT EXISTS (SELECT 1 FROM public.stewardship_campaign_work_gate WHERE state<>'released')
+          AND NOT EXISTS (SELECT 1 FROM public.stewardship_campaign_work_gate WHERE state IN ('preparing','running'))
     ) AND EXISTS (
         SELECT 1 FROM pg_locks WHERE pid=pg_backend_pid() AND locktype='advisory'
           AND classid=736220 AND objid=1 AND objsubid=2 AND mode='ExclusiveLock' AND granted
@@ -435,11 +438,7 @@ BEGIN
             RETURN OLD;
         END IF;
         IF public.stewardship_cleanup_effect_v1(OLD.category,OLD.target_id)
-           AND NOT EXISTS (
-               SELECT 1 FROM public.stewardship_cleanup_inventory_v1(
-                   (SELECT campaign_id FROM public.stewardship_production_request WHERE id=OLD.request_id)
-               ) WHERE category=OLD.category AND target_id=OLD.target_id
-           ) THEN
+           AND NOT public.stewardship_cleanup_target_exists_v1(OLD.category,OLD.target_id) THEN
             RETURN OLD;
         END IF;
         RAISE EXCEPTION 'Cleanup membership requires its bounded deletion owner' USING ERRCODE='23514';
@@ -485,6 +484,23 @@ BEGIN
          EXCEPT SELECT category,target_id FROM public.stewardship_cleanup_inventory_v1(request.campaign_id))
     ) THEN
         RAISE EXCEPTION 'Cleanup manifest differs from the exact Testing corpus' USING ERRCODE='23514';
+    END IF;
+    -- External workflow history is not part of this deletion owner. Refuse an
+    -- impossible manifest before invalidation/gate capture can commit, rather
+    -- than retrying a permanently blocked dependency after partial deletion.
+    IF EXISTS (
+        SELECT 1 FROM public.stewardship_production_target i
+        WHERE i.request_id=NEW.request_id AND i.category='occurrences' AND (
+            EXISTS (SELECT 1 FROM public.stewardship_restore_delivery_hold WHERE recovery_occurrence_id=i.target_id)
+            OR EXISTS (SELECT 1 FROM public.stewardship_restore_hold_resolution WHERE recovery_occurrence_id=i.target_id)
+            OR EXISTS (SELECT 1 FROM public.stewardship_postclose_resolution WHERE occurrence_id=i.target_id)
+            OR EXISTS (SELECT 1 FROM public.stewardship_schedule_occurrence o
+                WHERE o.replacement_id=i.target_id AND NOT EXISTS (
+                    SELECT 1 FROM public.stewardship_production_target other
+                    WHERE other.request_id=NEW.request_id AND other.category='occurrences' AND other.target_id=o.id))
+        )
+    ) THEN
+        RAISE EXCEPTION 'Cleanup inventory retains external workflow references' USING ERRCODE='23514';
     END IF;
     SELECT COALESCE(jsonb_object_agg(category,total),'{}'::jsonb) INTO counts FROM (
         SELECT category,count(*) total FROM public.stewardship_production_target

@@ -1,14 +1,17 @@
 """Admin cancellation is durable intent, not impersonation of a live worker."""
 
+from contextlib import contextmanager
 from uuid import uuid4
 
 import pytest
+from django.db import DatabaseError, connection
 
 from parishkit.stewardship.campaigns import cleanup_tasks
 from parishkit.stewardship.campaigns.cleanup_requests import request_cancellation
 from parishkit.stewardship.campaigns.cleanup_tasks import TASK_TYPE, cleanup_handler
 from parishkit.stewardship.campaigns.credential_models import CampaignCredentialState
 from parishkit.stewardship.campaigns.production_models import (
+    ProductionCleanupCancellation,
     ProductionCleanupTarget,
     ProductionTransitionRequest,
 )
@@ -129,3 +132,76 @@ def test_cancel_between_batches_then_new_cleanup_finishes_remaining_data(
     assert not ProductionCleanupTarget.objects.exists()
     request.refresh_from_db()
     assert request.processed_count == retained_progress and request.state == "cancelled"
+
+
+@pytest.mark.parametrize(
+    "boundary", ["complete", "database_failure", "exhausted_failure"]
+)
+def test_cancellation_at_terminal_boundary_is_not_stranded(
+    response_service, monkeypatch, boundary
+):
+    """Honor intent recorded between an effect and terminal acknowledgment."""
+    status = queued(response_service)
+    if boundary == "exhausted_failure":
+        task = task_status(TaskRun.objects.get(pk=status.task_id))
+        for _ in range(4):
+            task = task_act(task, "claim", lease_seconds=60)
+            task = task_act(task, "retryable_failure")
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT pg_sleep(1.05)")
+    original_effect = Execution.effect
+    cancelled = False
+    failed = False
+
+    @contextmanager
+    def effect(execution):
+        """Insert Admin intent only after the work transaction is released."""
+        nonlocal cancelled
+        try:
+            with original_effect(execution):
+                yield
+        finally:
+            request = ProductionTransitionRequest.objects.get(pk=status.request_id)
+            if not cancelled and (request.state == "cleanup_complete" or failed):
+                cancelled = True
+                cancel(status.request_id)
+
+    def broken(*args, **kwargs):
+        """Expose the retry boundary without storing sensitive exception text."""
+        nonlocal failed
+        failed = True
+        raise DatabaseError("synthetic private batch failure")
+
+    monkeypatch.setattr(Execution, "effect", effect)
+    if boundary != "complete":
+        monkeypatch.setattr(cleanup_tasks, "apply_checkpoint", broken)
+    assert run(status)
+    assert cancelled
+    request = assert_cancelled(status)
+    assert request.processed_count == (
+        request.inventory_total if boundary == "complete" else 0
+    )
+
+
+def test_cancellation_replay_finishes_a_now_terminal_task(response_service):
+    """The same admitted intent may finish a task stopped by another owner."""
+    from .test_cleanup_batches_postgresql import running_request
+
+    status = running_request(response_service)
+    cancel(status.request_id)
+    intent = ProductionCleanupCancellation.objects.get(request_id=status.request_id)
+    task = task_status(TaskRun.objects.get(pk=status.task_id))
+    task_act(task, "permanent_failure")
+    options = dict(
+        request_id=status.request_id,
+        command_id=intent.command_id,
+        expected_version=intent.expected_version,
+        actor_id=intent.actor_id,
+        correlation_id=intent.correlation_id,
+        admit=lambda *args: True,
+    )
+    assert request_cancellation(**options).state == "cancelled"
+    assert request_cancellation(**options).state == "cancelled"
+    assert not CampaignCredentialState.objects.get(
+        campaign_id=status.campaign_id
+    ).go_live_gate

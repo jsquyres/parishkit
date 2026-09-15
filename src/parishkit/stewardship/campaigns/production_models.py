@@ -285,6 +285,11 @@ class ProductionCleanupTarget(ImmutableRecord):
 
     class Meta:
         db_table = "stewardship_production_target"
+        indexes = [
+            models.Index(
+                fields=["category", "target_id"], name="production_target_lookup"
+            )
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=["request", "category", "target_id"],

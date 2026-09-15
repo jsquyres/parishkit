@@ -2,7 +2,7 @@
 
 from uuid import uuid4
 
-from django.db import DatabaseError, connection
+from django.db import DatabaseError, IntegrityError, connection
 
 from parishkit.stewardship.jobs.admission import _scope
 from parishkit.stewardship.jobs.dispatch import Handler, RecoveryPlan
@@ -71,7 +71,9 @@ def eligible(request):
         and scope.runtime.mode == "testing"
         and not scope.runtime.restore_review_required
         and scope.campaign.state == "draft"
-        and not CampaignWorkGate.objects.exclude(state="released").exists()
+        and not CampaignWorkGate.objects.filter(
+            state__in=("preparing", "running")
+        ).exists()
         and CampaignCredentialState.objects.filter(
             campaign_id=request.campaign_id,
             go_live_gate=True,
@@ -107,7 +109,9 @@ def admit_cleanup(action, status):
     if action in {"lease_expired", "recovery_hint"}:
         return True
     if action == "complete":
-        return request.state == "cleanup_complete"
+        return request.state == "cleanup_complete" and not cancellation_requested(
+            request
+        )
     if action == "safe_cancel":
         return request.state == "cancelled" or cancellation_requested(request)
     if action in {
@@ -198,14 +202,41 @@ def _execute(execution):
                 if request.processed_count == request.inventory_total:
                     _change(execution, request, Action.COMPLETE)
                     break
+                # Renew after lock waits and fresh admission, giving this bounded
+                # local batch a full lease budget. SQL still rejects actual expiry
+                # during deletion; this cannot revive an already-expired claim.
+                execution.heartbeat(seconds=60)
                 progress = apply_checkpoint(request.pk, execution.claim)
             execution.progress(progress.processed_count, progress.inventory_total)
+    except IntegrityError:
+        # Constraint denials are not transient database failures. Preserve their
+        # original fencing failure; abandoned claims use ordinary recovery.
+        raise
     except DatabaseError:
         # A failed batch rolled back. Only a still-current claim can journal a
         # sanitized retry/failure; permission and lost-ownership errors propagate.
         with execution.effect():
             task = lock_task_claim(execution.claim)
             request = owned_request(task_status(task))
+            if cancellation_requested(request):
+                execution.transition("safe_cancel")
+                return
+            if (
+                request.state != "cleanup_running"
+                or request.run_id != task.pk
+                or request.task_fence != task.fence
+            ):
+                # A failed initial START/RECOVER transaction has no committed
+                # domain binding. Establish it under the still-current claim
+                # before recording the sanitized retry or exhaustion outcome.
+                _change(
+                    execution,
+                    request,
+                    Action.RECOVER
+                    if request.state == "cleanup_running"
+                    else Action.START,
+                )
+                request.refresh_from_db()
             exhausted = task.attempt >= 5
             _change(
                 execution,
@@ -222,7 +253,13 @@ def _execute(execution):
                 ),
             )
         return
-    execution.transition("complete")
+    # The Admin may have requested cancellation after domain completion. Check
+    # and acknowledge in one work transaction so neither outcome strands intent.
+    with execution.effect():
+        request = owned_request(task_status(lock_task_claim(execution.claim)))
+        execution.transition(
+            "safe_cancel" if cancellation_requested(request) else "complete"
+        )
 
 
 def cleanup_handler(*, scheduler=False):

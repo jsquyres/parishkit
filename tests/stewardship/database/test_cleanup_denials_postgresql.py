@@ -110,3 +110,37 @@ def test_gate_denies_submission_from_an_already_open_form(response_service):
     queued(response_service)
     with pytest.raises(FamilyAdmissionDenied):
         submit(response_service, form, answers)
+
+
+@pytest.mark.parametrize("command", ["checkpoint", "complete"])
+def test_runtime_cannot_bypass_manifest_with_foundation_journal(
+    response_service, command
+):
+    """Owner-only journal fixtures cannot become unverified runtime completion."""
+    from .test_cleanup_batches_postgresql import delete_batch
+    from .test_cleanup_inventory_postgresql import start_request
+    from .test_production_journal_postgresql import start
+
+    with work_transaction():
+        status = start_request(response_service)
+    status = start(status)
+    with (
+        task_login(ServiceRole.WORKER, exact=True),
+        pytest.raises(DatabaseError, match="sealed manifest"),
+    ):
+        if command == "checkpoint":
+            delete_batch(status)
+        else:
+            act(status, ProductionAction.COMPLETE)
+
+
+@pytest.mark.parametrize("claim", [None, object(), "not-a-claim"])
+def test_checkpoint_rejects_untyped_claim_before_attribute_access(
+    response_service, claim
+):
+    """Only a validated TaskClaim can select a request's locking identity."""
+    from parishkit.stewardship.jobs.ownership import TaskOwnershipLost
+
+    status = queued(response_service)
+    with pytest.raises(TaskOwnershipLost), work_transaction():
+        apply_checkpoint(status.request_id, claim)

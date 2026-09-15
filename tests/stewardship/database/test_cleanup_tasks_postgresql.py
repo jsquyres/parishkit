@@ -196,6 +196,39 @@ def test_database_failure_retries_without_partial_deletion(
     assert not OperationalLog.objects.filter(event="production_cleanup_failed").exists()
 
 
+@pytest.mark.parametrize("attempt", [1, 5])
+def test_initial_binding_database_failure_records_sanitized_outcome(
+    response_service, monkeypatch, attempt
+):
+    """A rolled-back START still reaches a durable retry or exhausted outcome."""
+    status = queued(response_service)
+    task = task_status(TaskRun.objects.get(pk=status.task_id))
+    for _ in range(attempt - 1):
+        task = task_act(task, "claim", lease_seconds=60)
+        task = task_act(task, "retryable_failure")
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT pg_sleep(1.05)")
+    original = cleanup_tasks.change_transition
+    failed = False
+
+    def fail_once(**options):
+        """Fail before the initial domain binding can commit, then recover."""
+        nonlocal failed
+        if not failed:
+            failed = True
+            raise DatabaseError("private synthetic binding failure")
+        return original(**options)
+
+    monkeypatch.setattr(cleanup_tasks, "change_transition", fail_once)
+    assert run(status)
+    request = ProductionTransitionRequest.objects.get(pk=status.request_id)
+    assert request.state == ("cleanup_retry_wait" if attempt == 1 else "cleanup_failed")
+    assert request.processed_count == 0
+    assert TaskRun.objects.get(pk=status.task_id).state == (
+        "retry_wait" if attempt == 1 else "failed"
+    )
+
+
 @pytest.mark.parametrize("after_commit", [False, True])
 def test_crash_recovery_uses_committed_cleanup_outcome(
     response_service, monkeypatch, after_commit
@@ -305,3 +338,58 @@ def test_exhausted_crash_recovery_keeps_gate_and_records_one_critical(response_s
     assert retry_cleanup(**retry_options).state == "cleanup_complete"
     assert TaskRun.objects.filter(root_id=status.task_id).count() == 2
     assert OperationalLog.objects.filter(event="production_cleanup_failed").count() == 1
+
+
+def test_explicit_retry_exhaustion_emits_a_new_deduplicated_alert(
+    response_service, monkeypatch
+):
+    """Separate Admin retry chains are separate incidents, not suppressed forever."""
+    from parishkit.stewardship.campaigns.cleanup_requests import retry_cleanup
+
+    status = queued(response_service)
+    task = task_status(TaskRun.objects.get(pk=status.task_id))
+    exhausted_runs = set()
+
+    def broken(*args, **kwargs):
+        """Keep the fixture failure provider-free and privately sanitized."""
+        raise DatabaseError("synthetic private repeated failure")
+
+    monkeypatch.setattr(cleanup_tasks, "apply_checkpoint", broken)
+    for cycle in range(2):
+        for _ in range(4):
+            task = task_act(task, "claim", lease_seconds=60)
+            task = task_act(task, "retryable_failure")
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT pg_sleep(1.05)")
+        options = dict(
+            queue=WorkQueue.GENERAL,
+            worker_id=uuid4(),
+            handlers={TASK_TYPE: cleanup_handler()},
+        )
+        assert execute_hint(task.run_id, **options)
+        assert not execute_hint(task.run_id, **options)
+        exhausted_runs.add(task.run_id)
+        assert (
+            set(
+                OperationalLog.objects.filter(
+                    event="production_cleanup_failed"
+                ).values_list("pk", flat=True)
+            )
+            == exhausted_runs
+        )
+        request = ProductionTransitionRequest.objects.get(pk=status.request_id)
+        assert request.state == "cleanup_failed"
+        if cycle == 0:
+            retry_cleanup(
+                request_id=request.pk,
+                command_id=uuid4(),
+                expected_version=request.version,
+                actor_id=uuid4(),
+                correlation_id=uuid4(),
+                admit=lambda *args: True,
+            )
+            task = task_status(
+                TaskRun.objects.filter(root_id=status.task_id)
+                .order_by("-retry_sequence")
+                .first()
+            )
