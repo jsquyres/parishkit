@@ -1,12 +1,16 @@
 """Compiled boundary execution and task recovery use real journals and leases."""
 
 from dataclasses import replace
+from datetime import timedelta
+from threading import Event
 from uuid import uuid4
 
 import pytest
 
+from parishkit.config import ConfigError
+from parishkit.stewardship.accounts.authority import parse_version
 from parishkit.stewardship.accounts.runtime_models import SystemConfiguration
-from parishkit.stewardship.campaigns import boundary_tasks
+from parishkit.stewardship.campaigns import boundaries, boundary_tasks
 from parishkit.stewardship.campaigns.boundary_production import (
     TASK_TYPE,
     produce_boundaries,
@@ -15,7 +19,7 @@ from parishkit.stewardship.campaigns.boundary_tasks import (
     admit_boundary,
     boundary_handler,
 )
-from parishkit.stewardship.campaigns.lifecycle import portal_admitted
+from parishkit.stewardship.campaigns.lifecycle import Action, portal_admitted
 from parishkit.stewardship.campaigns.models import (
     Campaign,
     CampaignBoundaryOccurrence,
@@ -23,13 +27,20 @@ from parishkit.stewardship.campaigns.models import (
 )
 from parishkit.stewardship.campaigns.runtime import campaign_facts
 from parishkit.stewardship.campaigns.work_locks import work_transaction
-from parishkit.stewardship.jobs.dispatch import Execution, execute_hint, recover_hint
+from parishkit.stewardship.jobs.dispatch import (
+    Execution,
+    claim_hint,
+    execute_hint,
+    recover_hint,
+)
+from parishkit.stewardship.jobs.lifetime import maintain_execution
 from parishkit.stewardship.jobs.models import TaskRun
 from parishkit.stewardship.jobs.queues import WorkQueue
 from parishkit.stewardship.jobs.scheduler import scheduler_session
 from parishkit.stewardship.jobs.storage import _status, enqueue
+from parishkit.stewardship.runtime_background import bind_authority
 
-from .campaign_builders import campaign_clock
+from .campaign_builders import campaign_clock, command, draft_campaign
 from .test_boundary_production_postgresql import scheduled  # noqa: F401
 from .test_taskrun_postgresql import act as task_act
 from .test_taskrun_postgresql import expire
@@ -138,9 +149,17 @@ def test_crash_recovery_distinguishes_committed_effects_from_unfinished_work(
             """Simulate process failure without changing persisted task ownership."""
             raise RuntimeError("synthetic boundary crash")
 
+        original_transition = Execution.transition
+
+        def crash_completion(execution, action, **options):
+            """Fail only acknowledgment, allowing the domain's bounded renewals."""
+            if action == "complete":
+                crash()
+            return original_transition(execution, action, **options)
+
         with monkeypatch.context() as patch:
             if after_commit:
-                patch.setattr(Execution, "transition", crash)
+                patch.setattr(Execution, "transition", crash_completion)
             else:
                 patch.setattr(boundary_tasks, "apply_due_boundaries", crash)
             with pytest.raises(RuntimeError, match="synthetic boundary crash"):
@@ -179,3 +198,83 @@ def test_scheduler_handler_has_no_execution_port():
     """Even direct registry misuse cannot let a scheduler execute lifecycle effects."""
     with pytest.raises(PermissionError, match="scheduler cannot execute"):
         boundary_handler(scheduler=True).execute(None)
+
+
+def test_post_claim_manifest_mismatch_blocks_boundary_effect(tmp_path):
+    """A selected but unactivated manifest revokes an already claimed task."""
+    store, campaign, actor = draft_campaign(tmp_path)
+    with campaign_clock(campaign.active_configuration.starts_at - timedelta(days=1)):
+        command(campaign, actor, Action.ACTIVATE)
+    with campaign_clock(campaign.active_configuration.ends_at):
+        with scheduler_session() as guard:
+            _, close = produce_boundaries(guard)
+        execution = claim_hint(
+            close.task_root_id,
+            queue=WorkQueue.GENERAL,
+            worker_id=uuid4(),
+            handlers=bind_authority({TASK_TYPE: boundary_handler()}, store),
+        )
+        assert execution is not None
+        selected = store.active()
+        document = selected.document()
+        document["version_id"] = str(uuid4())
+        document["predecessor_digest"] = selected.digest
+        candidate = parse_version(document, validate_sections=store.validate_sections)
+        store.write_version(candidate)
+        store.select(candidate)
+        with maintain_execution(execution), pytest.raises(ConfigError):
+            execution.handler.execute(execution)
+    campaign.refresh_from_db()
+    assert campaign.state == "scheduled"
+    assert CampaignTransition.objects.count() == 1
+    assert set(CampaignBoundaryOccurrence.objects.values_list("state", flat=True)) == {
+        "pending"
+    }
+
+
+def test_overdue_start_hint_can_complete_close_in_same_authority_scope(scheduled):  # noqa: F811
+    """Completing the hinted start does not revoke its atomic successor work."""
+    with campaign_clock(scheduled.active_configuration.ends_at):
+        with scheduler_session() as guard:
+            start, close = produce_boundaries(guard)
+        assert run(start) and run(close)
+    scheduled.refresh_from_db()
+    assert scheduled.state == "closed"
+
+
+def test_locked_boundary_renews_short_claim_before_population_effect(
+    scheduled,  # noqa: F811
+    monkeypatch,
+):
+    """A slow effect gets the bounded domain budget, without weakening SQL expiry."""
+    original_emit = boundaries._emit
+    observed = []
+
+    def delayed_emit(*args, **kwargs):
+        """Exceed the initial one-second lease only after locked admission renews it."""
+        task = TaskRun.objects.get(pk=close.task_root_id)
+        observed.append(task.lease_expires_at - task.updated_at)
+        Event().wait(1.1)
+        return original_emit(*args, **kwargs)
+
+    with campaign_clock(scheduled.active_configuration.ends_at):
+        with scheduler_session() as guard:
+            _, close = produce_boundaries(guard)
+        execution = claim_hint(
+            close.task_root_id,
+            queue=WorkQueue.GENERAL,
+            worker_id=uuid4(),
+            handlers={TASK_TYPE: boundary_handler()},
+        )
+        with maintain_execution(execution):
+            execution.heartbeat(seconds=1)
+            monkeypatch.setattr(
+                "parishkit.stewardship.campaigns.boundaries._emit", delayed_emit
+            )
+            execution.handler.execute(execution)
+    assert len(observed) == 2
+    assert all(
+        timedelta(seconds=299) <= budget <= timedelta(seconds=301)
+        for budget in observed
+    )
+    assert TaskRun.objects.get(pk=close.task_root_id).state == "succeeded"

@@ -5,17 +5,27 @@ from uuid import UUID, uuid4
 
 import pytest
 from django.db import DatabaseError, connection, transaction
+from django.db.models import F
 
 from parishkit.stewardship.accounts.family_authentication import FamilyRuntime
+from parishkit.stewardship.accounts.runtime_models import SystemConfiguration
 from parishkit.stewardship.campaigns.boundary_production import produce_boundaries
+from parishkit.stewardship.campaigns.boundary_tasks import boundary_handler
 from parishkit.stewardship.campaigns.credential_models import (
     FamilyCampaign,
     FamilySession,
 )
 from parishkit.stewardship.campaigns.family_identity import code_context
 from parishkit.stewardship.campaigns.lifecycle import Action
-from parishkit.stewardship.campaigns.models import Campaign
+from parishkit.stewardship.campaigns.models import (
+    Campaign,
+    CampaignBoundaryOccurrence,
+    CampaignTransition,
+    RuntimeTransition,
+)
 from parishkit.stewardship.deployment import ServiceRole
+from parishkit.stewardship.jobs.dispatch import WorkQueue, claim_hint
+from parishkit.stewardship.jobs.lifetime import maintain_execution
 from parishkit.stewardship.jobs.scheduler import scheduler_session
 
 from .campaign_builders import add_draft, campaign_clock, command
@@ -133,3 +143,97 @@ def test_worker_close_scrubs_real_tokens_and_revokes_authenticated_family(
             "SELECT ciphertext, digest, destroyed_at FROM stewardship_family_token"
         )
         assert cursor.fetchone() == (None, None, campaign.active_configuration.ends_at)
+
+
+@pytest.mark.parametrize("exact", [False, True])
+def test_worker_cannot_return_archived_campaign_to_testing(scheduled, exact):  # noqa: F811
+    """Custom role names must not bypass the worker-only runtime transition guard."""
+    with campaign_clock(scheduled.active_configuration.ends_at):
+        with scheduler_session() as guard:
+            start, close = produce_boundaries(guard)
+        assert run(close) and run(start)
+        command(scheduled, uuid4(), Action.ARCHIVE)
+        runtime = SystemConfiguration.objects.get()
+        with (
+            task_login(ServiceRole.WORKER, exact=exact),
+            pytest.raises(DatabaseError),
+            transaction.atomic(),
+        ):
+            RuntimeTransition.objects.create(
+                request_id=uuid4(),
+                expected_version=runtime.version,
+                action="return_testing",
+                before_mode=runtime.mode,
+                after_mode="testing",
+                before_campaign_id=scheduled.pk,
+                after_campaign_id=None,
+                actor_id=uuid4(),
+                correlation_id=uuid4(),
+            )
+        runtime.refresh_from_db()
+        assert (
+            runtime.mode == "production" and runtime.current_campaign_id == scheduled.pk
+        )
+
+
+@pytest.mark.parametrize("exact", [False, True])
+@pytest.mark.parametrize(
+    "field", ["pending_reason", "reason", "token_generation_id", "prior_projection_id"]
+)
+def test_live_worker_claim_does_not_allow_extra_boundary_metadata(
+    scheduled,  # noqa: F811
+    exact,
+    field,
+):
+    """A real live claim still permits only the compiled boundary row shapes."""
+    with campaign_clock(scheduled.active_configuration.starts_at):
+        with scheduler_session() as guard:
+            (start,) = produce_boundaries(guard)
+        with task_login(ServiceRole.WORKER, exact=exact):
+            execution = claim_hint(
+                start.task_root_id,
+                queue=WorkQueue.GENERAL,
+                worker_id=uuid4(),
+                handlers={"campaign_boundary": boundary_handler()},
+            )
+            with maintain_execution(execution), execution.effect():
+                CampaignBoundaryOccurrence.objects.filter(
+                    pk=start.occurrence_id
+                ).update(
+                    task_id=execution.claim.run_id,
+                    task_fence=execution.claim.fence,
+                    version=F("version") + 1,
+                    actor_id=execution.claim.worker_id,
+                    correlation_id=execution.correlation_id,
+                )
+                with pytest.raises(DatabaseError), transaction.atomic():
+                    if field == "pending_reason":
+                        CampaignBoundaryOccurrence.objects.filter(
+                            pk=start.occurrence_id
+                        ).update(
+                            reason="boundary_replaced",
+                            version=F("version") + 1,
+                        )
+                    else:
+                        options = {
+                            field: "private detail" if field == "reason" else uuid4()
+                        }
+                        current = Campaign.objects.get(pk=scheduled.pk)
+                        runtime = SystemConfiguration.objects.get()
+                        CampaignTransition.objects.create(
+                            campaign=current,
+                            action="start",
+                            expected_version=current.version,
+                            expected_runtime_version=runtime.version,
+                            before_state=current.state,
+                            after_state="active",
+                            before_mode=runtime.mode,
+                            after_mode=runtime.mode,
+                            configuration_id=runtime.active_configuration_id,
+                            request_id=uuid4(),
+                            actor_id=execution.claim.worker_id,
+                            correlation_id=execution.correlation_id,
+                            boundary_id=start.occurrence_id,
+                            task_fence=execution.claim.fence,
+                            **options,
+                        )

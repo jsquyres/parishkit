@@ -19,6 +19,7 @@ from parishkit.stewardship.campaigns.boundary_revisions import current_boundary
 from parishkit.stewardship.campaigns.lifecycle import Action
 from parishkit.stewardship.campaigns.models import CampaignBoundaryOccurrence
 from parishkit.stewardship.campaigns.work_locks import work_transaction
+from parishkit.stewardship.deployment import ServiceRole
 from parishkit.stewardship.jobs.models import TaskRun
 from parishkit.stewardship.jobs.scheduler import scheduler_session
 from parishkit.stewardship.jobs.storage import enqueue
@@ -30,6 +31,7 @@ from .campaign_builders import (
     draft_campaign,
     end_request,
 )
+from .test_background_grants_postgresql import task_login
 from .test_boundary_tasks_postgresql import run
 from .test_taskrun_postgresql import act, expire
 
@@ -72,12 +74,13 @@ def test_preflight_sees_root_claim_even_before_occurrence_binding(tmp_path, stat
         request, _ = end_request(store, campaign, actor, "edit_end")
         previous = store.active()
         if state == "queued":
-            result = install_request(
-                store,
-                request_id=request.request_id,
-                correlation_id=uuid4(),
-                admit_campaign=admit_test_work,
-            )
+            with task_login(ServiceRole.CONFIG_INSTALLER, exact=True):
+                result = install_request(
+                    store,
+                    request_id=request.request_id,
+                    correlation_id=uuid4(),
+                    admit_campaign=admit_test_work,
+                )
             assert result.state == "applied"
             row.refresh_from_db()
             assert row.state == "skipped" and row.reason == "boundary_replaced"
@@ -101,15 +104,16 @@ def test_end_date_a_b_a_keeps_history_and_allocates_a_fresh_executable_root(tmp_
         a, a_task = future_close(campaign)
         for date in ("2026-11-10", original.end_date.isoformat()):
             request, _ = end_request(store, campaign, actor, "edit_end", date)
-            assert (
-                install_request(
-                    store,
-                    request_id=request.request_id,
-                    correlation_id=uuid4(),
-                    admit_campaign=admit_test_work,
-                ).state
-                == "applied"
-            )
+            with task_login(ServiceRole.CONFIG_INSTALLER, exact=True):
+                assert (
+                    install_request(
+                        store,
+                        request_id=request.request_id,
+                        correlation_id=uuid4(),
+                        admit_campaign=admit_test_work,
+                    ).state
+                    == "applied"
+                )
             campaign.refresh_from_db()
             if date == "2026-11-10":
                 b, b_task = future_close(campaign)
@@ -202,3 +206,31 @@ def test_close_winning_before_reviewed_end_edit_requires_reopen(tmp_path):
     assert campaign.state == "closed"
     assert campaign.active_configuration_id == original.pk
     assert CampaignBoundaryOccurrence.objects.filter(kind="close").count() == 1
+
+
+@pytest.mark.parametrize("state", ["running", "abandoned"])
+def test_sql_end_edit_excludes_unbound_close_even_without_python_preflight(
+    tmp_path, monkeypatch, state
+):
+    """SQL independently rejects a current root claim before occurrence binding."""
+    store, campaign, actor = draft_campaign(tmp_path)
+    with campaign_clock(campaign.active_configuration.starts_at):
+        command(campaign, actor, Action.ACTIVATE)
+        row, task = future_close(campaign)
+        task = act(task, "claim", lease_seconds=1 if state == "abandoned" else 300)
+        if state == "abandoned":
+            expire(task)
+        request, _ = end_request(store, campaign, actor, "edit_end")
+        monkeypatch.setattr(
+            "parishkit.stewardship.campaigns.admission.close_work_running",
+            lambda _: False,
+        )
+        with pytest.raises(IntegrityError, match="quiescent exceptional intent"):
+            install_request(
+                store,
+                request_id=request.request_id,
+                correlation_id=uuid4(),
+                admit_campaign=admit_test_work,
+            )
+    row.refresh_from_db()
+    assert row.state == "pending" and row.task_id is None

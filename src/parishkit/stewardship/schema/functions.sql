@@ -5482,6 +5482,18 @@ DECLARE target_campaign uuid; claim public.stewardship_task_run%ROWTYPE;
 BEGIN
     -- Read-only evidence, never a caller-selected execution-context flag.
     PERFORM pg_advisory_xact_lock(736220,1);
+    IF relation_name='stewardship_runtime_transition' THEN
+        SELECT event.* INTO transition FROM public.stewardship_campaign_transition event
+            WHERE event.id=(proposed->>'campaign_transition_id')::uuid;
+        RETURN transition.id IS NOT NULL AND proposed->>'action'='campaign'
+            AND proposed->>'reason'='' AND proposed->>'restore_id' IS NULL
+            AND proposed->>'backup_at' IS NULL
+            AND (proposed->>'request_id')::uuid=transition.request_id
+            AND (proposed->>'actor_id')::uuid=transition.actor_id
+            AND (proposed->>'correlation_id')::uuid=transition.correlation_id
+            AND public.stewardship_boundary_write_admitted_v1(
+                'stewardship_campaign_transition',to_jsonb(transition),NULL);
+    END IF;
     IF relation_name NOT IN ('stewardship_campaign_boundary', 'stewardship_campaign',
         'stewardship_system_configuration', 'stewardship_campaign_transition') THEN
         RETURN false;
@@ -5518,12 +5530,30 @@ BEGIN
     IF relation_name='stewardship_campaign_boundary' THEN
         -- Initial predecessor allocation has no execution binding yet; its
         -- ordinary guard still checks exact kind/date and immutable identity.
-        RETURN (prior IS NULL AND proposed->>'state'='pending'
-                    AND proposed->>'task_id' IS NULL)
-            OR ((proposed->>'task_id')::uuid=claim.id
-                AND (proposed->>'task_fence')::bigint=claim.fence);
+        IF prior IS NULL THEN
+            RETURN proposed->>'state'='pending' AND proposed->>'task_id' IS NULL;
+        END IF;
+        IF (proposed->>'task_id')::uuid IS DISTINCT FROM claim.id
+            OR (proposed->>'task_fence')::bigint IS DISTINCT FROM claim.fence THEN
+            RETURN false;
+        END IF;
+        IF proposed->>'state'='pending' THEN
+            RETURN (proposed-ARRAY['task_id','task_fence','version','updated_at',
+                       'actor_id','correlation_id'])
+                = (prior-ARRAY['task_id','task_fence','version','updated_at',
+                       'actor_id','correlation_id']);
+        END IF;
+        RETURN (proposed-ARRAY['state','reason','completed_at','transition_id',
+                    'version','updated_at','actor_id','correlation_id'])
+                = (prior-ARRAY['state','reason','completed_at','transition_id',
+                    'version','updated_at','actor_id','correlation_id'])
+            AND ((proposed->>'state'='succeeded' AND proposed->>'reason'='')
+                OR (proposed->>'state'='skipped' AND proposed->>'reason'='not_applicable'))
+            AND (proposed->>'completed_at')::timestamptz=public.stewardship_campaign_now_v1();
     ELSIF relation_name='stewardship_campaign_transition' THEN
         RETURN proposed->>'action' IN ('start','close')
+            AND proposed->>'reason'='' AND proposed->>'prior_projection_id' IS NULL
+            AND proposed->>'token_generation_id' IS NULL
             AND (proposed->>'task_fence')::bigint=claim.fence
             AND EXISTS(SELECT 1 FROM public.stewardship_campaign_boundary b
                 WHERE b.id=(proposed->>'boundary_id')::uuid AND b.campaign_id=target_campaign
@@ -5558,7 +5588,8 @@ BEGIN
     IF NOT has_table_privilege(current_user,'public.stewardship_campaign_control','INSERT')
        AND NOT has_table_privilege(current_user,'public.stewardship_configuration_version','INSERT')
        AND public.stewardship_boundary_write_admitted_v1(
-           TG_TABLE_NAME,to_jsonb(NEW),NULL) IS NOT TRUE THEN
+           TG_TABLE_NAME,to_jsonb(NEW),
+           CASE WHEN TG_OP='UPDATE' THEN to_jsonb(OLD) ELSE NULL END) IS NOT TRUE THEN
         RAISE EXCEPTION 'Worker lifecycle requires exact boundary ownership'
             USING ERRCODE='42501';
     END IF;

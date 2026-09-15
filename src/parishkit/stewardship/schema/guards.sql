@@ -2422,6 +2422,14 @@ CREATE TRIGGER stewardship_campaign_runtime_v1 BEFORE INSERT OR DELETE OR UPDATE
 
 -- TRIGGER: stewardship_campaign_transition stewardship_boundary_worker_transition
 CREATE TRIGGER stewardship_boundary_worker_transition
+    BEFORE UPDATE ON public.stewardship_campaign_boundary
+    FOR EACH ROW EXECUTE FUNCTION public.stewardship_boundary_worker_transition_v1();
+
+CREATE TRIGGER stewardship_boundary_worker_transition
+    BEFORE INSERT ON public.stewardship_runtime_transition
+    FOR EACH ROW EXECUTE FUNCTION public.stewardship_boundary_worker_transition_v1();
+
+CREATE TRIGGER stewardship_boundary_worker_transition
     BEFORE INSERT ON public.stewardship_campaign_transition
     FOR EACH ROW EXECUTE FUNCTION public.stewardship_boundary_worker_transition_v1();
 

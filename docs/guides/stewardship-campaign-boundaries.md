@@ -145,3 +145,63 @@ the already recorded boundary deltas. No retained database was upgraded/deleted.
 Complete remaining runtime/regression validation and three dual-source review
 rounds before PR delivery. No new BG-02 checkbox is complete and this branch
 has no PR yet.
+
+## Review round 1
+
+Full branch review `20260915-112014-41e06d` examined base
+`f4e000c5b3f7024e47c7f6d3dbdd30c6cd4976e1` through
+`d8ae7dcea79f0ccaa2bd9b66e84b03eebe4147fe`, tree
+`04f889b09821d478df12dcccf7b3a8801633d5d0`. Both reviewers completed
+successfully; Claude covered all 39 manifest files. Finalization retained its
+artifacts and reported REQUEST_CHANGES, without degradation or verdict mismatch:
+15 raw findings (two High, four Medium, nine Low), six above the cutoff.
+
+The restored lean-ctx configuration and expressly approved `claude` command
+entry remain outside the repository. The exact validator/move permission probe
+passed before either reviewer launched; no broad permission bypass was used.
+
+| Source/severity | Disposition and regression evidence |
+| --- | --- |
+| Claude High: configuration-installer grants | Fixed. Grant successor boundary INSERT and write-only audit-context INSERT, without private reads. Actual exact config-installer login now performs end edits and A → B → A. Full reopen activation remains ADM-06/Phase 6. |
+| Claude Medium: end-edit role and SQL coverage | Fixed with the preceding grant correction and independent SQL rejection of running/abandoned unbound close roots while the Python preflight is deliberately permissive. |
+| Claude Medium: custom worker runtime transition | Fixed. Privilege-based runtime journal guard rejects Return to Testing for both installed and custom worker names, including a populated archived, otherwise-admissible campaign. |
+| Codex High: post-claim authority mismatch | Fixed. Invoke bound handler effect admission under installer/work/task locks before the first domain effect; retain installation serialization through the ordered transaction. A newly selected, unactivated YAML version blocks an already claimed boundary. |
+| Codex Medium: unrestricted boundary metadata | Fixed. Exact allowed boundary deltas, empty transition reasons and absent unused fields are enforced for installed/custom worker names. Raw writes with valid live claims cannot alter pending reasons or inject unrelated transition fields. |
+| Codex Medium: population effect claim budget | Fixed with bounded renewal, not a frozen clock. After lock waits and fresh admission, each due boundary renews its still-live claim to the existing 300-second substrate maximum. All SQL wall-clock expiry checks remain. A delayed-effect test exceeds its original short claim and verifies the renewed budget; overdue start-first and close-first hints both work. |
+
+The nine raw Low findings remain visible, with these dispositions:
+
+| Raw Claude Low finding | Disposition |
+| --- | --- |
+| Purge-only states absent from boundary context | Deferred to BG-11/Phase 6 integration. Current production/execution admission excludes purge states and unreleased gates; this PR does not implement purge-time terminalization. |
+| Other-campaign work gate yields SQL rejection rather than Python hold | Deferred to BG-11 integration of historical-campaign purge alongside a current campaign. Existing global SQL exclusion remains intact; it is not bypassed here. |
+| Repeated row-level close proof | Retained deliberately for independent SQL fencing; the accepted claim-budget correction and population measurement address execution latency without caller-set proof flags. |
+| Installer freshness constant also controls boundary lag | Low coupling cleanup deferred to BG-10's shared operational alert policy. Current threshold remains 90 seconds and includes pending worker backlog. |
+| New trigger names/header style | Low schema-comment/naming cleanup deferred; guards are functional and included in the independent catalog audit. |
+| Redundant nonnegative revision constraint/default | Retained for Django model/schema parity; the stronger positive constraint and sequential-allocation guard enforce the actual contract. |
+| Operator replacement actor kind | Deferred to Phase 6 operator exceptional-work integration; normal end edits remain explicitly portal-user authored. No operator exceptional workflow is enabled here. |
+| Extra recovery/held branch coverage | Low coverage extension retained for subsequent boundary/gate validation; existing before/after-commit recovery and restore-hold regressions pass. No missing branch is represented as tested. |
+| Imported test helpers/fixtures | Retained established suite convention; refactoring is optional and not required for boundary behavior. |
+
+At the reviewed head, all eight operational Compose cases passed in 793.05
+seconds; seven setup-finalization/disposal cases passed in 526.24 seconds;
+14 source-worker/setup-disposal cases passed in 79.03 seconds; and the complete
+60-case boundary set passed in 47.96 seconds. These head-specific results do not
+certify later corrections. The correction set has passed 38 focused PostgreSQL
+tests in 40.69 seconds and 54 strict-schema/remaining-boundary regressions in
+28.81 seconds. The independent reference-schema comparison passes with only
+the intended new boundary/runtime journal guards and proof changes; other
+catalog families are unchanged from the preceding audited baseline.
+
+Post-fix validation also passes 14 restricted source-worker/setup-disposal
+regressions in 74.97 seconds, 5,540 credential-free baseline tests in 54.68
+seconds (3,495 opt-in/profile skips, two pre-existing warnings), Ruff and Markdown
+lint. A separate disposable 5,000-Family benchmark exercised real token creation,
+activation and exact-role ordered closing; the closing transaction and task
+acknowledgment took 0.742 seconds, and all 5,000 bearer rows were destroyed.
+Fixture creation plus benchmark took 23.70 seconds. The benchmark contains only
+synthetic data and remains outside the repository, so normal CI does not repeat
+large credential fixtures unnecessarily.
+
+Round 1 is complete with all six accepted findings fixed. PR delivery still
+requires at least three completed dual-source rounds and final-head CI.

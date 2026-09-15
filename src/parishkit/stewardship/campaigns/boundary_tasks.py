@@ -155,14 +155,25 @@ def _execute(execution):
                 """Bind the hint once; recheck gates and fences for both effects."""
                 nonlocal entered
                 execution.check()
-                current = _occurrence(_status(lock_task_claim(execution.claim)))
+                status = _status(lock_task_claim(execution.claim))
+                current = _occurrence(status)
                 if (
                     action not in {Action.START, Action.CLOSE}
                     or campaign.pk != row.campaign_id
                     or (not entered and current.state != "pending")
+                    or (
+                        not entered
+                        and execution.handler.admit("effect", status) is not True
+                    )
                     or not _eligible(current)
                 ):
                     raise PermissionError("Boundary execution is no longer admitted.")
+                # Close atomically scrubs the population, so it needs more than
+                # the generic 60-second transport claim. Renew only after all
+                # installer/work/task lock waits and fresh owning admission.
+                # This remains the substrate's bounded maximum; every SQL
+                # effect still rejects actual expiry and cannot revive a lease.
+                execution.heartbeat(seconds=300)
                 entered = True
 
             apply_due_boundaries(

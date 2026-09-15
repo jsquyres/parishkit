@@ -55,6 +55,15 @@ def test_web_only_reads_source_owned_assignment_overlays():
     assert "stewardship_assignment_overlay" not in columns
 
 
+def test_config_installer_can_replace_boundaries_without_audit_or_family_reads():
+    """Trigger-owned replacement is writable without broadening private reads."""
+    tables, columns = runtime_grants(ServiceRole.CONFIG_INSTALLER)
+    assert tables["stewardship_campaign_boundary"] == {"SELECT", "INSERT", "UPDATE"}
+    assert tables["stewardship_audit_context"] == {"INSERT"}
+    assert "stewardship_audit_context" not in columns
+    assert "stewardship_family_token" not in tables
+
+
 def test_public_handoff_grants_separate_discovery_from_publication():
     """Only a target installer publishes; web reads and other services have no need."""
     table = "stewardship_public_credential_handoff"
