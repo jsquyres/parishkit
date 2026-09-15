@@ -18,6 +18,7 @@ from parishkit.stewardship.jobs.scheduler import SchedulerGuard
 from parishkit.stewardship.jobs.storage import enqueue
 from parishkit.stewardship.storage import StorageInvariantError
 
+from .boundary_health import record_lag
 from .credential_models import CampaignCredentialState
 from .models import CampaignBoundaryOccurrence, CampaignWorkGate
 from .work_locks import work_transaction
@@ -121,5 +122,6 @@ def produce_boundaries(guard):
                 admit=admit,
             )
             result.append(BoundaryWork(occurrence.pk, task.root_id, kind, due_at))
+            record_lag(occurrence, task, scope.instant)
         guard.check()
         return tuple(result)

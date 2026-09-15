@@ -399,10 +399,29 @@ CREATE FUNCTION public.stewardship_boundary_audit_v1() RETURNS trigger
     LANGUAGE plpgsql
     SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
+DECLARE event_id uuid := gen_random_uuid(); before_state text; after_state text;
 BEGIN
-    IF NEW.state='skipped' THEN
+    IF NEW.state IN ('succeeded','skipped') THEN
         INSERT INTO stewardship_audit_event(id,actor_id,correlation_id,event_type,subject_id,campaign_reference)
-        VALUES(gen_random_uuid(),NEW.actor_id,NEW.correlation_id,'campaign_boundary_skipped',NEW.id,NEW.campaign_id);
+        VALUES(event_id,NEW.actor_id,NEW.correlation_id,
+            CASE NEW.state WHEN 'skipped' THEN 'campaign_boundary_skipped' ELSE 'campaign_boundary_completed' END,
+            NEW.id,NEW.campaign_id);
+        IF NEW.transition_id IS NOT NULL THEN
+            SELECT t.before_state,t.after_state INTO before_state,after_state
+                FROM stewardship_campaign_transition t WHERE t.id=NEW.transition_id;
+        ELSE
+            SELECT c.state,c.state INTO before_state,after_state
+                FROM stewardship_campaign c WHERE c.id=NEW.campaign_id;
+        END IF;
+        INSERT INTO stewardship_audit_context(id,actor_id,correlation_id,event_id,actor_kind,schema,context)
+        VALUES(gen_random_uuid(),NEW.actor_id,NEW.correlation_id,event_id,
+            CASE NEW.reason WHEN 'boundary_replaced' THEN 'portal_user' ELSE 'system' END,
+            'boundary',jsonb_build_object(
+                'occurrence_id',NEW.id,'kind',NEW.kind,
+                'intended_unix_microseconds',(extract(epoch FROM NEW.due_at)*1000000)::bigint,
+                'actual_unix_microseconds',(extract(epoch FROM NEW.completed_at)*1000000)::bigint,
+                'lag_microseconds',greatest(0,(extract(epoch FROM NEW.completed_at-NEW.due_at)*1000000)::bigint),
+                'before_state',before_state,'after_state',after_state));
     END IF;
     RETURN NEW;
 END $$;
@@ -745,8 +764,12 @@ BEGIN
            OR (i.action='edit_end' AND (c.state NOT IN ('scheduled','active') OR stewardship_campaign_now_v1()>=prior.ends_at))
            OR (i.action='reopen' AND (c.state<>'closed' OR proposed.ends_at<=prior.ends_at))
            OR proposed.ends_at<=stewardship_campaign_now_v1()
-           OR EXISTS(SELECT 1 FROM stewardship_campaign_boundary b JOIN stewardship_task_run t ON t.id=b.task_id
-               WHERE b.campaign_id=c.id AND b.kind='close' AND b.state='pending' AND t.state IN ('running','abandoned'))
+           OR EXISTS(SELECT 1 FROM stewardship_campaign_boundary b
+               JOIN stewardship_task_run t ON t.domain_request_id=b.campaign_id AND t.task_type='campaign_boundary'
+               JOIN stewardship_task_run root ON root.id=t.root_id
+               WHERE b.campaign_id=c.id AND b.kind='close' AND b.state='pending'
+                   AND (t.id=b.task_id OR root.idempotency_key=b.id::text)
+                   AND t.state IN ('running','abandoned'))
            OR EXISTS(SELECT 1 FROM stewardship_campaign_work_gate WHERE state IN ('preparing','running')) THEN
             RAISE EXCEPTION 'End change requires current quiescent exceptional intent' USING ERRCODE='23514'; END IF;
     ELSIF EXISTS(SELECT 1 FROM stewardship_campaign_config_intent intent_row JOIN stewardship_config_activation a ON a.request_id=intent_row.request_id
@@ -4539,14 +4562,19 @@ BEGIN
         WHEN 'provider' THEN ARRAY['status','provider_fingerprint','outcome']
         WHEN 'exception' THEN ARRAY['outcome','retryable']
         WHEN 'action' THEN ARRAY['version','before_version','after_version','outcome','source_fingerprint','candidate_fingerprint','count']
+        WHEN 'boundary' THEN ARRAY['occurrence_id','kind','intended_unix_microseconds','actual_unix_microseconds','lag_microseconds','before_state','after_state']
         ELSE NULL END;
     IF allowed IS NULL OR jsonb_typeof(payload) IS DISTINCT FROM 'object' THEN RETURN false; END IF;
-    IF schema_name='member_source' AND NOT payload ?& allowed THEN RETURN false; END IF;
+    IF schema_name IN ('member_source','boundary') AND NOT payload ?& allowed THEN RETURN false; END IF;
     FOR key,value IN SELECT * FROM jsonb_each(payload) LOOP
         IF NOT key=ANY(allowed) THEN RETURN false; END IF;
         text_value=value#>>'{}';
         IF key='outcome' THEN
             IF jsonb_typeof(value)<>'string' OR text_value NOT IN ('started','succeeded','denied','failed','retry','cancelled','changed') THEN RETURN false; END IF;
+        ELSIF key='kind' THEN
+            IF jsonb_typeof(value)<>'string' OR text_value NOT IN ('start','close') THEN RETURN false; END IF;
+        ELSIF key IN ('before_state','after_state') THEN
+            IF jsonb_typeof(value)<>'string' OR text_value NOT IN ('draft','scheduled','active','closed','archived','purged') THEN RETURN false; END IF;
         ELSIF key='field' THEN
             IF jsonb_typeof(value)<>'string' OR text_value NOT IN (
                 'prefix','first_name','middle_name','last_name','suffix','nickname',

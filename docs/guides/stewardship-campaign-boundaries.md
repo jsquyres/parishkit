@@ -72,3 +72,61 @@ narrow `stewardship_setup_completion_write_v1` exception differ; all relations,
 columns, constraints, indexes and policies are unchanged. The audited fixture
 now contains 338 functions and 337 triggers. No retained database was deleted or
 upgraded. This is an internal checkpoint, not completed BG-02 acceptance.
+
+## Runtime and timing checkpoint
+
+The scheduler now registers metadata-only boundary admission and scans the
+boundary producer independently of the other producers. The general worker
+registers the compiled executor; mail dispatch does not. Every ordinary pass
+retains current YAML/SQL authority checks. Runtime assembly, producer isolation,
+grant contracts and context-validation tests pass (199 tests in 1.12 seconds).
+
+Terminal boundary changes append a closed `boundary` audit context containing
+the occurrence identity, kind, intended/actual UTC Unix microseconds, lag in
+microseconds, previous/new state and the event's correlation ID. Skipped and
+successful outcomes both retain this context. No parishioner values are allowed
+in this schema. Scheduler lag exceeding the existing process-health threshold
+of 90 seconds records one durable WARNING per occurrence; its task context
+contains the root ID and lag seconds in `count`. The insert-only warning survives
+duplicate scans/restarts without granting log-payload reads. BG-10 still owns
+notification delivery and escalation.
+
+End-edit admission now checks both execution-bound task IDs and immutable root
+allocation keys, rejecting running/abandoned close work even before its worker
+binds the occurrence. Queued work remains replaceable. This does not loosen
+affected-mail reconciliation or permit edits after the original closing instant.
+
+The complete focused boundary set passes 49 PostgreSQL tests in 38.65 seconds:
+production/execution, exact grants, populated credential cleanup, typed timing
+audit, lag threshold/deduplication, pre-binding end-edit exclusion, concurrent
+workers, and spring/fall DST intervals. Fifty-four lifecycle, work-admission,
+exceptional-end and strict schema/model regressions pass in 32.67 seconds.
+Ruff lint/format, Markdown lint of this guide and `makemigrations --check
+--dry-run` pass. The independent PR #31 catalog comparison was repeated: beyond
+the earlier worker-proof changes, only boundary audit, safe-context validation,
+end-edit admission, and the two closed audit/operational constraints changed.
+No table, column, index or policy was added or changed.
+
+The full credential-free baseline passes: 5,539 tests, 3,477 opt-in/profile
+skips, and two pre-existing client-library deprecation warnings in 55.55 seconds.
+This is not a claim that skipped database, browser or Compose suites passed.
+
+An additional setup-heavy regression invocation was interrupted after 15 passed
+tests in 525.91 seconds, while waiting in a deliberate threading wait. It is
+not complete validation or a demonstrated deadlock. Remaining setup regressions
+must run in bounded diagnostic groups before final acceptance.
+
+## Remaining acceptance and contract question
+
+Atomic creation of replacement future close work is not complete. In particular,
+the current unique `(campaign, kind, resolved instant)` identity and immutable
+terminal outcome conflict when an Admin changes end date A to B and back to A.
+The prior A occurrence is already terminal `boundary_replaced`; silently reusing
+it would strand closing, while rewriting it would discard immutable history.
+The human has been asked whether to allow a new execution revision for that
+same date while preserving prior replacement history (recommended), or forbid
+reuse of a replaced date. Do not silently introduce either new product rule.
+
+Finish that contract and implementation, replacement/closing race tests and
+remaining runtime/regression validation before the three dual-source reviews.
+No new BG-02 checkbox is complete and this branch has no PR yet.

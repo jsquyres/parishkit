@@ -114,12 +114,9 @@ def test_grant_and_login_resolvers_normalize_string_roles_identically(role):
 def test_background_grants_keep_initial_completion_separate_from_general_authority(
     role,
 ):
-    """The atomic initial owner gains neither private reads nor lifecycle updates."""
+    """Setup and boundary SQL guards constrain grants without private read access."""
     tables, columns = runtime_grants(role)
-    for table in (
-        "stewardship_sealed_credential_staging",
-        "stewardship_family_session",
-    ):
+    for table in ("stewardship_sealed_credential_staging",):
         assert table not in tables and table not in columns
     # Consumer acknowledgement needs target-scoped metadata and a row lock,
     # never candidate ciphertext or ordinary replacement mutation authority.
@@ -169,6 +166,11 @@ def test_background_grants_keep_initial_completion_separate_from_general_authori
         "UPDATE": {
             "id",
             "active_configuration_id",
+            "state",
+            "structural_locked",
+            "ever_active",
+            "active_token_generation_id",
+            "readiness_revision",
             "version",
             "actor_id",
             "correlation_id",
@@ -178,6 +180,11 @@ def test_background_grants_keep_initial_completion_separate_from_general_authori
     }
     assert tables["stewardship_audit_event"] == {"INSERT"}
     if role is ServiceRole.WORKER:
+        assert "stewardship_family_session" not in tables
+        assert columns["stewardship_family_session"] == {
+            "SELECT": {"family_id", "revoked_at", "last_activity_at", "version"},
+            "UPDATE": {"revoked_at", "version"},
+        }
         assert tables["stewardship_task_run"] == {"SELECT", "INSERT", "UPDATE"}
         assert "stewardship_portal_session" not in tables
         assert columns["stewardship_portal_session"] == {
@@ -190,6 +197,8 @@ def test_background_grants_keep_initial_completion_separate_from_general_authori
             }
         }
     else:
+        assert "stewardship_family_session" not in tables
+        assert "stewardship_family_session" not in columns
         assert "stewardship_portal_session" not in tables
         assert columns["stewardship_portal_session"] == {
             "SELECT": {

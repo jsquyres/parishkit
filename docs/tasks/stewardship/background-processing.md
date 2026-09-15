@@ -49,6 +49,9 @@ Evidence: [Campaign-boundary increment](../../guides/stewardship-campaign-bounda
 begins from verified PR #31 merge `f4e000c5`. Existing ordered boundary storage
 is the substrate, not completed scheduler/worker integration. No new checkbox
 is complete. BG-02.03's shared restore/reopen token worker stays in Phase 6.
+The linked guide now records compiled runtime integration, restricted-role and
+timing/lag tests, DST/concurrent execution, and the unresolved repeated-end-date
+identity contract. Replacement and full review/CI acceptance remain incomplete.
 
 ## BG-03: Production-transition cleanup worker
 
