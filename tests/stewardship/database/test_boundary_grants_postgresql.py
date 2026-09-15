@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from django.db import DatabaseError, connection, transaction
-from django.db.models import F
+from django.db.models import DateTimeField, F, Func
 
 from parishkit.stewardship.accounts.family_authentication import FamilyRuntime
 from parishkit.stewardship.accounts.runtime_models import SystemConfiguration
@@ -28,7 +28,10 @@ from parishkit.stewardship.jobs.dispatch import WorkQueue, claim_hint
 from parishkit.stewardship.jobs.lifetime import maintain_execution
 from parishkit.stewardship.jobs.scheduler import scheduler_session
 
-from .campaign_builders import add_draft, campaign_clock, command
+from ..campaign_factory import campaign as campaign_record
+from ..campaign_factory import schedule
+from . import campaign_builders
+from .campaign_builders import add_draft, campaign_clock, command, draft_campaign
 from .credential_builders import family_campaign, keys, populate
 from .test_background_grants_postgresql import task_login
 from .test_boundary_production_postgresql import scheduled  # noqa: F401
@@ -154,26 +157,36 @@ def test_worker_cannot_return_archived_campaign_to_testing(scheduled, exact):  #
         assert run(close) and run(start)
         command(scheduled, uuid4(), Action.ARCHIVE)
         runtime = SystemConfiguration.objects.get()
+        arguments = dict(
+            request_id=uuid4(),
+            expected_version=runtime.version,
+            action="return_testing",
+            before_mode=runtime.mode,
+            after_mode="testing",
+            before_campaign_id=scheduled.pk,
+            after_campaign_id=None,
+            actor_id=uuid4(),
+            correlation_id=uuid4(),
+        )
         with (
             task_login(ServiceRole.WORKER, exact=exact),
-            pytest.raises(DatabaseError),
+            pytest.raises(
+                DatabaseError,
+                match="Worker lifecycle requires exact boundary ownership",
+            ) as caught,
             transaction.atomic(),
         ):
-            RuntimeTransition.objects.create(
-                request_id=uuid4(),
-                expected_version=runtime.version,
-                action="return_testing",
-                before_mode=runtime.mode,
-                after_mode="testing",
-                before_campaign_id=scheduled.pk,
-                after_campaign_id=None,
-                actor_id=uuid4(),
-                correlation_id=uuid4(),
-            )
+            RuntimeTransition.objects.create(**arguments)
+        assert caught.value.__cause__.sqlstate == "42501"
         runtime.refresh_from_db()
         assert (
             runtime.mode == "production" and runtime.current_campaign_id == scheduled.pk
         )
+        # The identical Admin/owner command succeeds: the worker guard, not
+        # quiescence or a stale version, caused the preceding rejection.
+        RuntimeTransition.objects.create(**arguments)
+        runtime.refresh_from_db()
+        assert runtime.mode == "testing" and runtime.current_campaign_id is None
 
 
 @pytest.mark.parametrize("exact", [False, True])
@@ -206,7 +219,15 @@ def test_live_worker_claim_does_not_allow_extra_boundary_metadata(
                     actor_id=execution.claim.worker_id,
                     correlation_id=execution.correlation_id,
                 )
-                with pytest.raises(DatabaseError), transaction.atomic():
+                message = (
+                    "Worker configuration effects require atomic setup ownership"
+                    if exact and field == "pending_reason"
+                    else "Worker lifecycle requires exact boundary ownership"
+                )
+                with (
+                    pytest.raises(DatabaseError, match=message) as caught,
+                    transaction.atomic(),
+                ):
                     if field == "pending_reason":
                         CampaignBoundaryOccurrence.objects.filter(
                             pk=start.occurrence_id
@@ -237,3 +258,134 @@ def test_live_worker_claim_does_not_allow_extra_boundary_metadata(
                             task_fence=execution.claim.fence,
                             **options,
                         )
+                assert caught.value.__cause__.sqlstate == (
+                    "23514" if exact and field == "pending_reason" else "42501"
+                )
+                current = Campaign.objects.get(pk=scheduled.pk)
+                runtime = SystemConfiguration.objects.get()
+                CampaignTransition.objects.create(
+                    campaign=current,
+                    action="start",
+                    expected_version=current.version,
+                    expected_runtime_version=runtime.version,
+                    before_state=current.state,
+                    after_state="active",
+                    before_mode=runtime.mode,
+                    after_mode=runtime.mode,
+                    configuration_id=runtime.active_configuration_id,
+                    request_id=uuid4(),
+                    actor_id=execution.claim.worker_id,
+                    correlation_id=execution.correlation_id,
+                    boundary_id=start.occurrence_id,
+                    task_fence=execution.claim.fence,
+                )
+            assert (
+                CampaignBoundaryOccurrence.objects.get(pk=start.occurrence_id).state
+                == "succeeded"
+            )
+
+
+@pytest.mark.parametrize("exact", [False, True])
+@pytest.mark.parametrize("first", ["start", "close"])
+def test_real_statement_clock_skips_obsolete_start_and_closes(
+    tmp_path, monkeypatch, exact, first
+):
+    """Actual worker statement times must agree without a constant execution clock."""
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT clock_timestamp()")
+        now = cursor.fetchone()[0]
+    starts = (now.date() - timedelta(days=4)).isoformat()
+    monkeypatch.setattr(
+        campaign_builders, "schedule", lambda owner: schedule(owner, date=starts)
+    )
+    with campaign_clock(now - timedelta(days=5)):
+        store, campaign, actor = draft_campaign(
+            tmp_path,
+            campaign_record(
+                start_date=starts,
+                end_date=(now.date() - timedelta(days=2)).isoformat(),
+            ),
+        )
+    # Setup/activation are moved into the past. Production/execution below use
+    # the unmodified statement_timestamp implementation and real live leases.
+    with campaign_clock(campaign.active_configuration.starts_at + timedelta(hours=1)):
+        command(campaign, actor, Action.ACTIVATE)
+    with scheduler_session() as guard:
+        start, close = produce_boundaries(guard)
+    selected, remaining = (start, close) if first == "start" else (close, start)
+    with task_login(ServiceRole.WORKER, exact=exact):
+        assert run(selected, store=store) and run(remaining, store=store)
+    campaign.refresh_from_db()
+    assert campaign.state == "closed"
+    opening = CampaignBoundaryOccurrence.objects.get(pk=start.occurrence_id)
+    closing = CampaignBoundaryOccurrence.objects.get(pk=close.occurrence_id)
+    assert opening.state == "skipped" and opening.reason == "not_applicable"
+    assert closing.state == "succeeded"
+    assert now < opening.completed_at <= closing.completed_at
+
+
+@pytest.mark.parametrize("exact", [False, True])
+@pytest.mark.parametrize("field", ["reason", "completed_at", "transition_id"])
+def test_worker_terminal_skip_rejects_malformed_values(tmp_path, exact, field):
+    """Reject each malformed terminal delta before admitting an otherwise valid skip."""
+    _, campaign, actor = draft_campaign(tmp_path)
+    with campaign_clock(campaign.active_configuration.starts_at):
+        activation = command(campaign, actor, Action.ACTIVATE)
+        with scheduler_session() as guard:
+            (start,) = produce_boundaries(guard)
+        with task_login(ServiceRole.WORKER, exact=exact):
+            execution = claim_hint(
+                start.task_root_id,
+                queue=WorkQueue.GENERAL,
+                worker_id=uuid4(),
+                handlers={"campaign_boundary": boundary_handler()},
+            )
+            with maintain_execution(execution), execution.effect():
+                rows = CampaignBoundaryOccurrence.objects.filter(pk=start.occurrence_id)
+                attribution = dict(
+                    actor_id=execution.claim.worker_id,
+                    correlation_id=execution.correlation_id,
+                    version=F("version") + 1,
+                )
+                rows.update(
+                    task_id=execution.claim.run_id,
+                    task_fence=execution.claim.fence,
+                    **attribution,
+                )
+                valid = dict(
+                    state="skipped",
+                    reason="not_applicable",
+                    completed_at=Func(
+                        function="stewardship_campaign_now_v1",
+                        output_field=DateTimeField(),
+                    ),
+                    **attribution,
+                )
+                malformed = {
+                    "reason": "private detail",
+                    "completed_at": campaign.active_configuration.starts_at
+                    - timedelta(days=1),
+                    "transition_id": activation.pk,
+                }
+                message = (
+                    "campaign_boundary_result"
+                    if field == "transition_id"
+                    else "Worker configuration effects require atomic setup ownership"
+                    if exact
+                    else "Applicable boundary cannot be skipped"
+                    if field == "reason"
+                    else "Worker lifecycle requires exact boundary ownership"
+                )
+                with (
+                    pytest.raises(DatabaseError, match=message) as caught,
+                    transaction.atomic(),
+                ):
+                    rows.update(**(valid | {field: malformed[field]}))
+                assert caught.value.__cause__.sqlstate == (
+                    "23514"
+                    if exact or field in {"reason", "transition_id"}
+                    else "42501"
+                )
+                rows.update(**valid)
+                assert rows.get().transition_id is None
+                assert rows.get().state == "skipped"

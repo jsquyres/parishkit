@@ -165,7 +165,7 @@ def _execute(execution):
                         not entered
                         and execution.handler.admit("effect", status) is not True
                     )
-                    or not _eligible(current)
+                    or (entered and not _eligible(current))
                 ):
                     raise PermissionError("Boundary execution is no longer admitted.")
                 # Close atomically scrubs the population, so it needs more than

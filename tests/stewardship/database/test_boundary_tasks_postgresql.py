@@ -6,6 +6,7 @@ from threading import Event
 from uuid import uuid4
 
 import pytest
+from django.db import connection
 
 from parishkit.config import ConfigError
 from parishkit.stewardship.accounts.authority import parse_version
@@ -48,14 +49,17 @@ from .test_taskrun_postgresql import expire
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-def run(item, *, recover=False):
+def run(item, *, recover=False, store=None):
     """Use the real dispatcher, closed handler and maintained worker lifetime."""
     operation = recover_hint if recover else execute_hint
+    handlers = {TASK_TYPE: boundary_handler()}
+    if store is not None:
+        handlers = bind_authority(handlers, store)
     return operation(
         item.task_root_id,
         queue=WorkQueue.GENERAL,
         worker_id=uuid4(),
-        handlers={TASK_TYPE: boundary_handler()},
+        handlers=handlers,
     )
 
 
@@ -227,6 +231,7 @@ def test_post_claim_manifest_mismatch_blocks_boundary_effect(tmp_path):
     campaign.refresh_from_db()
     assert campaign.state == "scheduled"
     assert CampaignTransition.objects.count() == 1
+    assert TaskRun.objects.get(pk=close.task_root_id).state == "running"
     assert set(CampaignBoundaryOccurrence.objects.values_list("state", flat=True)) == {
         "pending"
     }
@@ -251,10 +256,15 @@ def test_locked_boundary_renews_short_claim_before_population_effect(
     observed = []
 
     def delayed_emit(*args, **kwargs):
-        """Exceed the initial one-second lease only after locked admission renews it."""
-        task = TaskRun.objects.get(pk=close.task_root_id)
-        observed.append(task.lease_expires_at - task.updated_at)
-        Event().wait(1.1)
+        """Exceed the initial short lease only after locked admission renews it."""
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT lease_expires_at-clock_timestamp() "
+                "FROM stewardship_task_run WHERE id=%s",
+                [close.task_root_id],
+            )
+            observed.append(cursor.fetchone()[0])
+        Event().wait(3.1)
         return original_emit(*args, **kwargs)
 
     with campaign_clock(scheduled.active_configuration.ends_at):
@@ -267,7 +277,7 @@ def test_locked_boundary_renews_short_claim_before_population_effect(
             handlers={TASK_TYPE: boundary_handler()},
         )
         with maintain_execution(execution):
-            execution.heartbeat(seconds=1)
+            execution.heartbeat(seconds=3)
             monkeypatch.setattr(
                 "parishkit.stewardship.campaigns.boundaries._emit", delayed_emit
             )

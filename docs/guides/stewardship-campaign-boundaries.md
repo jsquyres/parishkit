@@ -205,3 +205,36 @@ large credential fixtures unnecessarily.
 
 Round 1 is complete with all six accepted findings fixed. PR delivery still
 requires at least three completed dual-source rounds and final-head CI.
+
+## Review round 2
+
+Correction review `20260915-114610-784267` examined
+`d8ae7dcea79f0ccaa2bd9b66e84b03eebe4147fe` through
+`f92f62cb4820194918ef5ae77298d7e73680f599`, tree
+`4f43e876a87afaf33d902ddfbfd3562028e29b52`. The exact permission probe passed;
+both reviewers completed, and Claude covered all ten correction manifest files.
+Finalization retained artifacts without degradation or mismatch. REQUEST_CHANGES
+contained one agreed High and one Claude Medium, from nine raw findings (two
+corroborating High, one Medium, six Low).
+
+| Finding | Disposition |
+| --- | --- |
+| Agreed High: skip timestamp came from a prior statement | Fixed. `not_applicable` completion now evaluates the database domain-clock function inside its UPDATE, matching the SQL guard. Four real-statement-clock cases cover both hint orders and exact/custom worker roles through bound YAML/SQL authority. Only fixture setup/activation move into the past; execution uses the unmodified production clock. |
+| Claude Medium: overly broad rejection assertions | Fixed. Regressions match specific SQLSTATE/messages and include successful positive controls under otherwise-identical conditions. Additional terminal skip tests cover reason, completion time and unrelated transition identifiers. |
+| Claude Low: skipped transition identifier could corrupt audit | Rejected as already handled. `campaign_boundary_result` requires a skipped row's transition to be NULL. Both role variants now assert that exact CHECK rejection, followed by a successful valid skip. |
+| Claude Low: renewal measurement and short initial lease | Improved. Measure remaining time against database wall time, use a three-second initial lease and a 3.1-second delayed effect, retaining actual expiry checks. This does not claim a new blocked-installer race test. |
+| Claude Low: bound-authority and post-mismatch task coverage | Improved. The real-clock ordered cases use `bind_authority`; mismatch regression explicitly retains a running task for recovery. |
+| Claude Low: installer context hardening | Deferred as optional defense in depth to ADM-06/Phase 6. The trusted installer remains configuration-authoring authority; this PR adds no general private reads or exceptional reopen activation. |
+| Claude Low: misleading SQL trigger headers | Fixed the per-table header comments, including the prior round's scrub headers. No trigger name or firing order changed. |
+| Claude Low: duplicate initial eligibility queries | Simplified. Initial bound admission performs eligibility once; subsequent ordered effects recheck eligibility under the retained transaction/installation lock. |
+
+At the reviewed head, all eight rebuilt-image Compose cases passed in 738.96
+seconds. Post-fix strict-schema/remaining-boundary regressions passed 62 cases
+in 34.84 seconds; the four real-clock cases passed in 11.99 seconds. Baseline
+validation passed 5,540 tests in 55.62 seconds, with 3,505 opt-in/profile skips
+and two pre-existing warnings. No schema fingerprint changed: this correction
+changes the Python timestamp expression and SQL comments, not database objects.
+
+The final expanded worker regression set passes all 40 cases in 43.03 seconds;
+Ruff and Markdown lint pass. Round 2 is complete with both accepted findings
+fixed. Round 3 and final-head CI remain required; no PR has been created yet.

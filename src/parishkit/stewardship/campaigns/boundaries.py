@@ -2,7 +2,7 @@
 
 from uuid import UUID, uuid5
 
-from django.db.models import F
+from django.db.models import DateTimeField, F, Func
 
 from parishkit.stewardship.storage import StorageInvariantError
 
@@ -70,7 +70,12 @@ def apply_due_boundaries(
             if campaign.state != source or runtime.mode != "production":
                 CampaignBoundaryOccurrence.objects.filter(pk=occurrence.pk).update(
                     state="skipped",
-                    completed_at=now,
+                    # Use this UPDATE's domain clock, matching the trigger proof.
+                    # An earlier SELECT has a different production statement time.
+                    completed_at=Func(
+                        function="stewardship_campaign_now_v1",
+                        output_field=DateTimeField(),
+                    ),
                     reason="not_applicable",
                     version=F("version") + 1,
                     actor_id=actor_id,
