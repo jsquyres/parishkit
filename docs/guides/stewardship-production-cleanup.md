@@ -154,5 +154,69 @@ seconds (3,575 environment skips and two pre-existing warnings). Ruff, formattin
 Markdown, whitespace and Django model/migration-state checks pass. The five
 duplicate findings above are consolidated into their accepted corrections;
 all 12 remaining findings have implementation and regression coverage.
-Rebuilt-image operational validation is still running, and rounds 2/3 plus
-final-head and merge-group CI remain mandatory before delivery.
+The intermediate rebuilt image passed all eight operational Compose cases in
+767.32 seconds. That image predates the final batch performance correction, so
+it proves SQL packaging but is not final-head runtime evidence. The later full
+cleanup coverage run passed 84 tests with 93% scoped coverage in 136.41 seconds.
+Round 1 corrections are complete; later rounds and final-image/CI validation
+remain mandatory.
+
+## Round 2 correction review
+
+Pika session `20260915-161604-dcc885` reviewed `4800dd3b` against `1c61b595`.
+The generated Claude reviewer and Pika-managed Codex reviewer both completed
+without failures, degradations, mismatches or salvage. Finalization returned
+`COMMENT`: three validated Medium findings, no High/Critical, from 11 raw
+findings (four raw Medium observations, seven below-cutoff Low observations).
+The exact-command permission preflight passed independently with byte-identical
+fixture delivery and zero denials.
+
+| Finding | Severity | Disposition |
+| --- | --- | --- |
+| Agreed 1 | Medium | Accepted: cap examined candidates using an indexed durable numeric inventory cursor, not LIMIT after dependency filtering; add the source-pin parent lookup index and response-heavy regression/benchmark. |
+| Claude 1 | Medium | Partially accepted: capture now rejects inventoried occurrences referencing retained Production/operational outbox messages, with both actual guarded states tested. Other proposed cross-mode/campaign references are already impossible: `stewardship_fulfillment_guard_v1` requires matching mode and campaign, while baseline/submission guards select the predecessor from the same Family, mode and rehearsal epoch. Those ownership fields are immutable. |
+| Codex 1 | Medium | Accepted: check public namespace ownership rather than ownership of the request table. Restricted-role regressions assign the request table to the worker while leaving schema ownership separate, then restore fixture ownership before role cleanup. |
+
+Checkpoints now retain scanned count, numeric position and scan round. SQL owns
+these values, including scan-only progress over blocked prefixes, and rejects a
+full sweep without deletions. A 21-Family submitted-response regression exercises
+independent baselines, pins and receipts, advances past a zero-deletion window,
+replays it without rescanning, and revisits parents on subsequent sweeps. The
+ordinary worker also completes with two-row scan/deletion budgets. Regression
+tests verify the two new lookup indexes and rejection of a no-progress loop.
+
+Additional integration validation reproduced a Family logout HTTP 500 after
+inventory capture: ordinary logout attempted to delete the captured baseline's
+source pin. Logout now revokes access and detaches the browser while leaving
+Testing baseline/pin detail under the go-live gate for its cleanup worker;
+ordinary session retention skips those gated Testing sessions. The actual HTTP
+logout, subsequent retention run and final cleanup are exercised together.
+
+The independent PR #32 schema audit passes before accepting the new strict
+catalog fixture: four added tables, 33 columns, 53 constraints, 24 functions,
+15 indexes and 31 Stewardship triggers, with no removed objects. Existing
+changes remain the nine previously recorded functions, event constraint and
+the checkpoint progress constraint. PostgreSQL's named NOT NULL constraints
+are included in those counts. No retained database was upgraded or deleted.
+
+Post-correction validation passes 79 cleanup database tests in 160.91 seconds
+and 14 unit tests in 0.22 seconds, with combined scoped coverage of 93%; 86
+schema/storage/journal tests in 48.04 seconds; 42 adjacent authentication,
+baseline and source-promotion regressions in 47.24 seconds; and 5,554 baseline
+tests in 60.77 seconds (3,585 environment skips, two existing warnings). Ruff,
+formatting, Markdown, whitespace and model/migration-state checks pass. Strict
+model/schema validation caught equivalent-but-differently-ordered constraint
+expressions; the model/state now exactly match the installed constraint.
+
+The 501-submitted-Family benchmark captures 4,010 targets, including actual
+response baselines, submission pins and receipts. The real worker completed in
+5.526 seconds over 15 batches; its slowest batch took 0.513 seconds. Synthetic
+fixture allocation plus cleanup took 126.35 seconds. The normal regression uses
+21 submitted Families and a ten-row budget to exercise the same blocked-prefix
+behavior without this larger allocation cost.
+
+All three Round 2 findings have evidence-backed dispositions and passing
+correction validation. Current-image Compose validation, Round 3 and final-head/
+protected merge-group CI are still outstanding. The local runtime image predates
+only the equivalent model/state constraint-expression ordering correction;
+final CI must build the actual delivered head.
