@@ -73,7 +73,8 @@ def test_rehearsal_inventory_deletes_in_small_exact_batches(
         ).exists():
             break
         checkpoint = delete_batch(status)
-        assert 1 <= checkpoint.deleted_count <= 2
+        assert 0 <= checkpoint.deleted_count <= 2
+        assert 1 <= checkpoint.scanned_count <= 2
         observed.append(checkpoint.deleted_count)
         with connection.cursor() as cursor:
             cursor.execute("SELECT count(*) FROM stewardship_cleanup_effect")

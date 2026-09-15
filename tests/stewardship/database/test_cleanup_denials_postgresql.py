@@ -113,8 +113,9 @@ def test_gate_denies_submission_from_an_already_open_form(response_service):
 
 
 @pytest.mark.parametrize("command", ["checkpoint", "complete"])
+@pytest.mark.parametrize("table_owner", [False, True])
 def test_runtime_cannot_bypass_manifest_with_foundation_journal(
-    response_service, command
+    response_service, command, table_owner
 ):
     """Owner-only journal fixtures cannot become unverified runtime completion."""
     from .test_cleanup_batches_postgresql import delete_batch
@@ -124,14 +125,37 @@ def test_runtime_cannot_bypass_manifest_with_foundation_journal(
     with work_transaction():
         status = start_request(response_service)
     status = start(status)
-    with (
-        task_login(ServiceRole.WORKER, exact=True),
-        pytest.raises(DatabaseError, match="sealed manifest"),
-    ):
-        if command == "checkpoint":
-            delete_batch(status)
-        else:
-            act(status, ProductionAction.COMPLETE)
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT current_user")
+        original_owner = cursor.fetchone()[0]
+    with task_login(ServiceRole.WORKER, exact=True):
+        try:
+            if table_owner:
+                with connection.cursor() as cursor:
+                    cursor.execute("RESET SESSION AUTHORIZATION")
+                    cursor.execute(
+                        "ALTER TABLE stewardship_production_request "
+                        "OWNER TO pk_stewardship_worker"
+                    )
+                    cursor.execute("SET SESSION AUTHORIZATION pk_stewardship_worker")
+            with pytest.raises(DatabaseError, match="sealed manifest"):
+                if command == "checkpoint":
+                    delete_batch(status)
+                else:
+                    act(status, ProductionAction.COMPLETE)
+        finally:
+            if table_owner:
+                from psycopg import sql
+
+                # Restore fixture ownership before task_login removes its role;
+                # its DROP OWNED must never remove an application table.
+                with connection.cursor() as cursor:
+                    cursor.execute("RESET SESSION AUTHORIZATION")
+                    cursor.execute(
+                        sql.SQL(
+                            "ALTER TABLE stewardship_production_request OWNER TO {}"
+                        ).format(sql.Identifier(original_owner))
+                    )
 
 
 @pytest.mark.parametrize("claim", [None, object(), "not-a-claim"])

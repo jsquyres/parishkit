@@ -94,12 +94,13 @@ def seal_manifest(request_id):
         if request.state != "cleanup_queued" or request.version != 1:
             raise StorageInvariantError("Cleanup inventory is no longer open.")
         pending = []
-        for target in iter_inventory(campaign.pk):
+        for position, target in enumerate(iter_inventory(campaign.pk), start=1):
             pending.append(
                 ProductionCleanupTarget(
                     request=request,
                     category=target.category.value,
                     target_id=target.identifier,
+                    position=position,
                     actor_id=request.initiated_by_id,
                     correlation_id=request.correlation_id,
                 )

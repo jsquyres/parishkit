@@ -130,6 +130,45 @@ def test_external_restore_history_rejects_capture_before_gate_commit(response_se
     assert RestoreDeliveryHold.objects.get(pk=hold.pk).recovery_occurrence_id == row.pk
 
 
+@pytest.mark.parametrize("routing", ["production", "operational"])
+def test_external_outbox_reference_rejects_capture(response_service, routing):
+    """A retained mixed-route outbox cannot strand an inventoried occurrence."""
+    from django.db import IntegrityError
+    from django.db.models import F
+
+    from parishkit.stewardship.campaigns.models import (
+        ScheduleDefinition,
+        ScheduleOccurrence,
+    )
+    from parishkit.stewardship.jobs.delivery_states import DeliveryAction
+
+    from .campaign_builders import occurrence
+    from .test_cleanup_inventory_postgresql import mixed_mail
+    from .test_outbox_postgresql import change
+
+    messages = mixed_mail(response_service)
+    change(messages["testing_override"], DeliveryAction.CANCEL_UNSENT)
+    row = occurrence(ScheduleDefinition.objects.first(), uuid4())
+    # The occurrence's UUID-only outbox pointer admits this state through all
+    # normal SQL guards. Capture must reject it, not delete its external owner.
+    ScheduleOccurrence.objects.filter(pk=row.pk).update(
+        state="skipped",
+        reason="synthetic_skip",
+        outbox_id=messages[routing].message_id,
+        version=F("version") + 1,
+    )
+    before = CampaignCredentialState.objects.get(campaign=response_service.campaign)
+    with pytest.raises(IntegrityError, match="external workflow references"):
+        queued(response_service)
+    after = CampaignCredentialState.objects.get(pk=before.pk)
+    assert (after.go_live_gate, after.rehearsal_epoch_id, after.version) == (
+        before.go_live_gate,
+        before.rehearsal_epoch_id,
+        before.version,
+    )
+    assert not ProductionTransitionRequest.objects.exists()
+
+
 @pytest.mark.parametrize("gate_state", ["tombstone", "preparing", "running"])
 def test_historical_gate_distinguishes_completed_from_active_purge(
     response_service, gate_state

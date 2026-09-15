@@ -3481,6 +3481,10 @@ class Migration(migrations.Migration):
                         ),
                         ("category", models.CharField(max_length=32)),
                         ("target_id", models.UUIDField()),
+                        (
+                            "position",
+                            models.PositiveBigIntegerField(default=0, db_default=0),
+                        ),
                     ],
                     options={
                         "db_table": "stewardship_production_target",
@@ -3494,6 +3498,10 @@ class Migration(migrations.Migration):
                             models.UniqueConstraint(
                                 fields=["request", "category", "target_id"],
                                 name="production_target_identity",
+                            ),
+                            models.UniqueConstraint(
+                                fields=["request", "position"],
+                                name="production_target_position",
                             ),
                             models.CheckConstraint(
                                 condition=models.Q(
@@ -3638,6 +3646,18 @@ class Migration(migrations.Migration):
                         ("sequence", models.PositiveBigIntegerField()),
                         ("counts", models.JSONField()),
                         ("deleted_count", models.PositiveBigIntegerField()),
+                        (
+                            "scanned_count",
+                            models.PositiveBigIntegerField(default=0, db_default=0),
+                        ),
+                        (
+                            "scan_position",
+                            models.PositiveBigIntegerField(default=0, db_default=0),
+                        ),
+                        (
+                            "scan_round",
+                            models.PositiveBigIntegerField(default=0, db_default=0),
+                        ),
                         ("batch_digest", models.CharField(max_length=64)),
                         ("task_fence", models.PositiveBigIntegerField()),
                         ("worker_id", models.UUIDField()),
@@ -3673,11 +3693,11 @@ class Migration(migrations.Migration):
                                 name="production_checkpoint_batch",
                             ),
                             models.CheckConstraint(
-                                condition=models.Q(
-                                    ("deleted_count__gte", 1),
-                                    ("sequence__gte", 1),
-                                    ("task_fence__gte", 1),
-                                ),
+                                condition=(
+                                    models.Q(deleted_count__gte=1)
+                                    | models.Q(scanned_count__gte=1)
+                                )
+                                & models.Q(sequence__gte=1, task_fence__gte=1),
                                 name="production_checkpoint_positive",
                             ),
                             models.CheckConstraint(

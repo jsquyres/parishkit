@@ -194,6 +194,9 @@ class ProductionCleanupCheckpoint(ImmutableRecord):
     sequence = models.PositiveBigIntegerField()
     counts = models.JSONField()
     deleted_count = models.PositiveBigIntegerField()
+    scanned_count = models.PositiveBigIntegerField(default=0, db_default=0)
+    scan_position = models.PositiveBigIntegerField(default=0, db_default=0)
+    scan_round = models.PositiveBigIntegerField(default=0, db_default=0)
     batch_digest = models.CharField(max_length=64)
     run = models.ForeignKey("stewardship_jobs.TaskRun", on_delete=models.PROTECT)
     task_fence = models.PositiveBigIntegerField()
@@ -212,9 +215,10 @@ class ProductionCleanupCheckpoint(ImmutableRecord):
                 fields=["request", "batch_digest"], name="production_checkpoint_batch"
             ),
             models.CheckConstraint(
-                condition=models.Q(
-                    sequence__gte=1, deleted_count__gte=1, task_fence__gte=1
-                ),
+                condition=(
+                    models.Q(deleted_count__gte=1) | models.Q(scanned_count__gte=1)
+                )
+                & models.Q(sequence__gte=1, task_fence__gte=1),
                 name="production_checkpoint_positive",
             ),
             models.CheckConstraint(
@@ -282,6 +286,7 @@ class ProductionCleanupTarget(ImmutableRecord):
     )
     category = models.CharField(max_length=32)
     target_id = models.UUIDField()
+    position = models.PositiveBigIntegerField(default=0, db_default=0)
 
     class Meta:
         db_table = "stewardship_production_target"
@@ -294,6 +299,9 @@ class ProductionCleanupTarget(ImmutableRecord):
             models.UniqueConstraint(
                 fields=["request", "category", "target_id"],
                 name="production_target_identity",
+            ),
+            models.UniqueConstraint(
+                fields=["request", "position"], name="production_target_position"
             ),
             models.CheckConstraint(
                 condition=models.Q(

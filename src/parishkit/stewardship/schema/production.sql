@@ -495,6 +495,11 @@ BEGIN
             OR EXISTS (SELECT 1 FROM public.stewardship_restore_hold_resolution WHERE recovery_occurrence_id=i.target_id)
             OR EXISTS (SELECT 1 FROM public.stewardship_postclose_resolution WHERE occurrence_id=i.target_id)
             OR EXISTS (SELECT 1 FROM public.stewardship_schedule_occurrence o
+                JOIN public.stewardship_outbox_message m ON m.id=o.outbox_id
+                WHERE o.id=i.target_id AND NOT EXISTS (
+                    SELECT 1 FROM public.stewardship_production_target other
+                    WHERE other.request_id=NEW.request_id AND other.category='outbox_messages' AND other.target_id=m.id))
+            OR EXISTS (SELECT 1 FROM public.stewardship_schedule_occurrence o
                 WHERE o.replacement_id=i.target_id AND NOT EXISTS (
                     SELECT 1 FROM public.stewardship_production_target other
                     WHERE other.request_id=NEW.request_id AND other.category='occurrences' AND other.target_id=o.id))
@@ -502,6 +507,9 @@ BEGIN
     ) THEN
         RAISE EXCEPTION 'Cleanup inventory retains external workflow references' USING ERRCODE='23514';
     END IF;
+    -- Other dependent ownership is already immutable: fulfillment_guard_v1
+    -- requires the occurrence's mode and campaign; baseline/submission guards
+    -- bind prior_submission to the same Family, mode and rehearsal epoch.
     SELECT COALESCE(jsonb_object_agg(category,total),'{}'::jsonb) INTO counts FROM (
         SELECT category,count(*) total FROM public.stewardship_production_target
         WHERE request_id=NEW.request_id GROUP BY category
@@ -513,6 +521,12 @@ BEGIN
     ),'hex') INTO fingerprint FROM public.stewardship_production_target WHERE request_id=NEW.request_id;
     IF counts IS DISTINCT FROM request.inventory_counts OR fingerprint IS DISTINCT FROM request.inventory_digest THEN
         RAISE EXCEPTION 'Cleanup manifest does not match acknowledged evidence' USING ERRCODE='23514';
+    END IF;
+    IF EXISTS (SELECT 1 FROM (
+        SELECT position,row_number() OVER (ORDER BY category COLLATE "C",target_id) expected
+        FROM public.stewardship_production_target WHERE request_id=NEW.request_id
+    ) ordered WHERE position<>expected) THEN
+        RAISE EXCEPTION 'Cleanup scan positions must match canonical inventory order' USING ERRCODE='23514';
     END IF;
     IF (SELECT ROW(count(*),count(DISTINCT s.family_id))
         FROM public.stewardship_submission s

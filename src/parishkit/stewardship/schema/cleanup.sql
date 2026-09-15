@@ -83,6 +83,24 @@ RETURNS boolean LANGUAGE sql VOLATILE SET search_path TO pg_catalog, public, pg_
 $$;
 REVOKE ALL ON FUNCTION public.stewardship_cleanup_effect_v1(text,uuid) FROM PUBLIC;
 
+CREATE FUNCTION public.stewardship_cleanup_scan_window_v1(request_uuid uuid, maximum_rows integer)
+RETURNS TABLE(category text, target_id uuid, cursor_position bigint)
+LANGUAGE sql STABLE SET search_path TO pg_catalog, public, pg_temp AS $$
+    WITH previous AS (
+        SELECT COALESCE((SELECT scan_position FROM public.stewardship_production_checkpoint
+            WHERE request_id=request_uuid ORDER BY sequence DESC LIMIT 1),0) AS position
+    ), start AS (
+        SELECT CASE WHEN EXISTS (SELECT 1 FROM public.stewardship_production_target
+            WHERE request_id=request_uuid AND stewardship_production_target.position>previous.position)
+            THEN previous.position ELSE 0 END AS position FROM previous
+    )
+    SELECT i.category::text,i.target_id,i.position
+    FROM public.stewardship_production_target i,start
+    WHERE i.request_id=request_uuid AND i.position>start.position
+    ORDER BY i.position LIMIT maximum_rows
+$$;
+REVOKE ALL ON FUNCTION public.stewardship_cleanup_scan_window_v1(uuid,integer) FROM PUBLIC;
+
 CREATE FUNCTION public.stewardship_cleanup_batch_targets_v1(request_uuid uuid, maximum_rows integer)
 RETURNS TABLE(category text, target_id uuid)
 LANGUAGE plpgsql STABLE SET search_path TO pg_catalog, public, pg_temp AS $$
@@ -97,13 +115,12 @@ BEGIN
     IF maximum_rows NOT BETWEEN 1 AND 1000 THEN
         RAISE EXCEPTION 'Cleanup requires a bounded batch' USING ERRCODE='23514';
     END IF;
-    -- Resolve indexed dependencies relationally before the bounded procedural
-    -- window. Do not execute one PL/pgSQL iteration (and many SPI queries) for
-    -- every blocked parent in a large inventory. A parent made ready by this
-    -- batch is considered by the next batch, never a recursive cascade.
-    FOR candidate IN SELECT i.category,i.target_id FROM public.stewardship_production_target i
-        WHERE i.request_id=request_uuid
-          AND CASE i.category
+    -- The indexed durable cursor caps inspected candidates BEFORE evaluating
+    -- dependencies. Scan-only checkpoints advance over blocked prefixes; the
+    -- next sweep revisits parents whose children were deleted in earlier units.
+    FOR candidate IN SELECT i.category,i.target_id
+        FROM public.stewardship_cleanup_scan_window_v1(request_uuid,maximum_rows) i
+        WHERE CASE i.category
             WHEN 'session_data' THEN false
             WHEN 'baselines' THEN NOT EXISTS (
                 SELECT 1 FROM public.stewardship_submission WHERE baseline_id=i.target_id)
@@ -142,8 +159,7 @@ BEGIN
                 AND NOT EXISTS (SELECT 1 FROM public.stewardship_schedule_occurrence o
                     JOIN public.stewardship_outbox_message m ON m.id=o.outbox_id WHERE o.id=i.target_id)
             ELSE true END
-        ORDER BY i.category COLLATE "C",i.target_id
-        LIMIT maximum_rows
+        ORDER BY i.cursor_position
     LOOP
         EXIT WHEN used=maximum_rows;
         companion := NULL;
@@ -189,7 +205,7 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.stewardship_cleanup_batch_targets_v1(uuid,integer) FROM PUBLIC;
 
-CREATE FUNCTION public.stewardship_cleanup_batch_summary_v1(request_uuid uuid, checkpoint_uuid uuid)
+CREATE FUNCTION public.stewardship_cleanup_batch_summary_v1(request_uuid uuid, checkpoint_uuid uuid, scan_position bigint, scan_round bigint)
 RETURNS TABLE(counts jsonb, total bigint, fingerprint text)
 LANGUAGE sql STABLE SET search_path TO pg_catalog, public, pg_temp AS $$
     WITH targets AS MATERIALIZED (
@@ -199,19 +215,22 @@ LANGUAGE sql STABLE SET search_path TO pg_catalog, public, pg_temp AS $$
         SELECT category,count(*) quantity FROM targets GROUP BY category
     )
     SELECT (SELECT COALESCE(jsonb_object_agg(category,quantity),'{}'::jsonb) FROM totals),
-        count(*),encode(sha256(convert_to('stewardship-cleanup-batch-v1','UTF8') || decode('00','hex') ||
-            uuid_send(request_uuid) || COALESCE(string_agg(
+        count(*),encode(sha256(convert_to('stewardship-cleanup-batch-v2','UTF8') || decode('00','hex') ||
+            uuid_send(request_uuid) || int8send(scan_position) || int8send(scan_round) ||
+            int8send((SELECT checkpoint_sequence+1 FROM public.stewardship_production_request WHERE id=request_uuid)) ||
+            COALESCE(string_agg(
                 convert_to(category,'UTF8') || decode('00','hex') || uuid_send(target_id),''::bytea
                 ORDER BY category COLLATE "C",target_id),''::bytea)),'hex')
     FROM targets
 $$;
-REVOKE ALL ON FUNCTION public.stewardship_cleanup_batch_summary_v1(uuid,uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.stewardship_cleanup_batch_summary_v1(uuid,uuid,bigint,bigint) FROM PUBLIC;
 
 CREATE FUNCTION public.stewardship_cleanup_prepare_batch_v1() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path TO pg_catalog, public, pg_temp AS $$
 DECLARE
     request public.stewardship_production_request%ROWTYPE;
     planned record;
+    previous public.stewardship_production_checkpoint%ROWTYPE;
 BEGIN
     -- Foundation-only journal tests are not an executable worker command. The
     -- compiled worker additionally requires this verified manifest at admission.
@@ -224,8 +243,24 @@ BEGIN
        OR NEW.worker_id IS DISTINCT FROM request.worker_id OR NEW.actor_id IS DISTINCT FROM request.worker_id
        OR NEW.sequence<>request.checkpoint_sequence+1 OR NEW.deleted_count NOT BETWEEN 2 AND 1000
        OR NEW.counts IS DISTINCT FROM '{}'::jsonb OR NEW.batch_digest IS DISTINCT FROM repeat('0',64)
+       OR NEW.scanned_count<>0 OR NEW.scan_position<>0 OR NEW.scan_round<>0
        OR NEW.correlation_id IS DISTINCT FROM (SELECT correlation_id FROM public.stewardship_task_run WHERE id=request.run_id) THEN
         RAISE EXCEPTION 'Cleanup batch requires exact current command ownership' USING ERRCODE='23514';
+    END IF;
+    SELECT count(*),COALESCE(max(cursor_position),0) INTO NEW.scanned_count,NEW.scan_position
+        FROM public.stewardship_cleanup_scan_window_v1(NEW.request_id,NEW.deleted_count::integer);
+    IF NEW.scanned_count=0 THEN
+        RAISE EXCEPTION 'Cleanup inventory has no remaining scan window' USING ERRCODE='23514';
+    END IF;
+    SELECT * INTO previous FROM public.stewardship_production_checkpoint
+        WHERE request_id=NEW.request_id ORDER BY sequence DESC LIMIT 1;
+    NEW.scan_round := COALESCE(previous.scan_round,0);
+    IF NEW.scan_position<=previous.scan_position THEN
+        IF NOT EXISTS (SELECT 1 FROM public.stewardship_production_checkpoint
+            WHERE request_id=NEW.request_id AND scan_round=previous.scan_round AND deleted_count>0) THEN
+            RAISE EXCEPTION 'Cleanup inventory has no dependency-ready batch' USING ERRCODE='23514';
+        END IF;
+        NEW.scan_round := NEW.scan_round+1;
     END IF;
     -- Capture the bounded plan once. It grants no deletion authority until the
     -- checkpoint INSERT actually exists and all its binding guards have passed.
@@ -233,10 +268,8 @@ BEGIN
     INSERT INTO public.stewardship_cleanup_effect(transaction_id,checkpoint_id,request_id,category,target_id)
         SELECT pg_current_xact_id(),NEW.id,NEW.request_id,category,target_id
         FROM public.stewardship_cleanup_batch_targets_v1(NEW.request_id,NEW.deleted_count::integer);
-    SELECT * INTO planned FROM public.stewardship_cleanup_batch_summary_v1(NEW.request_id,NEW.id);
-    IF planned.total=0 THEN
-        RAISE EXCEPTION 'Cleanup inventory has no dependency-ready batch' USING ERRCODE='23514';
-    END IF;
+    SELECT * INTO planned FROM public.stewardship_cleanup_batch_summary_v1(
+        NEW.request_id,NEW.id,NEW.scan_position,NEW.scan_round);
     NEW.counts := planned.counts;
     NEW.deleted_count := planned.total;
     NEW.batch_digest := planned.fingerprint;
@@ -261,7 +294,8 @@ BEGIN
     IF NOT public.stewardship_cleanup_claim_v1(NEW.request_id) THEN
         RAISE EXCEPTION 'Cleanup ownership expired before deletion' USING ERRCODE='23514';
     END IF;
-    SELECT * INTO planned FROM public.stewardship_cleanup_batch_summary_v1(NEW.request_id,NEW.id);
+    SELECT * INTO planned FROM public.stewardship_cleanup_batch_summary_v1(
+        NEW.request_id,NEW.id,NEW.scan_position,NEW.scan_round);
     IF planned.counts IS DISTINCT FROM NEW.counts OR planned.total<>NEW.deleted_count
        OR planned.fingerprint IS DISTINCT FROM NEW.batch_digest THEN
         RAISE EXCEPTION 'Cleanup selection changed before deletion' USING ERRCODE='23514';
@@ -509,8 +543,8 @@ BEGIN
     -- retry/cancel intent. Only the actual schema owner (including private
     -- definer triggers) may use the journal without an operational manifest.
     -- Granting a runtime unrelated table rights cannot widen this exception.
-    IF current_user <> pg_get_userbyid((SELECT relowner FROM pg_class
-            WHERE oid='public.stewardship_production_request'::regclass)) THEN
+    IF NOT pg_has_role(current_user,(SELECT nspowner FROM pg_namespace
+            WHERE nspname='public'),'USAGE') THEN
         IF TG_TABLE_NAME='stewardship_production_request' THEN
             request_uuid := NEW.id;
         ELSE
