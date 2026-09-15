@@ -157,6 +157,9 @@ def _execute(execution):
                 execution.check()
                 status = _status(lock_task_claim(execution.claim))
                 current = _occurrence(status)
+                # The compiled handler's first effect admission proves pending
+                # eligibility and any bound configuration authority. Later
+                # effects retain that installer lock and recheck eligibility.
                 if (
                     action not in {Action.START, Action.CLOSE}
                     or campaign.pk != row.campaign_id

@@ -238,3 +238,42 @@ changes the Python timestamp expression and SQL comments, not database objects.
 The final expanded worker regression set passes all 40 cases in 43.03 seconds;
 Ruff and Markdown lint pass. Round 2 is complete with both accepted findings
 fixed. Round 3 and final-head CI remain required; no PR has been created yet.
+
+## Review round 3
+
+Correction review `20260915-120455-e2db55` examined
+`f92f62cb4820194918ef5ae77298d7e73680f599` through
+`5478bbd66361a8649029c26d06135b0673cd9dec`, tree
+`0e87a226297f5299d2598245de7e31de3d282dc4`. The exact permission probe and both
+reviewers completed successfully. Claude covered all six correction files;
+Codex returned a schema-valid APPROVED result with zero findings. Its read-only
+review environment could not create PostgreSQL test files, so its approval is
+code-review evidence, not an independent database-test pass. Parent validation
+is recorded separately. Finalization retained artifacts without failed agents,
+degradation or mismatch, and returned COMMENT.
+
+The six raw Claude findings were one Medium and five Low; there were no High
+or Critical findings. Four Low findings fell below cutoff and one cited an
+unchanged file outside the correction diff. The accepted Medium strengthens the
+terminal-reason negative test to use `boundary_replaced`: unlike arbitrary
+text, this passes the generic reason vocabulary and must be denied by the
+worker-specific proof. Both role variants retain the successful valid-skip
+positive control and assert the exact worker guard message/SQLSTATE.
+
+Low dispositions: clarified the compiled initial-admission dependency in a
+comment and paired each expected test error with its SQLSTATE. The existing
+schedule-factory monkeypatch pattern remains a test-helper refactoring deferred
+to OPS-08 acceptance cleanup. The pre-existing `_now` docstring finding was
+outside the correction diff and is deferred to DOM lifecycle documentation
+cleanup; this PR's timestamp-writing rule is documented at the changed call
+site. The finite-lease regression retains its real wall-clock safety behavior;
+possible CI-load timing refinement remains OPS-08 test-harness work, not a waiver
+of expiry enforcement.
+
+The exact reviewed-head baseline passed 5,540 tests in 52.16 seconds, with
+3,505 opt-in/profile skips and two pre-existing warnings. Final post-fix worker
+validation passes all 40 cases in 43.99 seconds; Ruff/format and Markdown lint
+pass. All three rounds satisfy the delegated exit criteria with no unresolved
+accepted Medium-or-higher findings. BG-02.01/.02/.04/.05 are locally complete;
+BG-02.03 remains partial for its Phase 6 restore/reopen token owner. PR and
+protected delivery still require final-head CI; Gate 3 remains after Phase 4/5.

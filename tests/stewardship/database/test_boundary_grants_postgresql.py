@@ -362,30 +362,31 @@ def test_worker_terminal_skip_rejects_malformed_values(tmp_path, exact, field):
                     **attribution,
                 )
                 malformed = {
-                    "reason": "private detail",
+                    # This reason is allowed by the generic boundary guard,
+                    # but only configuration replacement may author it.
+                    "reason": "boundary_replaced",
                     "completed_at": campaign.active_configuration.starts_at
                     - timedelta(days=1),
                     "transition_id": activation.pk,
                 }
-                message = (
-                    "campaign_boundary_result"
-                    if field == "transition_id"
-                    else "Worker configuration effects require atomic setup ownership"
-                    if exact
-                    else "Applicable boundary cannot be skipped"
-                    if field == "reason"
-                    else "Worker lifecycle requires exact boundary ownership"
-                )
+                if field == "transition_id":
+                    message, sqlstate = "campaign_boundary_result", "23514"
+                elif exact:
+                    message, sqlstate = (
+                        "Worker configuration effects require atomic setup ownership",
+                        "23514",
+                    )
+                else:
+                    message, sqlstate = (
+                        "Worker lifecycle requires exact boundary ownership",
+                        "42501",
+                    )
                 with (
                     pytest.raises(DatabaseError, match=message) as caught,
                     transaction.atomic(),
                 ):
                     rows.update(**(valid | {field: malformed[field]}))
-                assert caught.value.__cause__.sqlstate == (
-                    "23514"
-                    if exact or field in {"reason", "transition_id"}
-                    else "42501"
-                )
+                assert caught.value.__cause__.sqlstate == sqlstate
                 rows.update(**valid)
                 assert rows.get().transition_id is None
                 assert rows.get().state == "skipped"
