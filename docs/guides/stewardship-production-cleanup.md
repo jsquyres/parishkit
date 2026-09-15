@@ -37,7 +37,8 @@ authorized by this increment. Gate 3 remains after complete Phase 4/5 integratio
 - Exact-head PR CI and all merge-group checks, then protected delivery and
   verification on refreshed `origin/main` before the next increment.
 
-Implementation is in progress. No BG-03 task or review gate is claimed complete.
+BG-03 implementation and local review acceptance are complete. Final-head PR and
+protected merge-group CI remain required before delivery; Gate 3 is not released.
 
 ## Implemented working-tree checkpoint
 
@@ -220,3 +221,58 @@ correction validation. Current-image Compose validation, Round 3 and final-head/
 protected merge-group CI are still outstanding. The local runtime image predates
 only the equivalent model/state constraint-expression ordering correction;
 final CI must build the actual delivered head.
+
+## Round 3 review and correction
+
+Pika session `20260915-165018-330939` reviewed `15d2c08a` against `4800dd3b`.
+Both reviewers completed successfully after the exact permission preflight.
+Codex returned `APPROVED` with no findings; its review took 409 seconds without
+a timeout or stall. Claude reviewed all 19 manifest files. Finalization returned
+`COMMENT`, with one validated Medium finding from 12 raw observations (11 Low
+observations filtered out); no High/Critical, failed agents, degradations,
+verdict mismatches or salvage remain. Reviewer-local PostgreSQL tests were
+unavailable, so passing execution evidence comes from the independent local
+validation recorded here, not from the reviewers' statements.
+
+Claude's Medium reverse-reference finding is accepted defensively: capture now
+also rejects a retained occurrence or post-close resolution pointing at an
+inventoried Testing outbox message. The stated operational-routing example is
+already prohibited by `schedule_occurrence_routing`; post-close lifecycle and
+same-occurrence binding are also guarded. Nonetheless, a malformed retained
+UUID-only pointer must fail capture rather than become dangling. Regression
+fixtures explicitly install malformed historical pointers as the disposable
+schema owner, restore all guards, and verify atomic capture rejection without
+history/message changes. A valid same-inventory occurrence/message pair remains
+deletable through the ordinary worker. No runtime guard is weakened to arrange
+those fixtures.
+
+Correction commit `2d351f4` also exercises invalid request/command UUIDs and
+incapable/unbounded budgets. All 35 correction/capture/authority tests pass in
+52.25 seconds; the independent schema audit passes with unchanged object counts,
+and all 17 strict schema tests pass in 14.57 seconds after accepting only the
+reviewed manifest-guard function fingerprint change. These corrections complete
+the third review/fix round under the controlling delivery policy; a fourth round
+is not required solely because this round included its regression-tested fix.
+
+All eight intermediate-image operational Compose cases passed in 762.49 seconds.
+The final image was rebuilt after the reverse-reference correction; its
+provisioning/ingress checks, complete cleanup coverage run, final baseline,
+exact-head PR CI and protected merge-group checks supply the remaining delivery
+validation. No merge or next-increment start is claimed yet.
+
+## Local acceptance and delivery boundary
+
+The final fresh run passes all 100 cleanup tests in 160.04 seconds, with
+93.57% scoped line coverage (320/342 statements) and 81.15% branch coverage
+(99/122 branches). Both separate coverage floors exceed 80%; the displayed
+combined statement/branch metric is 90.30%. Final baseline validation passes
+5,554 tests in 51.75 seconds (3,592 environment skips, two existing warnings).
+The final rebuilt image passes provisioning and ingress checks in 3.20 seconds.
+Ruff, formatting, Markdown, whitespace and model/schema state checks pass.
+
+All three dual-source rounds are complete, the last has no High/Critical
+finding, and every accepted Medium-or-higher finding is resolved. Scope remains
+BG-03 only: cleanup does not activate Production, publish provider data, deploy,
+release or waive the later integrated gate. The owning checklist is locally
+complete; exact-head PR CI and every merge-group job remain mandatory before
+using the standing protected-merge/continue authority.
