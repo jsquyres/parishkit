@@ -507,6 +507,25 @@ BEGIN
     ) THEN
         RAISE EXCEPTION 'Cleanup inventory retains external workflow references' USING ERRCODE='23514';
     END IF;
+    -- UUID-only outbox references must also be checked in reverse. Retained
+    -- workflow history must not become dangling even if its original binding
+    -- was malformed; reject capture instead of deleting or repairing history.
+    IF EXISTS (
+        SELECT 1 FROM public.stewardship_schedule_occurrence o
+        JOIN public.stewardship_production_target message
+            ON message.request_id=NEW.request_id AND message.category='outbox_messages'
+            AND message.target_id=o.outbox_id
+        WHERE NOT EXISTS (SELECT 1 FROM public.stewardship_production_target occurrence
+            WHERE occurrence.request_id=NEW.request_id AND occurrence.category='occurrences'
+                AND occurrence.target_id=o.id)
+        UNION ALL
+        SELECT 1 FROM public.stewardship_postclose_resolution p
+        JOIN public.stewardship_production_target message
+            ON message.request_id=NEW.request_id AND message.category='outbox_messages'
+            AND message.target_id=p.outbox_id
+    ) THEN
+        RAISE EXCEPTION 'Cleanup inventory retains external outbox references' USING ERRCODE='23514';
+    END IF;
     -- Other dependent ownership is already immutable: fulfillment_guard_v1
     -- requires the occurrence's mode and campaign; baseline/submission guards
     -- bind prior_submission to the same Family, mode and rehearsal epoch.

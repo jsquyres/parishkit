@@ -168,3 +168,19 @@ def test_checkpoint_rejects_untyped_claim_before_attribute_access(
     status = queued(response_service)
     with pytest.raises(TaskOwnershipLost), work_transaction():
         apply_checkpoint(status.request_id, claim)
+
+
+@pytest.mark.parametrize(
+    "invalid", ["request", "small_budget", "large_budget", "command"]
+)
+def test_checkpoint_rejects_invalid_command_shape(response_service, invalid):
+    """Typed commands reject malformed IDs/budgets before looking up a claim."""
+    status = queued(response_service)
+    request_id = str(status.request_id) if invalid == "request" else status.request_id
+    options = {}
+    if invalid in {"small_budget", "large_budget"}:
+        options["maximum"] = 1 if invalid == "small_budget" else 1001
+    if invalid == "command":
+        options["command_id"] = "not-a-uuid"
+    with pytest.raises(ValueError), work_transaction():
+        apply_checkpoint(request_id, TaskClaim(uuid4(), 1, uuid4()), **options)
