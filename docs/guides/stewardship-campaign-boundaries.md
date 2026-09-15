@@ -57,3 +57,18 @@ views, and recovery before versus after the domain commit. Ruff passes for the
 new modules and tests. No runtime registry or additional SQL authority is
 enabled yet; restricted-role integration, replacement, audit/lag evidence,
 broader races and the complete three-round review/CI cycle remain required.
+
+The restricted-role checkpoint passes 38 PostgreSQL tests in 30.97 seconds.
+Actual scheduler/worker logins produce and execute ordered boundaries, including
+a populated Family login whose session is revoked and link destroyed at close.
+Worker SQL cannot read token ciphertext or session keys; populated premature
+lifecycle/scrub attempts fail for both installed and custom worker role names.
+Empty-table updates are explicitly distinguished from populated row authority.
+
+An independent fresh database loaded from exact merged PR #31 was compared with
+the working fresh-install schema. Its original fingerprint matched before the
+comparison. Only three boundary proof functions, four boundary guards and the
+narrow `stewardship_setup_completion_write_v1` exception differ; all relations,
+columns, constraints, indexes and policies are unchanged. The audited fixture
+now contains 338 functions and 337 triggers. No retained database was deleted or
+upgraded. This is an internal checkpoint, not completed BG-02 acceptance.
